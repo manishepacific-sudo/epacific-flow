@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AuthRedirect } from "@/components/AuthRedirect";
 import Login from "./pages/Login";
 import SetPassword from "./pages/SetPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -30,21 +31,21 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <Routes>
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<AuthRedirect />} />
               <Route path="/login" element={<Login />} />
               <Route path="/set-password" element={<SetPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/dashboard/user" element={
+              <Route path="/user-dashboard" element={
                 <ProtectedRoute allowedRoles={['user']}>
                   <UserDashboard />
                 </ProtectedRoute>
               } />
-              <Route path="/dashboard/admin" element={
+              <Route path="/admin-dashboard" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminDashboard />
                 </ProtectedRoute>
               } />
-              <Route path="/dashboard/manager" element={
+              <Route path="/manager-dashboard" element={
                 <ProtectedRoute allowedRoles={['manager']}>
                   <ManagerDashboard />
                 </ProtectedRoute>

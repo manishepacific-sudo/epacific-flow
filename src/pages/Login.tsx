@@ -27,59 +27,80 @@ export default function Login() {
     try {
       console.log('Attempting login for:', email);
       
-      // Validate demo credentials
-      const demoCredentials = {
-        'john.doe@epacific.com': { password: 'password123', role: 'user', name: 'John Doe' },
-        'jane.manager@epacific.com': { password: 'password123', role: 'manager', name: 'Jane Manager' },
-        'admin@epacific.com': { password: 'password123', role: 'admin', name: 'Admin User' }
-      };
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      const demoAccount = demoCredentials[email as keyof typeof demoCredentials];
-      
-      if (!demoAccount || demoAccount.password !== password) {
+      if (error) {
+        console.error('Login error:', error);
         toast({
           title: "Login failed",
-          description: "Invalid email or password. Please use the demo credentials below.",
+          description: error.message || "Invalid credentials. Please try again.",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      console.log('Demo credentials valid, setting up session...');
+      if (data.user) {
+        console.log('Login successful, fetching profile...');
+        
+        // Fetch user profile to get role
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
 
-      // Store demo user info in localStorage for AuthProvider to use
-      localStorage.setItem('demo_user', JSON.stringify({
-        id: `demo-${demoAccount.role}`,
-        email: email,
-        role: demoAccount.role,
-        full_name: demoAccount.name
-      }));
-
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${demoAccount.name}!`,
-      });
-
-      // Small delay to show the success message
-      setTimeout(() => {
-        switch (demoAccount.role) {
-          case "admin":
-            navigate("/dashboard/admin", { replace: true });
-            break;
-          case "manager":
-            navigate("/dashboard/manager", { replace: true });
-            break;
-          case "user":
-          default:
-            navigate("/dashboard/user", { replace: true });
-            break;
+        if (profileError) {
+          console.error('Profile fetch error:', profileError);
+          toast({
+            title: "Login failed", 
+            description: "Could not fetch user profile. Please try again.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
         }
-        setLoading(false);
-      }, 500);
+
+        if (!profile) {
+          toast({
+            title: "Profile not found",
+            description: "User profile not found. Please contact administrator.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        console.log('Profile found:', profile);
+        
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${profile.full_name}!`,
+        });
+
+        // Redirect based on role
+        setTimeout(() => {
+          switch (profile.role) {
+            case 'admin':
+              navigate('/admin-dashboard', { replace: true });
+              break;
+            case 'manager':
+              navigate('/manager-dashboard', { replace: true });
+              break;
+            case 'user':
+            default:
+              navigate('/user-dashboard', { replace: true });
+              break;
+          }
+          setLoading(false);
+        }, 500);
+      }
 
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('Login catch error:', error);
       toast({
         title: "Login failed",
         description: "An unexpected error occurred. Please try again.",
@@ -206,7 +227,7 @@ export default function Login() {
 
           </motion.form>
 
-          {/* Demo Credentials */}
+          {/* Login Instructions */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -216,13 +237,12 @@ export default function Login() {
             <div className="mb-3">
               <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
-                Demo Credentials
+                Login Information
               </h3>
             </div>
             <div className="text-sm text-muted-foreground space-y-2">
-              <p><strong className="text-foreground">User:</strong> john.doe@epacific.com / password123</p>
-              <p><strong className="text-foreground">Manager:</strong> jane.manager@epacific.com / password123</p>
-              <p><strong className="text-foreground">Admin:</strong> admin@epacific.com / password123</p>
+              <p>Use your Supabase authentication credentials to log in.</p>
+              <p>Your dashboard will be displayed based on your assigned role.</p>
             </div>
           </motion.div>
         </GlassCard>
