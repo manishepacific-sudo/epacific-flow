@@ -74,284 +74,140 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlContent, 'text/html');
         
-        // Look for tables first
+        // Look for tables
         const tables = doc.querySelectorAll('table');
-        
         console.log(`Found ${tables.length} tables in HTML`);
         
         if (tables.length === 0) {
           throw new Error('No tables found in the HTML file');
         }
         
-        // Debug: log all table content first
-        tables.forEach((table, tableIndex) => {
-          console.log(`=== TABLE ${tableIndex} CONTENT ===`);
-          const allRows = table.querySelectorAll('tr');
-          allRows.forEach((row, rowIndex) => {
-            const cells = row.querySelectorAll('td, th');
-            const cellTexts = Array.from(cells).map(cell => cell.textContent?.trim() || '');
-            console.log(`Row ${rowIndex}: [${cellTexts.join(' | ')}]`);
-          });
-        });
+        let totalAmount = 0;
+        let extractedData: Array<{ [key: string]: string }> = [];
+        let foundValidTable = false;
         
-        let bestMatch: {
-          table: HTMLTableElement;
-          amountColumnIndex: number;
-          headers: string[];
-        } | null = null;
-        
-        // Try each table to find one with amount data
-        for (const table of Array.from(tables)) {
-          console.log('=== Examining table ===');
-          const allRows = table.querySelectorAll('tr');
-          console.log(`Table has ${allRows.length} rows`);
+        // Check each table for the "Total amount charged" column
+        for (let tableIndex = 0; tableIndex < tables.length; tableIndex++) {
+          const table = tables[tableIndex];
+          console.log(`\n=== PROCESSING TABLE ${tableIndex} ===`);
           
+          // Get all rows
+          const rows = table.querySelectorAll('tr');
+          console.log(`Table ${tableIndex} has ${rows.length} rows`);
+          
+          if (rows.length < 2) {
+            console.log(`Table ${tableIndex}: Too few rows, skipping`);
+            continue;
+          }
+          
+          // Find header row and the "Total amount charged" column
+          let headerRow: HTMLTableRowElement | null = null;
           let headers: string[] = [];
           let amountColumnIndex = -1;
-          let headerRowIndex = -1;
           
-          // First, try to find headers in th elements
-          const thElements = table.querySelectorAll('th');
-          if (thElements.length > 0) {
-            thElements.forEach((th, index) => {
-              const headerText = th.textContent?.trim() || '';
-              headers.push(headerText);
-              console.log(`TH Header ${index}: "${headerText}"`);
-            });
-            headerRowIndex = 0;
+          for (let rowIndex = 0; rowIndex < Math.min(rows.length, 3); rowIndex++) {
+            const row = rows[rowIndex];
+            const thCells = row.querySelectorAll('th');
+            const tdCells = row.querySelectorAll('td');
+            const cells = thCells.length > 0 ? thCells : tdCells;
             
-            // Find the header row (the row that contains the th elements)
-            for (let rowIndex = 0; rowIndex < allRows.length; rowIndex++) {
-              const row = allRows[rowIndex];
-              const rowThElements = row.querySelectorAll('th');
-              if (rowThElements.length > 0) {
-                headerRowIndex = rowIndex;
-                console.log(`Found header row with TH elements at index ${rowIndex}`);
-                break;
-              }
+            if (cells.length === 0) continue;
+            
+            const rowHeaders = Array.from(cells).map(cell => cell.textContent?.trim() || '');
+            console.log(`Table ${tableIndex}, Row ${rowIndex}: Found ${rowHeaders.length} columns`);
+            
+            // Check if this row contains "Total amount charged"
+            const totalAmountIndex = rowHeaders.findIndex(header => 
+              header.toLowerCase().trim() === 'total amount charged'
+            );
+            
+            if (totalAmountIndex !== -1) {
+              console.log(`Found "Total amount charged" in table ${tableIndex}, row ${rowIndex}, column ${totalAmountIndex}`);
+              headerRow = row;
+              headers = rowHeaders;
+              amountColumnIndex = totalAmountIndex;
+              break;
             }
-          } else {
-            // No th elements, examine all rows to find the header row
-            console.log('No TH elements found, examining all rows for headers...');
+          }
+          
+          if (amountColumnIndex === -1) {
+            console.log(`Table ${tableIndex}: No "Total amount charged" column found`);
+            continue;
+          }
+          
+          console.log(`Table ${tableIndex}: Processing data with amount column at index ${amountColumnIndex}`);
+          console.log(`Table ${tableIndex}: Amount column header: "${headers[amountColumnIndex]}"`);
+          
+          // Process data rows
+          let tableTotal = 0;
+          const tableData: Array<{ [key: string]: string }> = [];
+          
+          for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            const row = rows[rowIndex];
             
-            for (let rowIndex = 0; rowIndex < Math.min(allRows.length, 3); rowIndex++) {
-              const row = allRows[rowIndex];
-              const cells = row.querySelectorAll('td');
-              const rowHeaders: string[] = [];
+            // Skip the header row
+            if (row === headerRow) {
+              console.log(`Table ${tableIndex}, Row ${rowIndex}: Skipping header row`);
+              continue;
+            }
+            
+            const cells = row.querySelectorAll('td');
+            
+            if (cells.length <= amountColumnIndex) {
+              console.log(`Table ${tableIndex}, Row ${rowIndex}: Not enough cells (${cells.length} vs ${amountColumnIndex + 1}), skipping`);
+              continue;
+            }
+            
+            const amountText = cells[amountColumnIndex].textContent?.trim() || '';
+            
+            // Skip empty or header-like cells
+            if (!amountText || 
+                amountText.toLowerCase().includes('total') || 
+                amountText.toLowerCase().includes('amount') || 
+                amountText.toLowerCase().includes('charged')) {
+              console.log(`Table ${tableIndex}, Row ${rowIndex}: Skipping header-like or empty cell: "${amountText}"`);
+              continue;
+            }
+            
+            // Parse amount
+            const cleaned = amountText.replace(/[,$₹\s€£¥]/g, '');
+            const numericValue = parseFloat(cleaned);
+            
+            if (!isNaN(numericValue) && numericValue >= 0) {
+              console.log(`Table ${tableIndex}, Row ${rowIndex}: Adding amount "${amountText}" -> ${numericValue} to total`);
+              tableTotal += numericValue;
               
-              console.log(`Row ${rowIndex} has ${cells.length} cells:`);
+              // Extract row data
+              const rowData: { [key: string]: string } = {};
               cells.forEach((cell, cellIndex) => {
-                const cellText = cell.textContent?.trim() || '';
-                rowHeaders.push(cellText);
-                console.log(`  Cell ${cellIndex}: "${cellText}"`);
+                const header = headers[cellIndex] || `Column ${cellIndex + 1}`;
+                rowData[header] = cell.textContent?.trim() || '';
               });
-              
-              // Check if this row contains "Total amount charged" or similar headers
-              const hasAmountHeader = rowHeaders.some(header => {
-                const lower = header.toLowerCase();
-                return (lower.includes('total') && lower.includes('amount') && lower.includes('charged')) ||
-                       lower.includes('amount') || lower.includes('total') || lower.includes('charged') ||
-                       lower.includes('price') || lower.includes('cost') || lower.includes('fee');
-              });
-              
-              if (hasAmountHeader) {
-                headers = rowHeaders;
-                headerRowIndex = rowIndex;
-                console.log(`Found header row at index ${rowIndex}`);
-                break;
-              }
-            }
-            
-            // If no headers found, use first row as headers
-            if (headers.length === 0 && allRows.length > 0) {
-              const firstRow = allRows[0];
-              const cells = firstRow.querySelectorAll('td');
-              cells.forEach((cell, index) => {
-                const headerText = cell.textContent?.trim() || '';
-                headers.push(headerText);
-              });
-              headerRowIndex = 0;
-              console.log('Using first row as headers');
+              tableData.push(rowData);
+            } else {
+              console.log(`Table ${tableIndex}, Row ${rowIndex}: Invalid amount "${amountText}" (cleaned: "${cleaned}")`);
             }
           }
           
-          // Now find the amount column in the headers
-          console.log('Final headers:', headers);
-          
-          // First priority: exact match for "Total amount charged"
-          headers.forEach((header, index) => {
-            const lowerHeader = header.toLowerCase().trim();
-            if (lowerHeader === 'total amount charged') {
-              amountColumnIndex = index;
-              console.log(`Found EXACT match for "Total amount charged" at index ${index}: "${header}"`);
-            }
-          });
-          
-          // Second priority: partial match for "Total amount charged"
-          if (amountColumnIndex === -1) {
-            headers.forEach((header, index) => {
-              const lowerHeader = header.toLowerCase();
-              if (lowerHeader.includes('total') && 
-                  lowerHeader.includes('amount') && 
-                  lowerHeader.includes('charged')) {
-                amountColumnIndex = index;
-                console.log(`Found partial match for "Total amount charged" at index ${index}: "${header}"`);
-              }
-            });
-          }
-          
-          // Third priority: any amount-related column
-          if (amountColumnIndex === -1) {
-            headers.forEach((header, index) => {
-              const lowerHeader = header.toLowerCase();
-              if (lowerHeader.includes('amount') || 
-                  lowerHeader.includes('total') || 
-                  lowerHeader.includes('price') ||
-                  lowerHeader.includes('cost') ||
-                  lowerHeader.includes('value') ||
-                  lowerHeader.includes('charged') ||
-                  lowerHeader.includes('fee') ||
-                  lowerHeader.includes('payment')) {
-                amountColumnIndex = index;
-                console.log(`Found amount-related column "${header}" at index ${index}`);
-              }
-            });
-          }
-          
-          // Last resort: find columns with mostly numeric data (but skip obvious date/ID columns)
-          if (amountColumnIndex === -1 && headers.length > 0) {
-            console.log('No amount column found by header, analyzing numeric content...');
-            
-            for (let colIndex = 0; colIndex < headers.length; colIndex++) {
-              const header = headers[colIndex].toLowerCase();
-              
-              // Skip columns that are obviously not amounts
-              if (header.includes('date') || header.includes('id') || header.includes('ref') ||
-                  header.includes('time') || header.includes('desc') || header.includes('merchant')) {
-                console.log(`Skipping column ${colIndex} (${headers[colIndex]}) - not amount-related`);
-                continue;
-              }
-              
-              let numericCount = 0;
-              let totalValue = 0;
-              const sampleValues: string[] = [];
-              
-              // Check data rows (skip header row)
-              for (let rowIndex = headerRowIndex + 1; rowIndex < Math.min(allRows.length, headerRowIndex + 6); rowIndex++) {
-                const cells = allRows[rowIndex].querySelectorAll('td');
-                if (cells[colIndex]) {
-                  const cellText = cells[colIndex].textContent?.trim() || '';
-                  const cleaned = cellText.replace(/[,$₹\s€£¥]/g, '');
-                  const numValue = parseFloat(cleaned);
-                  
-                  if (!isNaN(numValue) && numValue > 0) {
-                    numericCount++;
-                    totalValue += numValue;
-                    sampleValues.push(cellText);
-                  }
-                }
-              }
-              
-              console.log(`Column ${colIndex} (${headers[colIndex]}): ${numericCount} numeric values, total: ${totalValue}, samples: ${sampleValues.slice(0,3).join(', ')}`);
-              
-              // Only consider this column if it has meaningful amounts (not just small numbers like dates)
-              if (numericCount >= 2 && totalValue > 100) { // Assume real amounts are > 100
-                amountColumnIndex = colIndex;
-                console.log(`Selected column ${colIndex} as amount column`);
-                break;
-              }
-            }
-          }
-          
-          if (amountColumnIndex !== -1) {
-            bestMatch = { table, amountColumnIndex, headers };
-            console.log(`Selected table with amount column at index ${amountColumnIndex}`);
+          if (tableData.length > 0) {
+            console.log(`Table ${tableIndex}: Found ${tableData.length} valid rows with total amount: ${tableTotal}`);
+            totalAmount = tableTotal;
+            extractedData = tableData;
+            foundValidTable = true;
             break;
-          } else {
-            console.log('No suitable amount column found in this table');
           }
         }
         
-        if (!bestMatch) {
-          throw new Error('Could not find a table with numeric amount data. Please ensure your HTML contains a table with monetary values.');
-        }
-        
-        const { table, amountColumnIndex, headers } = bestMatch;
-        
-        // Extract data from table rows
-        const rows = table.querySelectorAll('tr');
-        let totalAmount = 0;
-        const extractedData: Array<{ [key: string]: string }> = [];
-        
-        console.log(`Processing HTML table with ${rows.length} rows, amount column index: ${amountColumnIndex}`);
-        console.log(`Amount column header: ${headers[amountColumnIndex]}`);
-        console.log(`Total headers found: ${headers.length}`);
-        
-        // Debug: Show all headers with their indices
-        headers.forEach((header, index) => {
-          console.log(`Header ${index}: "${header}"`);
-        });
-        
-        // Process data rows (skip header row)
-        for (let i = 0; i < rows.length; i++) {
-          const row = rows[i];
-          const cells = row.querySelectorAll('td');
-          
-          // Skip header rows (rows with th elements or rows that don't have enough cells)
-          if (row.querySelector('th') || cells.length <= amountColumnIndex) {
-            console.log(`Skipping row ${i}: has TH elements or insufficient cells (${cells.length} cells, need ${amountColumnIndex + 1})`);
-            continue;
-          }
-          
-          // Debug: Show what value we're trying to extract
-          const amountCell = cells[amountColumnIndex];
-          const amountText = amountCell?.textContent?.trim() || '';
-          
-          console.log(`Row ${i}: Cell count: ${cells.length}, Amount column index: ${amountColumnIndex}, Amount text: "${amountText}"`);
-          
-          // Debug: Show the last few cells to verify we're getting the right column
-          const lastFewCells = Array.from(cells).slice(-3).map(cell => cell.textContent?.trim());
-          console.log(`Row ${i}: Last 3 cells: [${lastFewCells.join(' | ')}]`);
-          
-          
-          // Skip empty cells or cells that look like headers
-          if (!amountText || amountText.toLowerCase().includes('total') || 
-              amountText.toLowerCase().includes('amount') || 
-              amountText.toLowerCase().includes('charged')) {
-            console.log(`Skipping row ${i}: empty or header-like amount cell: "${amountText}"`);
-            continue;
-          }
-          
-          // More flexible number extraction - handle various currency formats
-          const cleaned = amountText.replace(/[,$₹\s€£¥]/g, '').replace(/[()]/g, '');
-          const numericValue = parseFloat(cleaned);
-          
-          if (!isNaN(numericValue) && numericValue >= 0) {
-            console.log(`Row ${i}: Adding amount: "${amountText}" -> ${numericValue}`);
-            totalAmount += numericValue;
-            
-            // Extract row data for preview
-            const rowData: { [key: string]: string } = {};
-            cells.forEach((cell, index) => {
-              const header = headers[index] || `Column ${index + 1}`;
-              rowData[header] = cell.textContent?.trim() || '';
-            });
-            extractedData.push(rowData);
-          } else {
-            console.log(`Row ${i}: Skipping invalid amount: "${amountText}" (cleaned: "${cleaned}")`);
-          }
+        if (!foundValidTable) {
+          throw new Error('Could not find a table with "Total amount charged" column and valid numeric data.');
         }
         
         console.log(`Final calculated total: ${totalAmount}`);
         
-        if (extractedData.length === 0) {
-          throw new Error('No valid numeric amount values found in the HTML table. Please check that your table contains monetary data.');
-        }
-        
         resolve({
           amount: Math.round(totalAmount * 100) / 100,
           preview: extractedData.slice(0, 5),
-          headers: headers
+          headers: extractedData.length > 0 ? Object.keys(extractedData[0]) : []
         });
       } catch (error) {
         reject(error);
