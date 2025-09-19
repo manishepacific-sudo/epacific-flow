@@ -38,9 +38,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setDemoUser = (email: string, role: string, name: string) => {
     console.log('🎭 Setting demo user:', { email, role, name });
-    // Create a mock user object for demo mode with proper UUID format
-    // Generate consistent UUID from email for demo users
-    const demoId = `demo-${btoa(email).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8)}-0000-0000-0000-000000000000`;
+    // Create a proper UUID for demo users by using a deterministic approach
+    // Convert email to a consistent UUID format
+    const emailHash = btoa(email).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+    const demoId = `00000000-${emailHash.substring(0, 4)}-${emailHash.substring(4, 8)}-${emailHash.substring(0, 4)}-${emailHash}000000`.substring(0, 36);
     const mockUser = {
       id: demoId,
       email: email,
