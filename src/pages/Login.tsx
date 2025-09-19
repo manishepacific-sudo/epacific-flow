@@ -28,30 +28,70 @@ export default function Login() {
       console.log('Attempting login for:', email);
       
       // Use our custom auth-login function that handles user creation
+      console.log('🚀 Calling auth-login function...');
       const { data: authResponse, error: loginError } = await supabase.functions.invoke('auth-login', {
         body: { email, password }
       });
 
-      if (loginError || authResponse.error) {
-        console.error('Login error:', loginError || authResponse.error);
+      console.log('📥 Edge function response:', { authResponse, loginError });
+
+      if (loginError) {
+        console.error('🔥 Edge function error:', loginError);
         toast({
           title: "Login failed",
-          description: authResponse?.error || loginError?.message || "Invalid credentials. Please try again.",
+          description: loginError.message || "Edge function error",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      if (authResponse.user && authResponse.profile) {
-        console.log('Login successful:', authResponse);
+      if (authResponse?.error) {
+        console.error('🚫 Auth response error:', authResponse.error);
+        toast({
+          title: "Login failed", 
+          description: authResponse.error || "Invalid credentials",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // For now, handle test response
+      if (authResponse?.message === "Test success") {
+        console.log('✅ Test success response:', authResponse);
+        toast({
+          title: "Test login successful",
+          description: `Test mode: ${authResponse.name} (${authResponse.role})`,
+        });
         
+        // Redirect based on role for testing
+        setTimeout(() => {
+          switch (authResponse.role) {
+            case 'admin':
+              navigate('/dashboard/admin', { replace: true });
+              break;
+            case 'manager':
+              navigate('/dashboard/manager', { replace: true });
+              break;
+            case 'user':
+            default:
+              navigate('/dashboard/user', { replace: true });
+              break;
+          }
+          setLoading(false);
+        }, 500);
+        return;
+      }
+
+      // Handle full auth response (when we restore full functionality)
+      if (authResponse?.user && authResponse?.profile) {
+        console.log('✅ Full auth success:', authResponse);
         toast({
           title: "Login successful",
           description: `Welcome back, ${authResponse.profile.full_name}!`,
         });
 
-        // Redirect based on role
         setTimeout(() => {
           switch (authResponse.profile.role) {
             case 'admin':
@@ -68,9 +108,10 @@ export default function Login() {
           setLoading(false);
         }, 500);
       } else {
+        console.error('❌ Invalid response structure:', authResponse);
         toast({
           title: "Login failed",
-          description: "Authentication failed. Please try again.",
+          description: "Invalid response from server",
           variant: "destructive"
         });
         setLoading(false);
