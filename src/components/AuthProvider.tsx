@@ -35,7 +35,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener
+    // Check for demo session first
+    const demoUser = localStorage.getItem('demo_user');
+    const demoSession = localStorage.getItem('demo_session');
+    
+    if (demoUser && demoSession) {
+      const userData = JSON.parse(demoUser);
+      const sessionData = JSON.parse(demoSession);
+      
+      setUser(userData as any);
+      setSession(sessionData as any);
+      setProfile({
+        user_id: userData.id,
+        full_name: userData.user_metadata.full_name,
+        email: userData.email,
+        role: userData.user_metadata.role
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Set up regular Supabase auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
@@ -83,7 +103,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    // Clear demo session
+    localStorage.removeItem('demo_user');
+    localStorage.removeItem('demo_session');
+    
+    // Clear Supabase session
     await supabase.auth.signOut();
+    
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    
     navigate('/login');
   };
 

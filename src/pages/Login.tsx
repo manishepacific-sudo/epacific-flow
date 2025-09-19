@@ -24,32 +24,42 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Demo login - check against our demo credentials
+      const demoCredentials = {
+        'john.doe@epacific.com': { password: 'password123', role: 'user', name: 'John Doe' },
+        'jane.manager@epacific.com': { password: 'password123', role: 'manager', name: 'Jane Manager' },
+        'admin@epacific.com': { password: 'password123', role: 'admin', name: 'Admin User' }
+      };
 
-      if (error) {
-        toast({
-          title: "Login failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        // Get user profile to determine role
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role, full_name')
-          .eq('user_id', data.user.id)
-          .single();
+      if (demoCredentials[email as keyof typeof demoCredentials] && 
+          demoCredentials[email as keyof typeof demoCredentials].password === password) {
+        
+        const userData = demoCredentials[email as keyof typeof demoCredentials];
+        
+        // Create a mock session for demo purposes
+        const mockUser = {
+          id: `demo-${userData.role}-${Date.now()}`,
+          email: email,
+          user_metadata: {
+            full_name: userData.name,
+            role: userData.role
+          }
+        };
+
+        // Store demo session in localStorage
+        localStorage.setItem('demo_user', JSON.stringify(mockUser));
+        localStorage.setItem('demo_session', JSON.stringify({
+          access_token: `demo-token-${Date.now()}`,
+          user: mockUser
+        }));
 
         toast({
           title: "Login successful",
-          description: `Welcome back, ${profile?.full_name || 'User'}!`,
+          description: `Welcome back, ${userData.name}!`,
         });
         
         // Redirect based on role
-        switch (profile?.role) {
+        switch (userData.role) {
           case "admin":
             navigate("/dashboard/admin");
             break;
@@ -61,6 +71,12 @@ export default function Login() {
             navigate("/dashboard/user");
             break;
         }
+      } else {
+        toast({
+          title: "Login failed",
+          description: "Invalid email or password. Please use the demo credentials below.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       toast({
