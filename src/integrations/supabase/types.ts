@@ -23,6 +23,7 @@ export type Database = {
           method: string
           phonepe_transaction_id: string | null
           proof_url: string | null
+          rejection_message: string | null
           report_id: string
           status: string
           updated_at: string
@@ -36,6 +37,7 @@ export type Database = {
           method: string
           phonepe_transaction_id?: string | null
           proof_url?: string | null
+          rejection_message?: string | null
           report_id: string
           status?: string
           updated_at?: string
@@ -49,6 +51,7 @@ export type Database = {
           method?: string
           phonepe_transaction_id?: string | null
           proof_url?: string | null
+          rejection_message?: string | null
           report_id?: string
           status?: string
           updated_at?: string
@@ -110,6 +113,7 @@ export type Database = {
           description: string
           id: string
           manager_notes: string | null
+          rejection_message: string | null
           status: string
           title: string
           updated_at: string
@@ -121,6 +125,7 @@ export type Database = {
           description: string
           id?: string
           manager_notes?: string | null
+          rejection_message?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -132,6 +137,7 @@ export type Database = {
           description?: string
           id?: string
           manager_notes?: string | null
+          rejection_message?: string | null
           status?: string
           title?: string
           updated_at?: string

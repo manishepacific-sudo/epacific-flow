@@ -2,68 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Epacific Technologies Design System */
+/* Modern Light Mode Design System */
 
 @layer base {
   :root {
-    /* Light Mode Colors */
+    /* Light Mode Colors - Modern, clean palette */
     --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --foreground: 222 84% 5%;
     
     /* Card & Surface Colors */
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --glass: 0 0% 100% / 0.7;
+    --card-foreground: 222 84% 5%;
     
-    /* Primary Brand Colors */
-    --primary: 217 91% 60%;
+    /* Primary Brand Colors - Blue */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 98%;
-    --primary-glow: 217 91% 70%;
     
-    /* Secondary Colors */
-    --secondary: 142 76% 36%;
-    --secondary-foreground: 0 0% 98%;
-    --secondary-glow: 142 76% 46%;
+    /* Secondary Colors - Subtle gray */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 84% 5%;
     
     /* Status Colors */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 98%;
-    --warning: 45 93% 47%;
-    --warning-foreground: 240 10% 3.9%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 84% 5%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
     
     /* Neutral Colors */
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 84% 5%;
     
     /* Border & Input */
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 217 91% 60%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
     
     /* Popover */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover-foreground: 222 84% 5%;
     
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 70%));
-    --gradient-secondary: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
-    --gradient-background: linear-gradient(135deg, hsl(0 0% 100%), hsl(240 4.8% 95.9%));
-    --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.7), hsl(240 4.8% 95.9% / 0.8));
-    
-    /* Shadows */
-    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.3);
-    --shadow-success: 0 0 40px hsl(142 76% 36% / 0.3);
-    --shadow-glass: 0 8px 32px hsl(0 0% 0% / 0.1);
-    
-    /* Animation Variables */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    
-    --radius: 1rem;
+    --radius: 8px;
 
     --sidebar-background: 0 0% 98%;
 

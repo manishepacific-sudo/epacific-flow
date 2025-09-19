@@ -104,7 +104,7 @@ export default function ReportUpload() {
           title: title.trim(),
           description: description.trim(),
           attachment_url: fileName,
-          status: 'pending'
+          status: 'pending_review'
         })
         .select()
         .single();
@@ -113,10 +113,11 @@ export default function ReportUpload() {
 
       toast({
         title: "Report submitted successfully",
-        description: "Your report has been sent for manager approval.",
+        description: "Redirecting to payment page...",
       });
       
-      navigate('/dashboard/user');
+      // Redirect immediately to payment page
+      navigate(`/payments?reportId=${report.id}`);
     } catch (error) {
       console.error('Error submitting report:', error);
       toast({

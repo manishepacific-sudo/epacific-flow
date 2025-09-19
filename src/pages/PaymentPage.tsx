@@ -173,7 +173,7 @@ export default function PaymentPage() {
           method: selectedMethod,
           proof_url: proofUrl,
           phonepe_transaction_id: transactionId || null,
-          status: 'pending'
+          status: 'pending_review'
         });
 
       if (paymentError) throw paymentError;

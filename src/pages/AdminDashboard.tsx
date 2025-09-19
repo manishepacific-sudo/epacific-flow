@@ -1,12 +1,11 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Users, 
   FileText, 
   CreditCard, 
-  Camera,
+  DollarSign,
   TrendingUp,
-  AlertCircle,
-  CheckCircle,
   Clock,
   BarChart3,
   UserPlus
@@ -16,17 +15,73 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { mockDashboardStats, mockUsers, mockReports, mockPayments, mockAttendance } from "@/utils/mockData";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function AdminDashboard() {
-  const stats = mockDashboardStats.admin;
+  const { user } = useAuth();
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalReports: 0,
+    pendingApprovals: 0,
+    totalRevenue: 0
+  });
+  const [recentData, setRecentData] = useState({
+    users: [],
+    reports: [],
+    payments: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
+
+  const fetchDashboardData = async () => {
+    try {
+      const [usersRes, reportsRes, paymentsRes] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('reports').select('*').order('created_at', { ascending: false }),
+        supabase.from('payments').select('*').order('created_at', { ascending: false })
+      ]);
+
+      const users = usersRes.data || [];
+      const reports = reportsRes.data || [];
+      const payments = paymentsRes.data || [];
+
+      const pendingReports = reports.filter(r => r.status === 'pending_review').length;
+      const pendingPayments = payments.filter(p => p.status === 'pending_review').length;
+      const totalRevenue = payments
+        .filter(p => p.status === 'verified')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      setStats({
+        totalUsers: users.length,
+        totalReports: reports.length,
+        pendingApprovals: pendingReports + pendingPayments,
+        totalRevenue
+      });
+
+      setRecentData({
+        users: users.slice(0, 3),
+        reports: reports.slice(0, 3),
+        payments: payments.slice(0, 3)
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const dashboardCards = [
     {
       title: "Total Users",
       value: stats.totalUsers,
       icon: Users,
-      trend: "+3 this month",
+      trend: "+12% from last month",
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
@@ -34,7 +89,7 @@ export default function AdminDashboard() {
       title: "Total Reports",
       value: stats.totalReports,
       icon: FileText,
-      trend: "+12 this month",
+      trend: "+8% from last month",
       color: "text-secondary",
       bgColor: "bg-secondary/10",
     },
@@ -49,21 +104,26 @@ export default function AdminDashboard() {
     {
       title: "Total Revenue",
       value: `₹${stats.totalRevenue.toLocaleString()}`,
-      icon: TrendingUp,
-      trend: "+25% from last month",
+      icon: DollarSign,
+      trend: "+15% from last month",
       color: "text-success",
       bgColor: "bg-success/10",
     },
   ];
 
-  const recentUsers = mockUsers.slice(-3);
-  const pendingReports = mockReports.filter(r => r.status === 'pending');
-  const pendingPayments = mockPayments.filter(p => p.status === 'pending');
-  const pendingAttendance = mockAttendance.filter(a => a.status === 'pending');
+  if (loading) {
+    return (
+      <Layout role="admin">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout role="admin">
-      <div className="space-y-8">
+      <div className="space-y-8 max-w-7xl mx-auto">
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -72,22 +132,18 @@ export default function AdminDashboard() {
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-2">
-                Admin Dashboard 🚀
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                Admin Dashboard
               </h1>
-              <p className="text-muted-foreground text-sm sm:text-base">
-                Manage your organization's reports, payments, and user activities.
+              <p className="text-gray-600">
+                Overview of system activity and user management
               </p>
             </div>
-            <Button variant="hero" className="gap-2 w-full sm:w-auto text-sm">
-              <UserPlus className="h-4 w-4" />
-              Add User
-            </Button>
           </div>
         </motion.div>
 
         {/* Dashboard Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {dashboardCards.map((card, index) => (
             <motion.div
               key={card.title}
@@ -95,138 +151,107 @@ export default function AdminDashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <GlassCard className="hover-glow p-3 sm:p-6">
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">{card.title}</p>
-                    <p className="text-lg sm:text-2xl font-bold truncate">{card.value}</p>
-                    <p className="text-xs text-muted-foreground mt-1 truncate">{card.trend}</p>
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 mb-1">{card.title}</p>
+                    <p className="text-2xl font-bold text-gray-900 mb-1">{card.value}</p>
+                    <p className="text-xs text-gray-500">{card.trend}</p>
                   </div>
-                  <div className={`p-2 sm:p-3 rounded-xl ${card.bgColor} flex-shrink-0`}>
-                    <card.icon className={`h-4 w-4 sm:h-6 sm:w-6 ${card.color}`} />
+                  <div className={`p-3 rounded-lg ${card.bgColor}`}>
+                    <card.icon className={`h-5 w-5 ${card.color}`} />
                   </div>
                 </div>
-              </GlassCard>
+              </div>
             </motion.div>
           ))}
         </div>
 
-        {/* Pending Approvals Overview */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <GlassCard className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-2">
-              <h2 className="text-lg sm:text-xl font-semibold">Pending Approvals</h2>
-              <Badge variant="secondary" className="bg-warning/20 text-warning text-xs">
-                {stats.pendingApprovals} items
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-3 sm:gap-6">
-              <div className="text-center p-3 sm:p-4 glass-button rounded-xl">
-                <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-primary mx-auto mb-2" />
-                <p className="text-lg sm:text-2xl font-bold">{pendingReports.length}</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">Reports</p>
-              </div>
-              <div className="text-center p-3 sm:p-4 glass-button rounded-xl">
-                <CreditCard className="h-6 w-6 sm:h-8 sm:w-8 text-warning mx-auto mb-2" />
-                <p className="text-lg sm:text-2xl font-bold">{pendingPayments.length}</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">Payments</p>
-              </div>
-              <div className="text-center p-3 sm:p-4 glass-button rounded-xl">
-                <Camera className="h-6 w-6 sm:h-8 sm:w-8 text-secondary mx-auto mb-2" />
-                <p className="text-lg sm:text-2xl font-bold">{pendingAttendance.length}</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">Attendance</p>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8">
+        {/* Management Sections */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Recent Users */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.4 }}
           >
-            <GlassCard className="p-4 sm:p-6">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base sm:text-lg font-semibold">Recent Users</h3>
-                <Button variant="ghost" size="sm" className="text-xs sm:text-sm">
+                <h3 className="text-lg font-semibold text-gray-900">Recent Users</h3>
+                <Button variant="outline" size="sm">
                   View All
                 </Button>
               </div>
               <div className="space-y-3">
-                {recentUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-medium">
-                          {user.fullName.split(' ').map(n => n[0]).join('')}
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-xs sm:text-sm truncate">{user.fullName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                      </div>
-                    </div>
-                    <Badge 
-                      variant="secondary"
-                      className={`text-xs flex-shrink-0 ${
-                        user.role === 'admin' ? 'bg-primary/20 text-primary' :
-                        user.role === 'manager' ? 'bg-secondary/20 text-secondary' :
-                        'bg-muted/20 text-muted-foreground'
-                      }`}
-                    >
-                      {user.role}
-                    </Badge>
+                {recentData.users.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">
+                    No users found
                   </div>
-                ))}
+                ) : (
+                  recentData.users.map((user: any) => (
+                    <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-medium text-primary">
+                            {user.full_name?.charAt(0) || 'U'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm text-gray-900">{user.full_name}</p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {user.role}
+                      </Badge>
+                    </div>
+                  ))
+                )}
               </div>
-            </GlassCard>
+            </div>
           </motion.div>
 
-          {/* System Health */}
+          {/* Recent Reports */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.5 }}
           >
-            <GlassCard className="p-4 sm:p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
-                <h3 className="text-base sm:text-lg font-semibold">System Health</h3>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Recent Reports</h3>
+                <Button variant="outline" size="sm">
+                  View All
+                </Button>
               </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs sm:text-sm text-muted-foreground">Server Status</span>
-                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
+              <div className="space-y-3">
+                {recentData.reports.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">
+                    No reports found
                   </div>
-                  <Progress value={98} className="h-2" />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs sm:text-sm text-muted-foreground">Database Health</span>
-                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
-                  </div>
-                  <Progress value={95} className="h-2" />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs sm:text-sm text-muted-foreground">Storage Usage</span>
-                    <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-warning" />
-                  </div>
-                  <Progress value={75} className="h-2" />
-                </div>
+                ) : (
+                  recentData.reports.map((report: any) => (
+                    <div key={report.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <div>
+                          <p className="font-medium text-sm text-gray-900">{report.title}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(report.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge 
+                        variant={report.status === 'approved' ? 'default' : 'secondary'}
+                        className={`text-xs ${report.status === 'approved' ? 'bg-green-100 text-green-800' : ''}`}
+                      >
+                        {report.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  ))
+                )}
               </div>
-            </GlassCard>
+            </div>
           </motion.div>
         </div>
 
@@ -234,29 +259,25 @@ export default function AdminDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
+          transition={{ delay: 0.6 }}
         >
-          <GlassCard className="p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm">
-                <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-                Manage Users
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Button variant="outline" className="justify-start gap-2 h-12">
+                <UserPlus className="h-4 w-4" />
+                Add User
               </Button>
-              <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm">
-                <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
-                Review Reports
-              </Button>
-              <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm">
-                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
-                Process Payments
-              </Button>
-              <Button variant="outline" className="h-16 sm:h-20 flex-col gap-1 sm:gap-2 text-xs sm:text-sm">
-                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+              <Button variant="outline" className="justify-start gap-2 h-12">
+                <BarChart3 className="h-4 w-4" />
                 View Analytics
               </Button>
+              <Button variant="outline" className="justify-start gap-2 h-12">
+                <TrendingUp className="h-4 w-4" />
+                Generate Report
+              </Button>
             </div>
-          </GlassCard>
+          </div>
         </motion.div>
       </div>
     </Layout>

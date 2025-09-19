@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useNavigate, useLocation } from "react-router-dom";
-import { mockCurrentUser, mockNotifications } from "@/utils/mockData";
+import { useAuth } from "@/components/AuthProvider";
 import epacificLogo from "@/assets/epacific-logo.png";
 
 interface LayoutProps {
@@ -29,8 +29,9 @@ export default function Layout({ children, role }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile, signOut } = useAuth();
   
-  const unreadNotifications = mockNotifications.filter(n => !n.read).length;
+  const unreadNotifications = 0; // TODO: Implement real notifications
 
   const menuItems = {
     admin: [
@@ -59,8 +60,8 @@ export default function Layout({ children, role }: LayoutProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const handleLogout = () => {
-    navigate("/");
+  const handleLogout = async () => {
+    await signOut();
   };
 
   return (
@@ -123,12 +124,12 @@ export default function Layout({ children, role }: LayoutProps) {
             <div className="flex items-center gap-3 mb-4">
               <Avatar className="h-10 w-10">
                 <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                  {mockCurrentUser.fullName.split(' ').map(n => n[0]).join('')}
+                  {profile?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{mockCurrentUser.fullName}</p>
-                <p className="text-xs text-muted-foreground truncate">{mockCurrentUser.email}</p>
+                <p className="font-medium text-sm truncate">{profile?.full_name || 'User'}</p>
+                <p className="text-xs text-muted-foreground truncate">{profile?.email || ''}</p>
               </div>
             </div>
             

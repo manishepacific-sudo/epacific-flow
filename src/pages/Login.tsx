@@ -181,12 +181,6 @@ export default function Login() {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
 
-            <div className="text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:underline font-medium">
-                Create one here
-              </Link>
-            </div>
           </motion.form>
 
           {/* Demo Credentials */}
@@ -194,15 +188,16 @@ export default function Login() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2 }}
-            className="mt-6 p-4 glass-button rounded-lg"
+            className="mt-6 p-6 bg-gray-50 rounded-xl border border-gray-200"
           >
-            <h3 className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+            <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Demo Access
             </h3>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>Create an account or contact admin for access</p>
-              <p>System supports role-based access control</p>
+            <div className="text-sm text-gray-600 space-y-2">
+              <p><strong className="text-gray-900">User:</strong> john.doe@epacific.com / password123</p>
+              <p><strong className="text-gray-900">Manager:</strong> jane.manager@epacific.com / password123</p>
+              <p><strong className="text-gray-900">Admin:</strong> admin@epacific.com / password123</p>
             </div>
           </motion.div>
         </GlassCard>
