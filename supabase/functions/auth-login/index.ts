@@ -70,13 +70,66 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check if user exists in auth
+    // Check if user exists and authenticate
     let authUser;
     try {
       const { data: existingUser } = await supabaseAdmin.auth.admin.getUserByEmail(email);
       authUser = existingUser?.user;
+      
+      if (authUser) {
+        console.log('User exists, attempting authentication');
+        
+        // Try to sign in with password
+        const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (signInError) {
+          console.error('Sign in error:', signInError);
+          return new Response(
+            JSON.stringify({ error: "Invalid credentials" }),
+            {
+              status: 401,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
+        }
+        
+        authUser = signInData.user;
+        console.log('Authentication successful for existing user');
+        
+        // Get user profile
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .eq('user_id', authUser.id)
+          .single();
+
+        const response = new Response(
+          JSON.stringify({ 
+            user: authUser,
+            profile: profile,
+            session: signInData.session
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+
+        // Set HttpOnly cookies for session management
+        if (signInData.session?.access_token && signInData.session?.refresh_token) {
+          response.headers.set('Set-Cookie', [
+            `sb-access-token=${signInData.session.access_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600; Path=/`,
+            `sb-refresh-token=${signInData.session.refresh_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`
+          ].join(', '));
+        }
+
+        return response;
+      }
     } catch (error) {
-      console.log('User not found, creating new user');
+      console.log('User not found, will create new user');
     }
 
     // Create user if doesn't exist
@@ -105,21 +158,22 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
       authUser = newUser.user;
+      console.log('New user created successfully');
     }
 
-    // Generate session for the user
-    const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: email,
+    // For new users, we need to sign them in to get a proper session
+    const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+      email,
+      password
     });
-
-    if (sessionError) {
-      console.error('Session error:', sessionError);
+    
+    if (signInError) {
+      console.error('Sign in error for new user:', signInError);
       return new Response(
-        JSON.stringify({ error: "Failed to create session" }),
+        JSON.stringify({ error: "Failed to authenticate new user" }),
         {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
     }
@@ -135,8 +189,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         user: authUser,
         profile: profile,
-        access_token: sessionData.properties?.access_token,
-        refresh_token: sessionData.properties?.refresh_token
+        session: signInData.session
       }),
       {
         status: 200,
@@ -145,10 +198,10 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
     // Set HttpOnly cookies for session management
-    if (sessionData.properties?.access_token && sessionData.properties?.refresh_token) {
+    if (signInData.session?.access_token && signInData.session?.refresh_token) {
       response.headers.set('Set-Cookie', [
-        `sb-access-token=${sessionData.properties.access_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600; Path=/`,
-        `sb-refresh-token=${sessionData.properties.refresh_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`
+        `sb-access-token=${signInData.session.access_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600; Path=/`,
+        `sb-refresh-token=${signInData.session.refresh_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`
       ].join(', '));
     }
 
