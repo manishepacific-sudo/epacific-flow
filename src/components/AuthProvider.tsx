@@ -39,7 +39,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // Get the current session from Supabase
+        // Check for demo user first
+        const demoUser = localStorage.getItem('demo_user');
+        if (demoUser) {
+          const userData = JSON.parse(demoUser);
+          if (mounted) {
+            setUser({ id: userData.id, email: userData.email } as User);
+            setProfile({
+              user_id: userData.id,
+              email: userData.email,
+              role: userData.role,
+              full_name: userData.full_name
+            });
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Fallback to regular Supabase auth
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
@@ -99,6 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Auth state changed:', event, session?.user?.email);
         
         if (event === 'SIGNED_OUT' || !session) {
+          // Clear demo user too
+          localStorage.removeItem('demo_user');
           setUser(null);
           setSession(null);
           setProfile(null);
@@ -138,6 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Clear demo user
+      localStorage.removeItem('demo_user');
+      
       // Sign out from Supabase client
       await supabase.auth.signOut();
       

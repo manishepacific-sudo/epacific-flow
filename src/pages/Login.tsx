@@ -42,80 +42,49 @@ export default function Login() {
           description: "Invalid email or password. Please use the demo credentials below.",
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
 
-      console.log('Demo credentials valid, attempting Supabase authentication');
+      console.log('Demo credentials valid, setting up session...');
 
-      // Try to sign in with Supabase directly
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error && error.message.includes('Invalid login credentials')) {
-        console.log('User does not exist, creating account...');
-        
-        // User doesn't exist, create them
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: demoAccount.name,
-              role: demoAccount.role
-            }
-          }
-        });
-
-        if (signUpError) {
-          console.error('Sign up error:', signUpError);
-          throw signUpError;
-        }
-
-        // Try to sign in again
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) {
-          console.error('Sign in after signup error:', signInError);
-          throw signInError;
-        }
-      } else if (error) {
-        throw error;
-      }
+      // Store demo user info in localStorage for AuthProvider to use
+      localStorage.setItem('demo_user', JSON.stringify({
+        id: `demo-${demoAccount.role}`,
+        email: email,
+        role: demoAccount.role,
+        full_name: demoAccount.name
+      }));
 
       toast({
         title: "Login successful",
         description: `Welcome back, ${demoAccount.name}!`,
       });
 
-      console.log('Redirecting to dashboard based on role:', demoAccount.role);
-
-      // Redirect based on role immediately
-      switch (demoAccount.role) {
-        case "admin":
-          navigate("/dashboard/admin");
-          break;
-        case "manager":
-          navigate("/dashboard/manager");
-          break;
-        case "user":
-        default:
-          navigate("/dashboard/user");
-          break;
-      }
+      // Small delay to show the success message
+      setTimeout(() => {
+        switch (demoAccount.role) {
+          case "admin":
+            navigate("/dashboard/admin", { replace: true });
+            break;
+          case "manager":
+            navigate("/dashboard/manager", { replace: true });
+            break;
+          case "user":
+          default:
+            navigate("/dashboard/user", { replace: true });
+            break;
+        }
+        setLoading(false);
+      }, 500);
 
     } catch (error: any) {
-      console.error('Login catch error:', error);
+      console.error('Login error:', error);
       toast({
         title: "Login failed",
-        description: error.message || "An unexpected error occurred. Please try again.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
