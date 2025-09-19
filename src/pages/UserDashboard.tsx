@@ -11,9 +11,10 @@ import {
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
-import { Button } from "@/components/ui/custom-button";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { ReportFlow } from "@/components/ReportFlow";
 import { useNavigate } from "react-router-dom";
 import { mockDashboardStats, mockReports, mockPayments, mockAttendance } from "@/utils/mockData";
 
@@ -152,13 +153,23 @@ export default function UserDashboard() {
           </div>
         </motion.div>
 
+        {/* Report Upload and Processing Flow */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Report Management</h2>
+          <ReportFlow />
+        </motion.div>
+
         {/* Recent Activity */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8">
           {/* Recent Reports */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.8 }}
           >
             <GlassCard className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
@@ -198,7 +209,7 @@ export default function UserDashboard() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.7 }}
+            transition={{ delay: 0.9 }}
           >
             <GlassCard className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
@@ -239,7 +250,7 @@ export default function UserDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
+          transition={{ delay: 1.0 }}
         >
           <GlassCard className="p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">

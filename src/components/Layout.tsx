@@ -1,5 +1,4 @@
 import { ReactNode, useState } from "react";
-import { motion } from "framer-motion";
 import { 
   Bell, 
   LogOut, 
@@ -12,7 +11,7 @@ import {
   Users,
   Settings
 } from "lucide-react";
-import { Button } from "@/components/ui/custom-button";
+import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +64,7 @@ export default function Layout({ children, role }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-background transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-background transition-colors duration-300 flex">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -74,20 +73,20 @@ export default function Layout({ children, role }: LayoutProps) {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Fixed position on desktop */}
       <aside className={`
-        fixed left-0 top-0 h-full w-72 sm:w-80 z-50
+        fixed left-0 top-0 h-screen w-80 z-50
         transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:static lg:z-auto
+        lg:translate-x-0 lg:relative lg:flex-shrink-0
       `}>
-        <GlassCard hover={false} className="h-full rounded-none lg:rounded-r-2xl p-4 sm:p-6">
+        <GlassCard hover={false} className="h-full rounded-none lg:rounded-r-2xl p-6 flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6 sm:mb-8">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <img src={epacificLogo} alt="Epacific" className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg dark:bg-white dark:p-1" />
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <img src={epacificLogo} alt="Epacific" className="w-10 h-10 rounded-lg dark:bg-white dark:p-1" />
               <div className="min-w-0">
-                <h1 className="font-bold text-base sm:text-lg gradient-text truncate">Epacific</h1>
+                <h1 className="font-bold text-lg gradient-text truncate">Epacific</h1>
                 <p className="text-xs text-muted-foreground capitalize truncate">{role} Panel</p>
               </div>
             </div>
@@ -102,77 +101,76 @@ export default function Layout({ children, role }: LayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="space-y-2 mb-6 sm:mb-8 overflow-y-auto max-h-[calc(100vh-300px)]">
+          <nav className="space-y-2 flex-1 overflow-y-auto">
             {currentMenuItems.map((item, index) => (
-              <div key={item.path}>
-                <Button
-                  variant={isActive(item.path) ? "hero" : "ghost"}
-                  className="w-full justify-start gap-2 sm:gap-3 h-10 sm:h-12 text-sm sm:text-base"
-                  onClick={() => {
-                    navigate(item.path);
-                    setSidebarOpen(false);
-                  }}
-                >
-                  <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </Button>
-              </div>
+              <Button
+                key={item.path}
+                variant={isActive(item.path) ? "default" : "ghost"}
+                className="w-full justify-start gap-3 h-12 text-base hover:bg-accent"
+                onClick={() => {
+                  navigate(item.path);
+                  setSidebarOpen(false);
+                }}
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span className="truncate">{item.label}</span>
+              </Button>
             ))}
           </nav>
 
           {/* User Profile */}
-          <div className="mt-auto pt-4 sm:pt-6 border-t border-border">
-            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-              <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
+          <div className="pt-6 border-t border-border">
+            <div className="flex items-center gap-3 mb-4">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                   {mockCurrentUser.fullName.split(' ').map(n => n[0]).join('')}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-xs sm:text-sm truncate">{mockCurrentUser.fullName}</p>
+                <p className="font-medium text-sm truncate">{mockCurrentUser.fullName}</p>
                 <p className="text-xs text-muted-foreground truncate">{mockCurrentUser.email}</p>
               </div>
             </div>
             
             <Button
               variant="outline"
-              className="w-full justify-start gap-2 h-9 sm:h-10 text-xs sm:text-sm"
+              className="w-full justify-start gap-2 h-10 text-sm"
               onClick={handleLogout}
             >
-              <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
+              <LogOut className="h-4 w-4" />
               Sign Out
             </Button>
           </div>
         </GlassCard>
       </aside>
 
-      {/* Main Content */}
-      <div className="lg:ml-72 xl:ml-80 min-h-screen flex flex-col">
+      {/* Main Content - Flex container for proper alignment */}
+      <div className="flex-1 flex flex-col min-h-screen lg:ml-0">
         {/* Top Bar */}
         <header className="sticky top-0 z-30 border-b border-border backdrop-blur-md bg-background/80 transition-colors duration-300">
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center gap-4 min-w-0">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden h-8 w-8 sm:h-10 sm:w-10"
+                className="lg:hidden h-10 w-10"
               >
-                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Menu className="h-5 w-5" />
               </Button>
-              <h2 className="text-lg sm:text-xl font-semibold capitalize truncate">
+              <h2 className="text-xl font-semibold capitalize truncate">
                 {location.pathname.split('/').pop()?.replace('-', ' ') || 'Dashboard'}
               </h2>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-4">
               <ThemeToggle />
-              <Button variant="ghost" size="icon" className="relative h-8 w-8 sm:h-10 sm:w-10">
-                <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+              <Button variant="ghost" size="icon" className="relative h-10 w-10">
+                <Bell className="h-5 w-5" />
                 {unreadNotifications > 0 && (
                   <Badge 
                     variant="destructive" 
-                    className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
                   >
                     {unreadNotifications > 9 ? '9+' : unreadNotifications}
                   </Badge>
@@ -183,7 +181,7 @@ export default function Layout({ children, role }: LayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-6">
+        <main className="flex-1 p-6 overflow-y-auto">
           <div className="w-full max-w-none">
             {children}
           </div>
