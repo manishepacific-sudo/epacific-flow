@@ -94,25 +94,23 @@ export default function UserManagement() {
     setCreating(true);
 
     try {
-      // Create user directly in profiles table (simulating admin creation)
-      const { data: userData, error: createError } = await supabase
-        .from('profiles')
-        .insert([{
-          user_id: crypto.randomUUID(),
+      // Use edge function to create user (bypasses RLS issues with demo auth)
+      const { data: result, error: createError } = await supabase.functions.invoke('create-user', {
+        body: {
           full_name: formData.full_name,
           email: formData.email,
           mobile_number: formData.mobile_number,
           station_id: formData.station_id,
           center_address: formData.center_address,
-          role: formData.role
-        }])
-        .select()
-        .single();
+          role: formData.role,
+          admin_email: profile?.email // Pass admin email for authorization
+        }
+      });
 
       if (createError) throw createError;
 
       // Send invitation email
-      const inviteLink = `${window.location.origin}/set-password?token=${userData.id}`;
+      const inviteLink = `${window.location.origin}/set-password?token=${result.user.id}`;
       
       const { error: emailError } = await supabase.functions.invoke('send-invitation', {
         body: {

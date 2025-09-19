@@ -66,3 +66,6 @@ verify_jwt = false
 
 [functions.session-verify]
 verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
