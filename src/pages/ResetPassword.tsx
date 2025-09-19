@@ -21,16 +21,9 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
-    
-    if (accessToken && refreshToken) {
-      // Set the session with the tokens from the URL
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      });
-    }
+    // For demo system, we don't need to handle actual tokens
+    // The reset link just redirects here for UI demonstration
+    console.log('Reset password page loaded');
   }, [searchParams]);
 
   const validatePassword = (password: string) => {
@@ -73,12 +66,11 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password
-      });
-
-      if (error) throw error;
-
+      // For demo system, simulate password update without actual Supabase auth
+      // In a real system, this would update the user's password in the database
+      console.log('Demo: Password would be updated for user');
+      
+      // Simulate successful password update
       toast({
         title: "Password updated successfully",
         description: "You can now log in with your new password",
