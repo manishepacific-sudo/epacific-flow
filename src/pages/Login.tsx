@@ -24,61 +24,64 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // Demo login - check against our demo credentials
-      const demoCredentials = {
-        'john.doe@epacific.com': { password: 'password123', role: 'user', name: 'John Doe' },
-        'jane.manager@epacific.com': { password: 'password123', role: 'manager', name: 'Jane Manager' },
-        'admin@epacific.com': { password: 'password123', role: 'admin', name: 'Admin User' }
-      };
+      console.log('Attempting login for:', email);
+      
+      // Call our secure auth endpoint
+      const { data, error } = await supabase.functions.invoke('auth-login', {
+        body: { email, password }
+      });
 
-      if (demoCredentials[email as keyof typeof demoCredentials] && 
-          demoCredentials[email as keyof typeof demoCredentials].password === password) {
-        
-        const userData = demoCredentials[email as keyof typeof demoCredentials];
-        
-        // Create a mock session for demo purposes
-        const mockUser = {
-          id: `demo-${userData.role}-${Date.now()}`,
-          email: email,
-          user_metadata: {
-            full_name: userData.name,
-            role: userData.role
-          }
-        };
+      console.log('Login response:', { data, error });
 
-        // Store demo session in localStorage
-        localStorage.setItem('demo_user', JSON.stringify(mockUser));
-        localStorage.setItem('demo_session', JSON.stringify({
-          access_token: `demo-token-${Date.now()}`,
-          user: mockUser
-        }));
-
+      if (error) {
+        console.error('Login error:', error);
         toast({
-          title: "Login successful",
-          description: `Welcome back, ${userData.name}!`,
+          title: "Login failed",
+          description: error.message || "Invalid credentials",
+          variant: "destructive",
         });
-        
-        // Redirect based on role
-        switch (userData.role) {
+        return;
+      }
+
+      if (data?.error) {
+        toast({
+          title: "Login failed", 
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Success - the session is now stored in HttpOnly cookies
+      const userData = data.user;
+      const profileData = data.profile;
+
+      toast({
+        title: "Login successful",
+        description: `Welcome back, ${profileData?.full_name || userData?.email}!`,
+      });
+
+      console.log('Redirecting to dashboard based on role:', profileData?.role);
+
+      // Force page reload to trigger AuthProvider session restoration
+      // This ensures the HttpOnly cookies are properly read
+      setTimeout(() => {
+        switch (profileData?.role) {
           case "admin":
-            navigate("/dashboard/admin");
+            window.location.href = "/dashboard/admin";
             break;
           case "manager":
-            navigate("/dashboard/manager");
+            window.location.href = "/dashboard/manager";
             break;
           case "user":
           default:
-            navigate("/dashboard/user");
+            window.location.href = "/dashboard/user";
             break;
         }
-      } else {
-        toast({
-          title: "Login failed",
-          description: "Invalid email or password. Please use the demo credentials below.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      }, 100);
+
+    } catch (error: any) {
+      console.error('Login catch error:', error);
       toast({
         title: "Login failed",
         description: "An unexpected error occurred. Please try again.",

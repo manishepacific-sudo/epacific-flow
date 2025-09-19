@@ -57,3 +57,12 @@ verify_jwt = false
 
 [functions.setup-demo-accounts]
 verify_jwt = false
+
+[functions.auth-login]
+verify_jwt = false
+
+[functions.auth-logout]
+verify_jwt = false
+
+[functions.session-verify]
+verify_jwt = false

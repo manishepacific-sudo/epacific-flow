@@ -35,86 +35,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check for demo session first
-    const demoUser = localStorage.getItem('demo_user');
-    const demoSession = localStorage.getItem('demo_session');
-    
-    if (demoUser && demoSession) {
-      const userData = JSON.parse(demoUser);
-      const sessionData = JSON.parse(demoSession);
-      
-      setUser(userData as any);
-      setSession(sessionData as any);
-      setProfile({
-        user_id: userData.id,
-        full_name: userData.user_metadata.full_name,
-        email: userData.email,
-        role: userData.user_metadata.role
-      });
-      setLoading(false);
-      return;
-    }
+    let mounted = true;
 
-    // Set up regular Supabase auth state listener
+    const initializeAuth = async () => {
+      try {
+        // Try to restore session from HttpOnly cookies via our secure endpoint
+        const { data: sessionData, error } = await supabase.functions.invoke('session-verify');
+        
+        if (!mounted) return;
+
+        if (error || sessionData?.error) {
+          console.log('No valid session found:', error || sessionData?.error);
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        console.log('Session restored from HttpOnly cookies:', sessionData);
+        
+        // Set the session in Supabase client for API calls
+        if (sessionData.session) {
+          await supabase.auth.setSession({
+            access_token: sessionData.session.access_token,
+            refresh_token: sessionData.session.refresh_token
+          });
+          
+          setUser(sessionData.user);
+          setSession(sessionData.session);
+          setProfile(sessionData.profile);
+        }
+        
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Also set up Supabase auth state listener for real-time updates
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+        if (!mounted) return;
         
-        if (session?.user) {
-          // Fetch user profile
-          setTimeout(async () => {
+        console.log('Auth state changed:', event, session);
+        
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+        } else if (session?.user) {
+          setUser(session.user);
+          setSession(session);
+          
+          // Fetch profile
+          try {
             const { data: profile } = await supabase
               .from('profiles')
               .select('*')
               .eq('user_id', session.user.id)
               .single();
             
-            setProfile(profile);
-            setLoading(false);
-          }, 0);
-        } else {
-          setProfile(null);
+            if (mounted) {
+              setProfile(profile);
+            }
+          } catch (error) {
+            console.error('Error fetching profile:', error);
+          }
+        }
+        
+        if (mounted) {
           setLoading(false);
         }
       }
     );
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single()
-          .then(({ data: profile }) => {
-            setProfile(profile);
-            setLoading(false);
-          });
-      } else {
-        setLoading(false);
-      }
-    });
+    initializeAuth();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
-    // Clear demo session
-    localStorage.removeItem('demo_user');
-    localStorage.removeItem('demo_session');
-    
-    // Clear Supabase session
-    await supabase.auth.signOut();
-    
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    
-    navigate('/login');
+    try {
+      // Call our secure logout endpoint to clear HttpOnly cookies
+      await supabase.functions.invoke('auth-logout');
+      
+      // Also sign out from Supabase client
+      await supabase.auth.signOut();
+      
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Force navigation even if logout fails
+      navigate('/login');
+    }
   };
 
   return (
