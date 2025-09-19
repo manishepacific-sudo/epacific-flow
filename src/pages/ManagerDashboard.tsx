@@ -74,18 +74,18 @@ export default function ManagerDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <h1 className="text-3xl font-bold gradient-text mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-2">
             Manager Dashboard 👨‍💼
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             Review and approve pending reports, payments, and attendance records.
           </p>
         </motion.div>
 
         {/* Dashboard Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {dashboardCards.map((card, index) => (
             <motion.div
               key={card.title}
@@ -93,15 +93,15 @@ export default function ManagerDashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <GlassCard className="hover-glow">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">{card.title}</p>
-                    <p className="text-2xl font-bold">{card.value}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{card.trend}</p>
+              <GlassCard className="hover-glow p-3 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">{card.title}</p>
+                    <p className="text-lg sm:text-2xl font-bold">{card.value}</p>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">{card.trend}</p>
                   </div>
-                  <div className={`p-3 rounded-xl ${card.bgColor}`}>
-                    <card.icon className={`h-6 w-6 ${card.color}`} />
+                  <div className={`p-2 sm:p-3 rounded-xl ${card.bgColor} flex-shrink-0`}>
+                    <card.icon className={`h-4 w-4 sm:h-6 sm:w-6 ${card.color}`} />
                   </div>
                 </div>
               </GlassCard>
@@ -110,7 +110,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* Approval Queue */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8">
           {/* Pending Reports */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}

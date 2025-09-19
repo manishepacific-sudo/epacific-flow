@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/custom-button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useNavigate, useLocation } from "react-router-dom";
 import { mockCurrentUser, mockNotifications } from "@/utils/mockData";
 import epacificLogo from "@/assets/epacific-logo.png";
@@ -85,12 +86,12 @@ export default function Layout({ children, role }: LayoutProps) {
       >
         <GlassCard hover={false} className="h-full rounded-none lg:rounded-r-2xl p-6">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <img src={epacificLogo} alt="Epacific" className="w-10 h-10 rounded-lg" />
-              <div>
-                <h1 className="font-bold text-lg gradient-text">Epacific</h1>
-                <p className="text-xs text-muted-foreground capitalize">{role} Panel</p>
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <img src={epacificLogo} alt="Epacific" className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg" />
+              <div className="min-w-0">
+                <h1 className="font-bold text-base sm:text-lg gradient-text truncate">Epacific</h1>
+                <p className="text-xs text-muted-foreground capitalize truncate">{role} Panel</p>
               </div>
             </div>
             <Button
@@ -104,7 +105,7 @@ export default function Layout({ children, role }: LayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="space-y-2 mb-8">
+          <nav className="space-y-2 mb-6 sm:mb-8 overflow-y-auto max-h-[calc(100vh-300px)]">
             {currentMenuItems.map((item, index) => (
               <motion.div
                 key={item.path}
@@ -114,39 +115,39 @@ export default function Layout({ children, role }: LayoutProps) {
               >
                 <Button
                   variant={isActive(item.path) ? "hero" : "ghost"}
-                  className="w-full justify-start gap-3 h-12"
+                  className="w-full justify-start gap-2 sm:gap-3 h-10 sm:h-12 text-sm sm:text-base"
                   onClick={() => {
                     navigate(item.path);
                     setSidebarOpen(false);
                   }}
                 >
-                  <item.icon className="h-5 w-5" />
-                  {item.label}
+                  <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  <span className="truncate">{item.label}</span>
                 </Button>
               </motion.div>
             ))}
           </nav>
 
           {/* User Profile */}
-          <div className="mt-auto pt-6 border-t border-border">
-            <div className="flex items-center gap-3 mb-4">
-              <Avatar>
-                <AvatarFallback className="bg-primary text-primary-foreground">
+          <div className="mt-auto pt-4 sm:pt-6 border-t border-border">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                   {mockCurrentUser.fullName.split(' ').map(n => n[0]).join('')}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{mockCurrentUser.fullName}</p>
+                <p className="font-medium text-xs sm:text-sm truncate">{mockCurrentUser.fullName}</p>
                 <p className="text-xs text-muted-foreground truncate">{mockCurrentUser.email}</p>
               </div>
             </div>
             
             <Button
               variant="outline"
-              className="w-full justify-start gap-2"
+              className="w-full justify-start gap-2 h-9 sm:h-10 text-xs sm:text-sm"
               onClick={handleLogout}
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
               Sign Out
             </Button>
           </div>
@@ -154,33 +155,34 @@ export default function Layout({ children, role }: LayoutProps) {
       </motion.aside>
 
       {/* Main Content */}
-      <div className="lg:ml-80 min-h-screen">
+      <div className="lg:ml-72 xl:ml-80 min-h-screen">
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 border-b border-border backdrop-blur-md bg-background/80">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-30 border-b border-border backdrop-blur-md bg-background/80 transition-colors duration-300">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden"
+                className="lg:hidden h-8 w-8 sm:h-10 sm:w-10"
               >
-                <Menu className="h-5 w-5" />
+                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <h2 className="text-xl font-semibold capitalize">
+              <h2 className="text-lg sm:text-xl font-semibold capitalize truncate">
                 {location.pathname.split('/').pop()?.replace('-', ' ') || 'Dashboard'}
               </h2>
             </div>
 
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
+            <div className="flex items-center gap-2 sm:gap-4">
+              <ThemeToggle />
+              <Button variant="ghost" size="icon" className="relative h-8 w-8 sm:h-10 sm:w-10">
+                <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
                 {unreadNotifications > 0 && (
                   <Badge 
                     variant="destructive" 
-                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                    className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-xs"
                   >
-                    {unreadNotifications}
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
                   </Badge>
                 )}
               </Button>
@@ -189,8 +191,10 @@ export default function Layout({ children, role }: LayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="p-6">
-          {children}
+        <main className="p-4 sm:p-6">
+          <div className="max-w-full overflow-hidden">
+            {children}
+          </div>
         </main>
       </div>
     </div>

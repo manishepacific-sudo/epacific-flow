@@ -84,17 +84,17 @@ export default function ReportUpload() {
 
   return (
     <Layout role="user">
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
-          <h1 className="text-3xl font-bold gradient-text mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-2">
             Upload Monthly Report
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             Upload your CSV or HTML report file to calculate the total amount
           </p>
         </motion.div>
@@ -105,10 +105,10 @@ export default function ReportUpload() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <GlassCard>
+          <GlassCard className="p-4 sm:p-6">
             <div
               {...getRootProps()}
-              className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer ${
+              className={`border-2 border-dashed rounded-xl p-6 sm:p-12 text-center transition-all duration-300 cursor-pointer ${
                 isDragActive 
                   ? 'border-primary bg-primary/5' 
                   : file 
@@ -174,7 +174,7 @@ export default function ReportUpload() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+            className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8"
           >
             {/* Report Summary */}
             <GlassCard>
