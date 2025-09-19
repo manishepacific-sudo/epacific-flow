@@ -24,7 +24,9 @@ const handler = async (req: Request): Promise<Response> => {
     const demoCredentials = {
       'john.doe@epacific.com': { password: 'password123', role: 'user', name: 'John Doe' },
       'jane.manager@epacific.com': { password: 'password123', role: 'manager', name: 'Jane Manager' },
-      'admin@epacific.com': { password: 'Admin@123', role: 'admin', name: 'System Administrator' }
+      'admin@epacific.com': { password: 'Admin@123', role: 'admin', name: 'System Administrator' },
+      'manish.epacific@gmail.com': { password: 'password123', role: 'user', name: 'Manish Kumar' },
+      'manish.payteq@gmail.com': { password: 'password123', role: 'manager', name: 'Manish' }
     };
 
     const demoAccount = demoCredentials[email as keyof typeof demoCredentials];
