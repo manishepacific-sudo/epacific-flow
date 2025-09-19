@@ -1,12 +1,13 @@
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useDropzone } from "react-dropzone";
+import { format } from "date-fns";
 import { 
   Upload, 
   FileText, 
   Check, 
   AlertCircle, 
-  Calendar,
+  Calendar as CalendarIcon,
   DollarSign,
   Eye,
   ArrowRight
@@ -18,6 +19,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/AuthProvider";
 import { useNavigate } from "react-router-dom";
@@ -30,6 +34,7 @@ export default function ReportUpload() {
   const [reportData, setReportData] = useState<ParsedReportData | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [reportDate, setReportDate] = useState<Date>();
   const [parsing, setParsing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
@@ -74,10 +79,10 @@ export default function ReportUpload() {
   });
 
   const handleSubmit = async () => {
-    if (!file || !user || !title.trim() || !description.trim()) {
+    if (!file || !user || !title.trim() || !description.trim() || !reportDate) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields including report date",
         variant: "destructive"
       });
       return;
@@ -250,6 +255,33 @@ export default function ReportUpload() {
                       required
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>Report Date *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !reportDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {reportDate ? format(reportDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={reportDate}
+                          onSelect={setReportDate}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="description">Description *</Label>
@@ -269,7 +301,7 @@ export default function ReportUpload() {
                   className="w-full" 
                   onClick={handleSubmit}
                   loading={uploading}
-                  disabled={!file || !title.trim() || !description.trim()}
+                  disabled={!file || !title.trim() || !description.trim() || !reportDate}
                 >
                   {uploading ? 'Submitting...' : 'Submit for Approval'}
                   <ArrowRight className="ml-2 h-4 w-4" />

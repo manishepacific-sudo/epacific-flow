@@ -26,14 +26,14 @@ export function withRoleGuard<P extends WithRoleGuardProps>(
           // Redirect to appropriate dashboard based on actual user role
           switch (profile.role) {
             case 'admin':
-              navigate('/admin');
+              navigate('/dashboard/admin');
               break;
             case 'manager':
-              navigate('/manager');
+              navigate('/dashboard/manager');
               break;
             case 'user':
             default:
-              navigate('/user');
+              navigate('/dashboard/user');
               break;
           }
           return;

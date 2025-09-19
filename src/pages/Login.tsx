@@ -85,14 +85,14 @@ export default function Login() {
         setTimeout(() => {
           switch (profile.role) {
             case 'admin':
-              navigate('/admin', { replace: true });
+              navigate('/dashboard/admin', { replace: true });
               break;
             case 'manager':
-              navigate('/manager', { replace: true });
+              navigate('/dashboard/manager', { replace: true });
               break;
             case 'user':
             default:
-              navigate('/user', { replace: true });
+              navigate('/dashboard/user', { replace: true });
               break;
           }
           setLoading(false);

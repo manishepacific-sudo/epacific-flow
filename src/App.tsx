@@ -43,9 +43,9 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/set-password" element={<SetPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/user" element={<GuardedUserDashboard />} />
-              <Route path="/admin" element={<GuardedAdminDashboard />} />
-              <Route path="/manager" element={<GuardedManagerDashboard />} />
+              <Route path="/dashboard/user" element={<GuardedUserDashboard />} />
+              <Route path="/dashboard/admin" element={<GuardedAdminDashboard />} />
+              <Route path="/dashboard/manager" element={<GuardedManagerDashboard />} />
               <Route path="/upload/report" element={<GuardedReportUpload />} />
               <Route path="/payment/:id" element={
                 <ProtectedRoute>
