@@ -55,30 +55,86 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Create user in profiles table using service role (bypasses RLS)
-    console.log('👤 Creating user profile...');
-    const { data: userData, error: createError } = await supabaseAdmin
-      .from('profiles')
-      .insert([{
-        user_id: crypto.randomUUID(),
+    console.log('👤 Creating Supabase auth user first...');
+    
+    // First create the auth user
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: email,
+      email_confirm: true,
+      user_metadata: {
         full_name: full_name,
-        email: email,
+        role: role,
         mobile_number: mobile_number,
         station_id: station_id,
-        center_address: center_address,
-        role: role
-      }])
-      .select()
-      .single();
+        center_address: center_address
+      }
+    });
 
-    if (createError) {
-      console.error('❌ Profile creation error:', createError);
+    if (authError) {
+      console.error('❌ Auth user creation error:', authError);
       return new Response(
-        JSON.stringify({ error: "Failed to create user profile: " + createError.message }),
+        JSON.stringify({ error: "Failed to create auth user: " + authError.message }),
         {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
+    }
+
+    console.log('✅ Auth user created:', authUser.user.id);
+
+    // Wait a moment for the trigger to create the profile
+    console.log('⏳ Waiting for profile creation trigger...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Update the profile with the correct role and details (trigger creates basic profile)
+    console.log('👤 Updating profile with full details...');
+    let userData;
+    const { data: profileData, error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        full_name: full_name,
+        mobile_number: mobile_number,
+        station_id: station_id,
+        center_address: center_address,
+        role: role
+      })
+      .eq('user_id', authUser.user.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('❌ Profile update error:', updateError);
+      // Try to create the profile if update fails (trigger might not have worked)
+      console.log('🔄 Trigger may have failed, creating profile manually...');
+      const { data: manualProfile, error: insertError } = await supabaseAdmin
+        .from('profiles')
+        .insert([{
+          user_id: authUser.user.id,
+          full_name: full_name,
+          email: email,
+          mobile_number: mobile_number,
+          station_id: station_id,
+          center_address: center_address,
+          role: role
+        }])
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('❌ Manual profile creation error:', insertError);
+        return new Response(
+          JSON.stringify({ error: "Failed to create user profile: " + insertError.message }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+      
+      userData = manualProfile;
+    } else {
+      userData = profileData;
     }
 
     console.log('✅ User created successfully:', userData.id);
