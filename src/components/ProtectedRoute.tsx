@@ -12,13 +12,17 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('ProtectedRoute effect:', { loading, user: !!user, profile, allowedRoles });
+    
     if (!loading) {
       if (!user) {
+        console.log('No user, redirecting to login');
         navigate('/login');
         return;
       }
 
       if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
+        console.log('User role not allowed:', profile.role, 'allowed:', allowedRoles);
         // Redirect to appropriate dashboard based on user role
         switch (profile.role) {
           case 'admin':
@@ -34,6 +38,8 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         }
         return;
       }
+      
+      console.log('Access granted for role:', profile?.role);
     }
   }, [user, profile, loading, navigate, allowedRoles]);
 
