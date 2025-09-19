@@ -9,6 +9,7 @@ interface AuthContextType {
   profile: any | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  setDemoUser: (email: string, role: string, name: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   signOut: async () => {},
+  setDemoUser: () => {},
 });
 
 export const useAuth = () => {
@@ -33,6 +35,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  const setDemoUser = (email: string, role: string, name: string) => {
+    console.log('🎭 Setting demo user:', { email, role, name });
+    // Create a mock user object for demo mode
+    const mockUser = {
+      id: `demo-${email}`,
+      email: email,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as User;
+    
+    const mockProfile = {
+      user_id: mockUser.id,
+      email: email,
+      full_name: name,
+      role: role,
+      mobile_number: '1234567890',
+      station_id: 'DEMO001',
+      center_address: 'Demo Center Address'
+    };
+
+    setUser(mockUser);
+    setProfile(mockProfile);
+    setLoading(false);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -158,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, setDemoUser }}>
       {children}
     </AuthContext.Provider>
   );

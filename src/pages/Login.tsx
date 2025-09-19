@@ -9,6 +9,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import epacificLogo from "@/assets/epacific-logo.png";
 
@@ -19,6 +20,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { setDemoUser } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +62,10 @@ export default function Login() {
       // Handle demo login response
       if (authResponse?.demo && authResponse?.message === "Demo login successful") {
         console.log('✅ Demo login response:', authResponse);
+        
+        // Set demo user in AuthProvider
+        setDemoUser(authResponse.email, authResponse.role, authResponse.name);
+        
         toast({
           title: "Demo login successful",
           description: `Welcome ${authResponse.name} (${authResponse.role})`,
