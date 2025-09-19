@@ -89,29 +89,83 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
         
         // Try each table to find one with amount data
         for (const table of Array.from(tables)) {
-          const thElements = table.querySelectorAll('th');
-          const headers: string[] = [];
+          console.log('=== Examining table ===');
+          const allRows = table.querySelectorAll('tr');
+          console.log(`Table has ${allRows.length} rows`);
+          
+          let headers: string[] = [];
           let amountColumnIndex = -1;
+          let headerRowIndex = -1;
           
-          // Get headers from th elements
-          thElements.forEach((th, index) => {
-            const headerText = th.textContent?.trim() || '';
-            headers.push(headerText);
-            console.log(`Header ${index}: "${headerText}"`);
-          });
+          // First, try to find headers in th elements
+          const thElements = table.querySelectorAll('th');
+          if (thElements.length > 0) {
+            thElements.forEach((th, index) => {
+              const headerText = th.textContent?.trim() || '';
+              headers.push(headerText);
+              console.log(`TH Header ${index}: "${headerText}"`);
+            });
+            headerRowIndex = 0;
+          } else {
+            // No th elements, examine all rows to find the header row
+            console.log('No TH elements found, examining all rows for headers...');
+            
+            for (let rowIndex = 0; rowIndex < Math.min(allRows.length, 3); rowIndex++) {
+              const row = allRows[rowIndex];
+              const cells = row.querySelectorAll('td');
+              const rowHeaders: string[] = [];
+              
+              console.log(`Row ${rowIndex} has ${cells.length} cells:`);
+              cells.forEach((cell, cellIndex) => {
+                const cellText = cell.textContent?.trim() || '';
+                rowHeaders.push(cellText);
+                console.log(`  Cell ${cellIndex}: "${cellText}"`);
+              });
+              
+              // Check if this row contains "Total amount charged" or similar headers
+              const hasAmountHeader = rowHeaders.some(header => {
+                const lower = header.toLowerCase();
+                return (lower.includes('total') && lower.includes('amount') && lower.includes('charged')) ||
+                       lower.includes('amount') || lower.includes('total') || lower.includes('charged') ||
+                       lower.includes('price') || lower.includes('cost') || lower.includes('fee');
+              });
+              
+              if (hasAmountHeader) {
+                headers = rowHeaders;
+                headerRowIndex = rowIndex;
+                console.log(`Found header row at index ${rowIndex}`);
+                break;
+              }
+            }
+            
+            // If no headers found, use first row as headers
+            if (headers.length === 0 && allRows.length > 0) {
+              const firstRow = allRows[0];
+              const cells = firstRow.querySelectorAll('td');
+              cells.forEach((cell, index) => {
+                const headerText = cell.textContent?.trim() || '';
+                headers.push(headerText);
+              });
+              headerRowIndex = 0;
+              console.log('Using first row as headers');
+            }
+          }
           
-          // Find the exact "Total amount charged" column first
+          // Now find the amount column in the headers
+          console.log('Final headers:', headers);
+          
+          // First priority: exact match for "Total amount charged"
           headers.forEach((header, index) => {
             const lowerHeader = header.toLowerCase();
             if (lowerHeader.includes('total') && 
                 lowerHeader.includes('amount') && 
                 lowerHeader.includes('charged')) {
               amountColumnIndex = index;
-              console.log(`Found exact match for "Total amount charged" at index ${index}`);
+              console.log(`Found exact match for "Total amount charged" at index ${index}: "${header}"`);
             }
           });
           
-          // If no exact match, look for other amount-related columns
+          // Second priority: any amount-related column
           if (amountColumnIndex === -1) {
             headers.forEach((header, index) => {
               const lowerHeader = header.toLowerCase();
@@ -124,76 +178,51 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
                   lowerHeader.includes('fee') ||
                   lowerHeader.includes('payment')) {
                 amountColumnIndex = index;
-                console.log(`Found fallback amount column "${header}" at index ${index}`);
+                console.log(`Found amount-related column "${header}" at index ${index}`);
               }
             });
           }
           
-          // If no th elements, try first row td elements as headers
-          if (headers.length === 0) {
-            const firstRow = table.querySelector('tr');
-            if (firstRow) {
-              const cells = firstRow.querySelectorAll('td');
-              cells.forEach((cell, index) => {
-                const headerText = cell.textContent?.trim() || '';
-                headers.push(headerText);
-                console.log(`Header from first row ${index}: "${headerText}"`);
-              });
-              
-              // Find the exact "Total amount charged" column first
-              headers.forEach((header, index) => {
-                const lowerHeader = header.toLowerCase();
-                if (lowerHeader.includes('total') && 
-                    lowerHeader.includes('amount') && 
-                    lowerHeader.includes('charged')) {
-                  amountColumnIndex = index;
-                  console.log(`Found exact match for "Total amount charged" at index ${index}`);
-                }
-              });
-              
-              // If no exact match, look for other amount-related columns
-              if (amountColumnIndex === -1) {
-                headers.forEach((header, index) => {
-                  const lowerHeader = header.toLowerCase();
-                  if (lowerHeader.includes('amount') || 
-                      lowerHeader.includes('total') || 
-                      lowerHeader.includes('price') ||
-                      lowerHeader.includes('cost') ||
-                      lowerHeader.includes('value') ||
-                      lowerHeader.includes('charged') ||
-                      lowerHeader.includes('fee') ||
-                      lowerHeader.includes('payment')) {
-                    amountColumnIndex = index;
-                    console.log(`Found fallback amount column "${header}" at index ${index}`);
-                  }
-                });
-              }
-            }
-          }
-          
-          // If still no amount column found, try to find numeric data in any column
-          if (amountColumnIndex === -1) {
-            console.log('No amount column found by header, trying to find numeric columns...');
-            const rows = table.querySelectorAll('tr');
+          // Last resort: find columns with mostly numeric data (but skip obvious date/ID columns)
+          if (amountColumnIndex === -1 && headers.length > 0) {
+            console.log('No amount column found by header, analyzing numeric content...');
+            
             for (let colIndex = 0; colIndex < headers.length; colIndex++) {
+              const header = headers[colIndex].toLowerCase();
+              
+              // Skip columns that are obviously not amounts
+              if (header.includes('date') || header.includes('id') || header.includes('ref') ||
+                  header.includes('time') || header.includes('desc') || header.includes('merchant')) {
+                console.log(`Skipping column ${colIndex} (${headers[colIndex]}) - not amount-related`);
+                continue;
+              }
+              
               let numericCount = 0;
-              let sampleValues = [];
-              for (let rowIndex = 1; rowIndex < Math.min(rows.length, 6); rowIndex++) { // Check first 5 data rows
-                const cells = rows[rowIndex].querySelectorAll('td');
+              let totalValue = 0;
+              const sampleValues: string[] = [];
+              
+              // Check data rows (skip header row)
+              for (let rowIndex = headerRowIndex + 1; rowIndex < Math.min(allRows.length, headerRowIndex + 6); rowIndex++) {
+                const cells = allRows[rowIndex].querySelectorAll('td');
                 if (cells[colIndex]) {
                   const cellText = cells[colIndex].textContent?.trim() || '';
                   const cleaned = cellText.replace(/[,$₹\s€£¥]/g, '');
-                  if (!isNaN(parseFloat(cleaned)) && cleaned.length > 0) {
+                  const numValue = parseFloat(cleaned);
+                  
+                  if (!isNaN(numValue) && numValue > 0) {
                     numericCount++;
+                    totalValue += numValue;
                     sampleValues.push(cellText);
                   }
                 }
               }
-              console.log(`Column ${colIndex} (${headers[colIndex]}): ${numericCount} numeric values, samples: ${sampleValues.slice(0,3).join(', ')}`);
-              // If most values in this column are numeric, consider it as amount column
-              if (numericCount >= Math.min(3, rows.length - 1)) {
+              
+              console.log(`Column ${colIndex} (${headers[colIndex]}): ${numericCount} numeric values, total: ${totalValue}, samples: ${sampleValues.slice(0,3).join(', ')}`);
+              
+              // Only consider this column if it has meaningful amounts (not just small numbers like dates)
+              if (numericCount >= 2 && totalValue > 100) { // Assume real amounts are > 100
                 amountColumnIndex = colIndex;
-                console.log(`Using column ${colIndex} as amount column based on numeric content`);
+                console.log(`Selected column ${colIndex} as amount column`);
                 break;
               }
             }
@@ -201,7 +230,10 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
           
           if (amountColumnIndex !== -1) {
             bestMatch = { table, amountColumnIndex, headers };
+            console.log(`Selected table with amount column at index ${amountColumnIndex}`);
             break;
+          } else {
+            console.log('No suitable amount column found in this table');
           }
         }
         
