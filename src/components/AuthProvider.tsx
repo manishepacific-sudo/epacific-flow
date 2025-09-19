@@ -40,49 +40,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('🎭 Setting demo user:', { email, role, name });
     
     try {
-      // Sign in anonymously to create a valid Supabase session for demo users
-      const { data: authData, error: authError } = await supabase.auth.signInAnonymously({
-        options: {
-          data: {
-            email: email,
-            full_name: name,
-            role: role,
-            mobile_number: '1234567890',
-            station_id: 'DEMO001',
-            center_address: 'Demo Center Address',
-            demo: true
-          }
-        }
-      });
-
-      if (authError) {
-        console.error('Demo auth error:', authError);
-        return;
-      }
-
-      if (authData.user) {
-        console.log('✅ Demo user authenticated with Supabase:', authData.user.id);
-        
-        // Create or update profile for the demo user
-        const mockProfile = {
-          user_id: authData.user.id,
-          email: email,
+      // Create a mock user and session for demo purposes (no Supabase Auth needed)
+      const mockUserId = `demo-${email.replace('@', '-').replace('.', '-')}`;
+      
+      const mockUser = {
+        id: mockUserId,
+        email: email,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        email_confirmed_at: new Date().toISOString(),
+        user_metadata: {
           full_name: name,
           role: role,
-          mobile_number: '1234567890',
-          station_id: 'DEMO001',
-          center_address: 'Demo Center Address'
-        };
+          demo: true
+        },
+        app_metadata: {},
+        aud: 'authenticated',
+        role: 'authenticated'
+      } as any;
 
-        // Try to insert the profile (will be ignored if it already exists due to RLS)
-        await supabase
-          .from('profiles')
-          .upsert(mockProfile, { onConflict: 'user_id' })
-          .select()
-          .maybeSingle();
-        
-        // The auth state change listener will handle setting the user and profile
-      }
+      const mockSession = {
+        access_token: 'demo-token',
+        refresh_token: 'demo-refresh',
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        token_type: 'bearer',
+        user: mockUser
+      } as any;
+
+      const mockProfile = {
+        id: mockUserId,
+        user_id: mockUserId,
+        email: email,
+        full_name: name,
+        role: role,
+        mobile_number: '1234567890',
+        station_id: 'DEMO001',
+        center_address: 'Demo Center Address',
+        is_demo: true,
+        password_set: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Set the demo user state directly
+      setUser(mockUser);
+      setSession(mockSession);
+      setProfile(mockProfile);
+      setLoading(false);
+      
+      console.log('✅ Demo user set successfully:', { email, role, name });
+      
     } catch (error) {
       console.error('Error setting demo user:', error);
       setLoading(false);
