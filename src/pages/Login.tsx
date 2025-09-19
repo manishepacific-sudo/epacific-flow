@@ -2,14 +2,14 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, Building2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
-import { Button } from "@/components/ui/custom-button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GlassCard } from "@/components/ui/glass-card";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import epacificLogo from "@/assets/epacific-logo.png";
-import { mockUsers } from "@/utils/mockData";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -23,18 +23,33 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      const user = mockUsers.find(u => u.email === email);
-      
-      if (user && password === "password123") {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast({
+          title: "Login failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        // Get user profile to determine role
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role, full_name')
+          .eq('user_id', data.user.id)
+          .single();
+
         toast({
           title: "Login successful",
-          description: `Welcome back, ${user.fullName}!`,
+          description: `Welcome back, ${profile?.full_name || 'User'}!`,
         });
         
         // Redirect based on role
-        switch (user.role) {
+        switch (profile?.role) {
           case "admin":
             navigate("/dashboard/admin");
             break;
@@ -42,20 +57,20 @@ export default function Login() {
             navigate("/dashboard/manager");
             break;
           case "user":
-            navigate("/dashboard/user");
-            break;
           default:
             navigate("/dashboard/user");
+            break;
         }
-      } else {
-        toast({
-          title: "Login failed",
-          description: "Invalid email or password. Try: any email from mock data with password 'password123'",
-          variant: "destructive",
-        });
       }
+    } catch (error) {
+      toast({
+        title: "Login failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -118,7 +133,7 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="your.email@epacific.com"
+                  placeholder="your.email@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 glass-button"
@@ -161,10 +176,17 @@ export default function Login() {
               variant="hero"
               size="lg"
               className="w-full"
-              loading={loading}
+              disabled={loading}
             >
               {loading ? "Signing in..." : "Sign In"}
             </Button>
+
+            <div className="text-center text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <Link to="/signup" className="text-primary hover:underline font-medium">
+                Create one here
+              </Link>
+            </div>
           </motion.form>
 
           {/* Demo Credentials */}
@@ -176,13 +198,11 @@ export default function Login() {
           >
             <h3 className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
               <Building2 className="h-4 w-4" />
-              Demo Credentials
+              Demo Access
             </h3>
             <div className="text-xs text-muted-foreground space-y-1">
-              <p><strong>Admin:</strong> admin@epacific.com</p>
-              <p><strong>Manager:</strong> jane.manager@epacific.com</p>
-              <p><strong>User:</strong> john.doe@epacific.com</p>
-              <p><strong>Password:</strong> password123</p>
+              <p>Create an account or contact admin for access</p>
+              <p>System supports role-based access control</p>
             </div>
           </motion.div>
         </GlassCard>

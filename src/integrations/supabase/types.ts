@@ -14,7 +14,131 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      payments: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          created_at: string
+          id: string
+          method: string
+          phonepe_transaction_id: string | null
+          proof_url: string | null
+          report_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          method: string
+          phonepe_transaction_id?: string | null
+          proof_url?: string | null
+          report_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          method?: string
+          phonepe_transaction_id?: string | null
+          proof_url?: string | null
+          report_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          center_address: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          mobile_number: string
+          role: string
+          station_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          center_address: string
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          mobile_number: string
+          role?: string
+          station_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          center_address?: string
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          mobile_number?: string
+          role?: string
+          station_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          attachment_url: string | null
+          created_at: string
+          description: string
+          id: string
+          manager_notes: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attachment_url?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          manager_notes?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attachment_url?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          manager_notes?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
