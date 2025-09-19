@@ -173,13 +173,7 @@ export default function UserManagement() {
 
   const sendPasswordReset = async (user: any) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/reset-password`
-      });
-
-      if (error) throw error;
-
-      // Also send via our custom email function
+      // For demo system, only use the custom email function
       const resetLink = `${window.location.origin}/reset-password`;
       
       const { error: emailError } = await supabase.functions.invoke('send-password-reset', {
@@ -191,7 +185,8 @@ export default function UserManagement() {
       });
 
       if (emailError) {
-        console.error('Custom email error:', emailError);
+        console.error('Email send error:', emailError);
+        throw new Error(emailError.message || 'Failed to send reset email');
       }
 
       toast({
