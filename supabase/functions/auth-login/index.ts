@@ -216,27 +216,33 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Returning successful response');
 
-    const response = new Response(
-      JSON.stringify({ 
-        user: authData.user,
-        profile: profile,
-        session: authData.session
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
+    // Create response with user data
+    const responseData = {
+      user: authData.user,
+      profile: profile,
+      session: authData.session
+    };
+
+    const responseHeaders = { 
+      "Content-Type": "application/json", 
+      ...corsHeaders 
+    };
 
     // Set HttpOnly cookies for session management
     if (authData.session?.access_token && authData.session?.refresh_token) {
-      response.headers.set('Set-Cookie', [
+      responseHeaders['Set-Cookie'] = [
         `sb-access-token=${authData.session.access_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600; Path=/`,
         `sb-refresh-token=${authData.session.refresh_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`
-      ].join(', '));
+      ].join(', ');
     }
 
-    return response;
+    return new Response(
+      JSON.stringify(responseData),
+      {
+        status: 200,
+        headers: responseHeaders,
+      }
+    );
 
   } catch (error: any) {
     console.error("Error in auth-login function:", error);
