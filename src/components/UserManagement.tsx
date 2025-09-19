@@ -66,13 +66,24 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Use edge function to fetch users (bypasses RLS for demo mode)
+      const { data: result, error } = await supabase.functions.invoke('get-users', {
+        body: { admin_email: profile?.email }
+      });
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (error) {
+        console.error('Error fetching users via edge function:', error);
+        // Fallback to direct query
+        const { data, error: directError } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (directError) throw directError;
+        setUsers(data || []);
+      } else {
+        setUsers(result.users || []);
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({

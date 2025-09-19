@@ -44,15 +44,16 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [usersRes, reportsRes, paymentsRes] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('reports').select('*').order('created_at', { ascending: false }),
-        supabase.from('payments').select('*').order('created_at', { ascending: false })
+      // Use edge functions to fetch data (bypasses RLS for demo mode)
+      const [usersResult, reportsResult, paymentsResult] = await Promise.all([
+        supabase.functions.invoke('get-users', { body: { admin_email: user?.email } }),
+        supabase.functions.invoke('get-reports', { body: { admin_email: user?.email } }),
+        supabase.functions.invoke('get-payments', { body: { admin_email: user?.email } })
       ]);
 
-      const users = usersRes.data || [];
-      const reports = reportsRes.data || [];
-      const payments = paymentsRes.data || [];
+      const users = usersResult.data?.users || [];
+      const reports = reportsResult.data?.reports || [];
+      const payments = paymentsResult.data?.payments || [];
 
       const pendingReports = reports.filter(r => r.status === 'pending_review').length;
       const pendingPayments = payments.filter(p => p.status === 'pending_review').length;
@@ -74,6 +75,40 @@ export default function AdminDashboard() {
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      
+      // Fallback to direct queries
+      try {
+        const [usersRes, reportsRes, paymentsRes] = await Promise.all([
+          supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+          supabase.from('reports').select('*').order('created_at', { ascending: false }),
+          supabase.from('payments').select('*').order('created_at', { ascending: false })
+        ]);
+
+        const users = usersRes.data || [];
+        const reports = reportsRes.data || [];
+        const payments = paymentsRes.data || [];
+
+        const pendingReports = reports.filter(r => r.status === 'pending_review').length;
+        const pendingPayments = payments.filter(p => p.status === 'pending_review').length;
+        const totalRevenue = payments
+          .filter(p => p.status === 'verified')
+          .reduce((sum, p) => sum + p.amount, 0);
+
+        setStats({
+          totalUsers: users.length,
+          totalReports: reports.length,
+          pendingApprovals: pendingReports + pendingPayments,
+          totalRevenue
+        });
+
+        setRecentData({
+          users: users.slice(0, 3),
+          reports: reports.slice(0, 3),
+          payments: payments.slice(0, 3)
+        });
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+      }
     } finally {
       setLoading(false);
     }

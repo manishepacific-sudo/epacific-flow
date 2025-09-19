@@ -69,3 +69,12 @@ verify_jwt = false
 
 [functions.create-user]
 verify_jwt = false
+
+[functions.get-users]
+verify_jwt = false
+
+[functions.get-reports]
+verify_jwt = false
+
+[functions.get-payments]
+verify_jwt = false
