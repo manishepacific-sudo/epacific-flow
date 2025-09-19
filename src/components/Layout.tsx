@@ -36,10 +36,9 @@ export default function Layout({ children, role }: LayoutProps) {
   const menuItems = {
     admin: [
       { icon: Home, label: "Dashboard", path: "/dashboard/admin" },
-      { icon: Users, label: "Users", path: "/users" },
-      { icon: FileText, label: "Reports", path: "/reports" },
-      { icon: CreditCard, label: "Payments", path: "/payments" },
-      { icon: Camera, label: "Attendance", path: "/attendance" },
+      { icon: Users, label: "User Management", path: "/dashboard/admin" }, // Tab within dashboard
+      { icon: FileText, label: "All Reports", path: "/reports" },
+      { icon: CreditCard, label: "Payment Reviews", path: "/payments" },
       { icon: Settings, label: "Settings", path: "/settings" },
     ],
     manager: [
