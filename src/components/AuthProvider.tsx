@@ -38,10 +38,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setDemoUser = (email: string, role: string, name: string) => {
     console.log('🎭 Setting demo user:', { email, role, name });
-    // Create a proper UUID for demo users by using a deterministic approach
-    // Convert email to a consistent UUID format
-    const emailHash = btoa(email).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
-    const demoId = `00000000-${emailHash.substring(0, 4)}-${emailHash.substring(4, 8)}-${emailHash.substring(0, 4)}-${emailHash}000000`.substring(0, 36);
+    // Create a proper UUID for demo users using deterministic hex conversion
+    const emailBytes = new TextEncoder().encode(email);
+    const hex = Array.from(emailBytes, byte => byte.toString(16).padStart(2, '0')).join('').substring(0, 32);
+    const paddedHex = (hex + '0'.repeat(32)).substring(0, 32); // Ensure 32 hex chars
+    const demoId = `${paddedHex.substring(0, 8)}-${paddedHex.substring(8, 12)}-${paddedHex.substring(12, 16)}-${paddedHex.substring(16, 20)}-${paddedHex.substring(20, 32)}`;
     const mockUser = {
       id: demoId,
       email: email,
