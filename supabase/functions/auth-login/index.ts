@@ -96,7 +96,7 @@ const handler = async (req: Request): Promise<Response> => {
           .from('profiles')
           .select('*')
           .eq('user_id', signInResult.data.user.id)
-          .single();
+          .maybeSingle();
 
         console.log('📊 Profile result - error:', profileResult.error?.message);
         console.log('📊 Profile result - role:', profileResult.data?.role);
@@ -160,7 +160,7 @@ const handler = async (req: Request): Promise<Response> => {
         .update({ role: demoAccount.role })
         .eq('user_id', createResult.data.user.id)
         .select()
-        .single();
+        .maybeSingle();
 
       console.log('📊 Profile update - error:', updateResult.error?.message);
 
