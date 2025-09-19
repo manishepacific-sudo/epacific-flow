@@ -50,7 +50,7 @@ const App = () => (
                 </ProtectedRoute>
               } />
               <Route path="/upload/report" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['user']}>
                   <ReportUpload />
                 </ProtectedRoute>
               } />
