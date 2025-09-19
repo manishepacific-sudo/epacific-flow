@@ -52,13 +52,11 @@ export default function ReportUpload() {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'application/pdf': ['.pdf'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'image/*': ['.png', '.jpg', '.jpeg'],
+      'text/csv': ['.csv'],
+      'text/html': ['.html', '.htm'],
     },
     maxFiles: 1,
-    maxSize: 20 * 1024 * 1024, // 20MB
+    maxSize: 10 * 1024 * 1024, // 10MB
   });
 
   const handleSubmit = async () => {
@@ -182,9 +180,8 @@ export default function ReportUpload() {
                     Or click to browse files
                   </p>
                   <div className="flex justify-center gap-2">
-                    <Badge variant="secondary">PDF</Badge>
-                    <Badge variant="secondary">Excel</Badge>
-                    <Badge variant="secondary">Image</Badge>
+                    <Badge variant="secondary">CSV</Badge>
+                    <Badge variant="secondary">HTML</Badge>
                   </div>
                 </div>
               )}
@@ -271,10 +268,9 @@ export default function ReportUpload() {
               <div>
                 <h4 className="font-medium mb-2">Supported Files</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• PDF documents</li>
-                  <li>• Excel files (.xls, .xlsx)</li>
-                  <li>• Image files (PNG, JPG, JPEG)</li>
-                  <li>• Maximum file size: 20MB</li>
+                  <li>• CSV files (.csv)</li>
+                  <li>• HTML files (.html, .htm)</li>
+                  <li>• Maximum file size: 10MB</li>
                 </ul>
               </div>
               
