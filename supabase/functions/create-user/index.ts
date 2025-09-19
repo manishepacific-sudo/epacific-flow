@@ -58,7 +58,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('👤 Creating Supabase auth user first...');
     
     // First create the auth user
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    let { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       email_confirm: true,
       user_metadata: {
@@ -70,18 +70,59 @@ const handler = async (req: Request): Promise<Response> => {
       }
     });
 
+    console.log('📊 Auth creation result:', { 
+      success: !!authUser?.user, 
+      userId: authUser?.user?.id,
+      errorCode: authError?.status,
+      errorMessage: authError?.message 
+    });
+
     if (authError) {
-      console.error('❌ Auth user creation error:', authError);
+      console.error('❌ Auth user creation error:', JSON.stringify(authError, null, 2));
+      
+      // Handle specific auth errors
+      if (authError.message?.includes('already registered') || authError.status === 422) {
+        console.log('🔄 User already exists, trying to get existing user...');
+        
+        // Try to get existing user by email
+        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const existingUser = existingUsers.users.find(u => u.email === email);
+        
+        if (existingUser) {
+          console.log('✅ Found existing user:', existingUser.id);
+          // Use existing user data
+          authUser = { user: existingUser };
+        } else {
+          console.error('❌ User should exist but not found');
+          return new Response(
+            JSON.stringify({ error: "User creation failed: User exists but cannot be retrieved" }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
+        }
+      } else {
+        return new Response(
+          JSON.stringify({ error: "Failed to create auth user: " + authError.message }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+    }
+
+    if (!authUser?.user) {
+      console.error('❌ No auth user data after creation/retrieval');
       return new Response(
-        JSON.stringify({ error: "Failed to create auth user: " + authError.message }),
+        JSON.stringify({ error: "Failed to get user data" }),
         {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
     }
-
-    console.log('✅ Auth user created:', authUser.user.id);
 
     // Wait a moment for the trigger to create the profile
     console.log('⏳ Waiting for profile creation trigger...');
