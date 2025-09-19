@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GlassCard } from "@/components/ui/glass-card";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -211,13 +212,18 @@ export default function Login() {
 
   return (
     <AuthLayout>
+      {/* Theme Toggle - Fixed position */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+      
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.2 }}
         className="w-full max-w-md"
       >
-        <GlassCard hover={false} className="p-8">
+        <GlassCard hover={false} className="p-8" glass={false}>
           {/* Logo and Header */}
           <div className="text-center mb-8">
             <motion.div
@@ -324,10 +330,10 @@ export default function Login() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2 }}
-            className="mt-6 p-6 bg-gray-50 rounded-xl border border-gray-200"
+            className="mt-6 p-6 bg-muted/50 dark:bg-muted/30 rounded-xl border border-border"
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
                 Demo Access
               </h3>
@@ -340,10 +346,10 @@ export default function Login() {
                 Setup Demo Accounts
               </Button>
             </div>
-            <div className="text-sm text-gray-600 space-y-2">
-              <p><strong className="text-gray-900">User:</strong> john.doe@epacific.com / password123</p>
-              <p><strong className="text-gray-900">Manager:</strong> jane.manager@epacific.com / password123</p>
-              <p><strong className="text-gray-900">Admin:</strong> admin@epacific.com / password123</p>
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p><strong className="text-foreground">User:</strong> john.doe@epacific.com / password123</p>
+              <p><strong className="text-foreground">Manager:</strong> jane.manager@epacific.com / password123</p>
+              <p><strong className="text-foreground">Admin:</strong> admin@epacific.com / password123</p>
             </div>
           </motion.div>
         </GlassCard>

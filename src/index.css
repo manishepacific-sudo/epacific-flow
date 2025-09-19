@@ -17,10 +17,12 @@
     /* Primary Brand Colors - Blue */
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 98%;
+    --primary-glow: 221 83% 63%;
     
     /* Secondary Colors - Subtle gray */
     --secondary: 210 40% 96%;
     --secondary-foreground: 222 84% 5%;
+    --secondary-glow: 210 40% 86%;
     
     /* Status Colors */
     --success: 142 76% 36%;
@@ -45,22 +47,34 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 84% 5%;
     
+    /* Glass Effects */
+    --glass: 255 255 255 / 0.1;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-glow)));
+    --gradient-background: linear-gradient(135deg, hsl(0 0% 100%), hsl(0 0% 98%));
+    --gradient-glass: linear-gradient(135deg, hsl(255 255 255 / 0.1), hsl(255 255 255 / 0.2));
+    
+    /* Shadows */
+    --shadow-glow: 0 10px 30px -10px hsl(var(--primary) / 0.3);
+    --shadow-success: 0 10px 30px -10px hsl(var(--success) / 0.3);
+    --shadow-glass: 0 8px 32px hsl(0 0% 0% / 0.1);
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    
     --radius: 8px;
 
+    /* Sidebar */
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -70,12 +84,29 @@
     --foreground: 0 0% 98%;
     
     /* Card & Surface Colors */
-    --card: 240 10% 3.9%;
+    --card: 240 10% 8%;
     --card-foreground: 0 0% 98%;
-    --glass: 240 10% 3.9% / 0.7;
+    
+    /* Primary Brand Colors - Enhanced for dark mode */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 9%;
+    --primary-glow: 217 91% 70%;
+    
+    /* Secondary Colors */
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --secondary-glow: 240 4% 26%;
+    
+    /* Status Colors */
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 9%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 9%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
     
     /* Neutral Colors */
-    --muted: 240 5% 26%;
+    --muted: 240 4% 16%;
     --muted-foreground: 240 5% 65%;
     --accent: 240 4% 16%;
     --accent-foreground: 0 0% 98%;
@@ -83,20 +114,29 @@
     /* Border & Input */
     --border: 240 4% 16%;
     --input: 240 4% 16%;
+    --ring: 217 91% 60%;
     
     /* Popover */
-    --popover: 240 10% 3.9%;
+    --popover: 240 10% 8%;
     --popover-foreground: 0 0% 98%;
     
-    /* Status Colors */
-    --warning-foreground: 0 0% 9%;
+    /* Glass Effects */
+    --glass: 240 10% 20% / 0.3;
     
     /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-glow)));
     --gradient-background: linear-gradient(135deg, hsl(240 10% 3.9%), hsl(240 8% 6%));
     --gradient-glass: linear-gradient(135deg, hsl(240 10% 20% / 0.1), hsl(240 10% 30% / 0.2));
     
     /* Shadows */
-    --shadow-glass: 0 8px 32px hsl(240 10% 3.9% / 0.3);
+    --shadow-glow: 0 10px 30px -10px hsl(var(--primary) / 0.4);
+    --shadow-success: 0 10px 30px -10px hsl(var(--success) / 0.4);
+    --shadow-glass: 0 8px 32px hsl(240 10% 3.9% / 0.5);
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     /* Dark Mode Sidebar */
     --sidebar-background: 240 5.9% 10%;
@@ -106,6 +146,7 @@
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -116,7 +157,8 @@
 
   body {
     @apply bg-background text-foreground overflow-x-hidden transition-colors duration-300;
-    background: var(--gradient-background);
+    background: hsl(var(--background));
+    background-image: var(--gradient-background);
   }
 }
 

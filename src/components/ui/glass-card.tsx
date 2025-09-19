@@ -8,10 +8,11 @@ interface GlassCardProps {
   delay?: number;
   className?: string;
   onClick?: () => void;
+  glass?: boolean;
 }
 
 const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
-  ({ className, children, hover = true, delay = 0, onClick }, ref) => {
+  ({ className, children, hover = true, delay = 0, onClick, glass = false }, ref) => {
     return (
       <motion.div
         ref={ref}
@@ -30,8 +31,12 @@ const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
           transition: { duration: 0.2 }
         } : undefined}
         className={cn(
-          "glass-card p-6 transition-all duration-300",
-          hover && "hover:shadow-glass cursor-pointer",
+          // Base styles with theme-aware backgrounds
+          "backdrop-blur-md rounded-2xl border transition-all duration-300",
+          glass 
+            ? "bg-card/60 dark:bg-card/40 border-border/50" 
+            : "bg-card/95 border-border",
+          hover && "hover:shadow-glow hover:bg-card/100 dark:hover:bg-card/60 cursor-pointer",
           className
         )}
         onClick={onClick}
