@@ -1,5 +1,39 @@
 # Welcome to your Lovable project
 
+## Authentication & Admin Bootstrap System
+
+This project features a complete authentication system with admin bootstrap functionality and user invitation flows.
+
+### Demo Admin Account (Development Only)
+
+For development and testing purposes, a demo admin account is available:
+
+**Email:** `admin@demo.local`  
+**Password:** `Admin@123`
+
+⚠️ **IMPORTANT:** This demo account should be removed in production environments.
+
+### Features
+
+#### 🔐 Authentication System
+- **Secure Login:** Email/password authentication with Supabase Auth
+- **Magic Link Invitations:** Admin can invite users via email
+- **First-time Password Setup:** Invited users set their password on first login
+- **Role-based Access:** Admin, Manager, and User roles with appropriate permissions
+- **Demo Account Support:** Marked with `is_demo = true` for filtering
+
+#### 👤 User Management
+- **Admin Bootstrap:** Automatic demo admin creation on first deployment
+- **User Invitations:** Admins can invite users with specific roles
+- **Password Requirements:** Strong password validation with visual feedback
+- **Profile Management:** User profiles with roles and metadata
+
+#### 🎨 Modern UI/UX
+- **Glassmorphism Design:** Beautiful animated glass-effect login interface
+- **Responsive Layout:** Works perfectly on mobile and desktop
+- **Framer Motion Animations:** Smooth transitions and micro-interactions
+- **Accessible Forms:** ARIA labels and keyboard navigation support
+
 ## Project info
 
 **URL**: https://lovable.dev/projects/548fe184-ba6f-426c-bdf6-cf1a0c71f09d

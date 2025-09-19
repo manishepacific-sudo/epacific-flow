@@ -2,70 +2,69 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, CheckCircle } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import AuthLayout from "@/components/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GlassCard } from "@/components/ui/glass-card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import epacificLogo from "@/assets/epacific-logo.png";
 
 export default function SetPassword() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userEmail, setUserEmail] = useState("");
-  const token = searchParams.get('token');
+  
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (!token) {
-      toast({
-        title: "Invalid invitation",
-        description: "This invitation link is invalid or expired",
-        variant: "destructive"
-      });
-      navigate('/login');
-      return;
-    }
+    // Get current session to check if user is signed in via magic link
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserEmail(session.user.email || '');
+        
+        // Check if password is already set
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('password_set')
+          .eq('user_id', session.user.id)
+          .single();
+        
+        if (profile?.password_set) {
+          toast({
+            title: "Password already set",
+            description: "Redirecting to login page",
+          });
+          navigate('/login');
+        }
+      } else {
+        toast({
+          title: "Session expired",
+          description: "Please click the invitation link again",
+          variant: "destructive"
+        });
+        navigate('/login');
+      }
+    };
 
-    // Get user info from token (this would typically come from a more secure method)
-    fetchUserInfo();
-  }, [token, navigate, toast]);
-
-  const fetchUserInfo = async () => {
-    try {
-      // In a real implementation, you'd verify the token server-side
-      // For now, we'll just show a generic setup form
-      setUserEmail("user@example.com"); // This would come from token verification
-    } catch (error) {
-      console.error('Error fetching user info:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load invitation details",
-        variant: "destructive"
-      });
-      navigate('/login');
-    }
-  };
+    checkSession();
+  }, [navigate, toast]);
 
   const validatePassword = (password: string) => {
-    const minLength = password.length >= 8;
-    const hasNumber = /\d/.test(password);
-    const hasLetter = /[a-zA-Z]/.test(password);
-    
-    return {
-      isValid: minLength && hasNumber && hasLetter,
-      errors: [
-        !minLength && "Password must be at least 8 characters",
-        !hasNumber && "Password must contain at least one number",
-        !hasLetter && "Password must contain at least one letter"
-      ].filter(Boolean)
+    const checks = {
+      length: password.length >= 8,
+      hasNumber: /\d/.test(password),
+      hasLetter: /[a-zA-Z]/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password)
     };
+    
+    const isValid = Object.values(checks).every(Boolean);
+    return { isValid, checks };
   };
 
   const handleSetPassword = async (e: React.FormEvent) => {
@@ -74,17 +73,17 @@ export default function SetPassword() {
     if (password !== confirmPassword) {
       toast({
         title: "Passwords don't match",
-        description: "Please make sure both passwords are identical",
+        description: "Please ensure both passwords are identical",
         variant: "destructive"
       });
       return;
     }
 
-    const validation = validatePassword(password);
-    if (!validation.isValid) {
+    const { isValid } = validatePassword(password);
+    if (!isValid) {
       toast({
         title: "Password requirements not met",
-        description: validation.errors.join(", "),
+        description: "Please ensure your password meets all requirements",
         variant: "destructive"
       });
       return;
@@ -93,18 +92,44 @@ export default function SetPassword() {
     setLoading(true);
 
     try {
-      // In a real implementation, you'd update the user's password via a secure API
-      // For now, we'll simulate success
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Update the user's password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update the profile to mark password as set
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ password_set: true })
+          .eq('user_id', user.id);
+
+        if (profileError) {
+          console.error("Profile update error:", profileError);
+          // Don't throw - password was set successfully
+        }
+      }
 
       toast({
         title: "Password set successfully",
-        description: "You can now log in with your new password",
+        description: "You can now sign in with your email and password",
       });
 
-      navigate('/login');
+      // Sign out the user so they can log in normally
+      await supabase.auth.signOut();
+      
+      // Redirect to login page
+      setTimeout(() => {
+        navigate('/login');
+      }, 1000);
+
     } catch (error: any) {
-      console.error('Error setting password:', error);
+      console.error('Set password error:', error);
       toast({
         title: "Failed to set password",
         description: error.message || "An unexpected error occurred",
@@ -115,147 +140,161 @@ export default function SetPassword() {
     }
   };
 
-  const validation = validatePassword(password);
+  const { checks } = validatePassword(password);
 
   return (
-    <AuthLayout>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-700 via-purple-600 to-pink-500 flex items-center justify-center p-4">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: 'easeOut' }}
         className="w-full max-w-md"
       >
-        <GlassCard hover={false} className="p-8">
-          {/* Logo and Header */}
-          <div className="text-center mb-8">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ 
-                type: "spring", 
-                stiffness: 200, 
-                damping: 20,
-                delay: 0.4 
-              }}
-              className="mb-6"
-            >
-              <img 
-                src={epacificLogo} 
-                alt="Epacific Technologies" 
-                className="w-24 h-24 mx-auto rounded-2xl shadow-glow dark:bg-white dark:p-2"
-              />
-            </motion.div>
+        <div className="backdrop-blur-lg bg-white/10 border-white/10 rounded-2xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
+          {/* Subtle inner glow */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-2xl"></div>
+          <div className="relative z-10">
             
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
+            {/* Logo and Header */}
+            <div className="text-center mb-8">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 200, 
+                  damping: 20,
+                  delay: 0.2 
+                }}
+                className="mb-6"
+              >
+                <img 
+                  src={epacificLogo} 
+                  alt="Epacific Technologies" 
+                  className="w-20 h-20 mx-auto rounded-2xl shadow-2xl"
+                />
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <h1 className="text-2xl font-bold text-white mb-2">
+                  Set Your Password
+                </h1>
+                <p className="text-white/70 text-sm">
+                  Welcome! Please create a secure password for your account
+                </p>
+                {userEmail && (
+                  <p className="text-white/60 text-xs mt-1">{userEmail}</p>
+                )}
+              </motion.div>
+            </div>
+
+            <motion.form
+              onSubmit={handleSetPassword}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
+              className="space-y-6"
             >
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                Set Your Password
-              </h1>
-              <p className="text-gray-600">
-                Create a secure password for your account
-              </p>
-            </motion.div>
-          </div>
-
-          {/* Set Password Form */}
-          <motion.form
-            onSubmit={handleSetPassword}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-            className="space-y-6"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-900">
-                New Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your new password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-gray-900">
-                Confirm Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password Requirements */}
-            {password && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="space-y-2"
-              >
-                <p className="text-sm font-medium text-gray-700">Password Requirements:</p>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className={`h-4 w-4 ${password.length >= 8 ? 'text-green-500' : 'text-gray-300'}`} />
-                    <span className={password.length >= 8 ? 'text-green-700' : 'text-gray-500'}>
-                      At least 8 characters
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className={`h-4 w-4 ${/\d/.test(password) ? 'text-green-500' : 'text-gray-300'}`} />
-                    <span className={/\d/.test(password) ? 'text-green-700' : 'text-gray-500'}>
-                      At least one number
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className={`h-4 w-4 ${/[a-zA-Z]/.test(password) ? 'text-green-500' : 'text-gray-300'}`} />
-                    <span className={/[a-zA-Z]/.test(password) ? 'text-green-700' : 'text-gray-500'}>
-                      At least one letter
-                    </span>
-                  </div>
+              <div className="space-y-3">
+                <Label htmlFor="password" className="text-white/90 text-sm">
+                  New Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 h-4 w-4 z-10" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a strong password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-2 focus:ring-white/20"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white/90 transition-colors z-10"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-              </motion.div>
-            )}
+              </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading || !validation.isValid || password !== confirmPassword}
-            >
-              {loading ? "Setting Password..." : "Set Password"}
-            </Button>
-          </motion.form>
-        </GlassCard>
+              <div className="space-y-3">
+                <Label htmlFor="confirmPassword" className="text-white/90 text-sm">
+                  Confirm Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 h-4 w-4 z-10" />
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-2 focus:ring-white/20"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white/90 transition-colors z-10"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Password Requirements */}
+              {password && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="bg-white/5 border border-white/10 rounded-lg p-4"
+                >
+                  <h4 className="text-white/90 text-sm font-medium mb-3">Password Requirements:</h4>
+                  <div className="space-y-2">
+                    {[
+                      { label: "At least 8 characters", met: checks.length },
+                      { label: "Contains a number", met: checks.hasNumber },
+                      { label: "Contains a letter", met: checks.hasLetter },
+                      { label: "Contains a special character", met: checks.hasSpecial }
+                    ].map((requirement, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <CheckCircle 
+                          className={`h-4 w-4 ${
+                            requirement.met ? 'text-green-400' : 'text-white/40'
+                          }`}
+                        />
+                        <span 
+                          className={`text-xs ${
+                            requirement.met ? 'text-white/90' : 'text-white/60'
+                          }`}
+                        >
+                          {requirement.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full bg-white/20 hover:bg-white/30 text-white border-white/20 transition-all duration-300 focus:ring-2 focus:ring-white/20"
+                size="lg"
+                disabled={loading || !validatePassword(password).isValid || password !== confirmPassword}
+              >
+                {loading ? "Setting Password..." : "Set Password & Continue"}
+              </Button>
+            </motion.form>
+          </div>
+        </div>
       </motion.div>
-    </AuthLayout>
+    </div>
   );
 }
