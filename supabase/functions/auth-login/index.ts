@@ -223,33 +223,45 @@ const handler = async (req: Request): Promise<Response> => {
       session: authData.session
     };
 
-    const responseHeaders = { 
-      "Content-Type": "application/json", 
-      ...corsHeaders 
-    };
+    console.log('Response data prepared:', { 
+      hasUser: !!responseData.user, 
+      hasProfile: !!responseData.profile, 
+      hasSession: !!responseData.session 
+    });
+
+    // Create headers properly
+    const headers = new Headers();
+    headers.set("Content-Type", "application/json");
+    headers.set("Access-Control-Allow-Origin", "*");
+    headers.set("Access-Control-Allow-Headers", "authorization, x-client-info, apikey, content-type");
+    headers.set("Access-Control-Allow-Credentials", "true");
 
     // Set HttpOnly cookies for session management
     if (authData.session?.access_token && authData.session?.refresh_token) {
-      responseHeaders['Set-Cookie'] = [
-        `sb-access-token=${authData.session.access_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600; Path=/`,
-        `sb-refresh-token=${authData.session.refresh_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`
-      ].join(', ');
+      console.log('Setting session cookies');
+      headers.append('Set-Cookie', `sb-access-token=${authData.session.access_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=3600; Path=/`);
+      headers.append('Set-Cookie', `sb-refresh-token=${authData.session.refresh_token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`);
     }
 
+    console.log('Creating response with status 200');
     return new Response(
       JSON.stringify(responseData),
       {
         status: 200,
-        headers: responseHeaders,
+        headers: headers,
       }
     );
 
   } catch (error: any) {
     console.error("Error in auth-login function:", error);
+    console.error("Error stack:", error.stack);
+    console.error("Error details:", JSON.stringify(error, null, 2));
+    
     return new Response(
       JSON.stringify({ 
         error: "Login failed",
-        details: error.message 
+        details: error.message,
+        type: error.name || "UnknownError"
       }),
       {
         status: 500,
