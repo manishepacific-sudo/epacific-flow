@@ -31,6 +31,7 @@ import { ParsedReportData } from "@/types";
 
 export default function ReportUpload() {
   const [file, setFile] = useState<File | null>(null);
+  const [reportData, setReportData] = useState<ParsedReportData | null>(null);
   const [reportDate, setReportDate] = useState<Date>();
   const [parsing, setParsing] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -43,10 +44,26 @@ export default function ReportUpload() {
     if (!selectedFile) return;
 
     setFile(selectedFile);
-    toast({
-      title: "File uploaded successfully",
-      description: `${selectedFile.name} is ready for submission`,
-    });
+    setParsing(true);
+    setReportData(null);
+
+    try {
+      const parsedData = await parseReport(selectedFile);
+      setReportData(parsedData);
+      toast({
+        title: "File parsed successfully",
+        description: `Found total amount: ₹${parsedData.amount.toLocaleString()}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Parsing failed",
+        description: error instanceof Error ? error.message : "Failed to parse file",
+        variant: "destructive",
+      });
+      setFile(null);
+    } finally {
+      setParsing(false);
+    }
   }, [toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -60,10 +77,10 @@ export default function ReportUpload() {
   });
 
   const handleSubmit = async () => {
-    if (!file || !user || !reportDate) {
+    if (!file || !user || !reportDate || !reportData) {
       toast({
         title: "Missing information",
-        description: "Please select a file and report date",
+        description: "Please select a file, report date, and ensure file is parsed",
         variant: "destructive"
       });
       return;
@@ -82,13 +99,13 @@ export default function ReportUpload() {
 
       if (uploadError) throw uploadError;
 
-      // Create report record with default title and description
+      // Create report record with parsed amount
       const { data: report, error: reportError } = await supabase
         .from('reports')
         .insert({
           user_id: user.id,
           attachment_url: fileName,
-          status: 'pending'
+          status: 'pending_approval'
         })
         .select()
         .single();
@@ -96,11 +113,14 @@ export default function ReportUpload() {
       if (reportError) throw reportError;
 
       toast({
-        title: "Report submitted successfully",
-        description: "Redirecting to payment page...",
+        title: "Report sent for approval",
+        description: "Proceed to payment. Redirecting to payment page...",
       });
       
-      // Redirect immediately to payment page
+      // Store parsed amount in sessionStorage for payment page
+      sessionStorage.setItem('reportAmount', reportData.amount.toString());
+      
+      // Redirect to payment page
       navigate(`/payment/${report.id}`);
     } catch (error) {
       console.error('Error submitting report:', error);
@@ -155,14 +175,25 @@ export default function ReportUpload() {
                 animate={{ scale: isDragActive ? 1.1 : 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
               >
-                {file ? (
+                {parsing ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-16 h-16 mx-auto mb-4 border-4 border-primary border-t-transparent rounded-full"
+                  />
+                ) : file ? (
                   <Check className="w-16 h-16 mx-auto mb-4 text-success" />
                 ) : (
                   <Upload className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
                 )}
               </motion.div>
 
-              {file ? (
+              {parsing ? (
+                <div>
+                  <p className="text-lg font-medium mb-2">Parsing file...</p>
+                  <p className="text-muted-foreground">Please wait while we analyze your report</p>
+                </div>
+              ) : file ? (
                 <div>
                   <p className="text-lg font-medium mb-2 text-success">
                     File uploaded successfully
@@ -190,23 +221,32 @@ export default function ReportUpload() {
         </motion.div>
 
         {/* Report Details */}
-        {file && (
+        {reportData && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
+            className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8"
           >
+            {/* Report Summary */}
             <GlassCard>
               <div className="flex items-center gap-2 mb-4">
-                <FileText className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Report Details</h3>
+                <DollarSign className="h-5 w-5 text-success" />
+                <h3 className="text-lg font-semibold">Report Summary</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 glass-button rounded-lg">
-                  <span className="text-muted-foreground">Selected File</span>
+                  <span className="text-muted-foreground">Total Amount</span>
+                  <span className="text-2xl font-bold text-success">
+                    ₹{reportData.amount.toLocaleString()}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 glass-button rounded-lg">
+                  <span className="text-muted-foreground">Records Count</span>
                   <span className="font-medium">
-                    {file.name}
+                    {reportData.preview.length}+ entries
                   </span>
                 </div>
                 
@@ -242,11 +282,49 @@ export default function ReportUpload() {
                   className="w-full" 
                   onClick={handleSubmit}
                   loading={uploading}
-                  disabled={!file || !reportDate}
+                  disabled={!file || !reportDate || !reportData}
                 >
-                  {uploading ? 'Submitting...' : 'Submit Report'}
+                  {uploading ? 'Submitting...' : 'Submit for Approval'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+              </div>
+            </GlassCard>
+
+            {/* Data Preview */}
+            <GlassCard>
+              <div className="flex items-center gap-2 mb-4">
+                <Eye className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Data Preview</h3>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="text-sm text-muted-foreground">
+                  First {reportData.preview.length} rows from your file:
+                </div>
+                
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {reportData.preview.map((row, index) => (
+                    <div key={index} className="p-3 glass-button rounded-lg text-xs">
+                      <div className="grid gap-1">
+                        {Object.entries(row).slice(0, 3).map(([key, value]) => (
+                          <div key={key} className="flex justify-between">
+                            <span className="text-muted-foreground truncate max-w-24">
+                              {key}:
+                            </span>
+                            <span className="font-medium truncate">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-lg">
+                  <AlertCircle className="h-4 w-4 text-blue-400" />
+                  <span className="text-xs text-blue-400">
+                    Showing preview of parsed data
+                  </span>
+                </div>
               </div>
             </GlassCard>
           </motion.div>

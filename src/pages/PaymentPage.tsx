@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import RazorpayPayment from "@/components/RazorpayPayment";
 import { useToast } from "@/hooks/use-toast";
 import { useDropzone } from "react-dropzone";
 import { useParams, useNavigate } from "react-router-dom";
@@ -35,6 +36,8 @@ export default function PaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [reportAmount, setReportAmount] = useState<number>(25000);
+  const [razorpayPaymentId, setRazorpayPaymentId] = useState<string>("");
 
   useEffect(() => {
     if (id && user) {
@@ -63,6 +66,13 @@ export default function PaymentPage() {
       }
 
       setReport(data);
+      
+      // Get amount from sessionStorage (set during report upload)
+      const storedAmount = sessionStorage.getItem('reportAmount');
+      if (storedAmount) {
+        setReportAmount(parseFloat(storedAmount));
+        sessionStorage.removeItem('reportAmount'); // Clean up
+      }
     } catch (error) {
       console.error('Error fetching report:', error);
       toast({
@@ -91,7 +101,7 @@ export default function PaymentPage() {
       icon: CreditCard,
       description: "Credit/Debit Card, UPI, Net Banking",
       color: "bg-blue-500",
-      available: false
+      available: true
     },
     {
       id: "offline",
@@ -124,6 +134,25 @@ export default function PaymentPage() {
     maxSize: 5 * 1024 * 1024, // 5MB
   });
 
+  const handleRazorpaySuccess = async (paymentId: string, orderId: string) => {
+    setRazorpayPaymentId(paymentId);
+    setSelectedMethod("razorpay_completed");
+    
+    toast({
+      title: "Payment successful",
+      description: "Please upload payment proof to complete the process",
+    });
+  };
+
+  const handleRazorpayError = (error: any) => {
+    console.error('Razorpay payment failed:', error);
+    toast({
+      title: "Payment failed",
+      description: error.description || "Payment could not be processed",
+      variant: "destructive"
+    });
+  };
+
   const handlePayment = async () => {
     if (!selectedMethod) {
       toast({
@@ -134,10 +163,10 @@ export default function PaymentPage() {
       return;
     }
 
-    if (selectedMethod === "offline" && !proofFile) {
+    if ((selectedMethod === "offline" || selectedMethod === "razorpay_completed") && !proofFile) {
       toast({
         title: "Payment proof required",
-        description: "Please upload payment proof for offline payments",
+        description: "Please upload payment proof to complete the submission",
         variant: "destructive"
       });
       return;
@@ -169,18 +198,18 @@ export default function PaymentPage() {
         .insert({
           user_id: user.id,
           report_id: report.id,
-          amount: 25000, // Fixed amount for now
-          method: selectedMethod,
+          amount: reportAmount,
+          method: selectedMethod === "razorpay_completed" ? "razorpay" : selectedMethod,
           proof_url: proofUrl,
-          phonepe_transaction_id: transactionId || null,
+          phonepe_transaction_id: selectedMethod === "razorpay_completed" ? razorpayPaymentId : (transactionId || null),
           status: 'pending_review'
         });
 
       if (paymentError) throw paymentError;
 
       toast({
-        title: "Payment submitted successfully",
-        description: "Your payment has been sent for manager approval",
+        title: "Payment sent to manager for review",
+        description: "Your payment has been submitted and is pending approval",
       });
       
       navigate('/dashboard/user');
@@ -219,7 +248,7 @@ export default function PaymentPage() {
     );
   }
 
-  const amount = 25000; // Fixed amount for now
+  const amount = reportAmount;
 
   return (
     <Layout role="user">
@@ -331,6 +360,111 @@ export default function PaymentPage() {
             </div>
           </GlassCard>
         </motion.div>
+
+        {/* Razorpay Payment */}
+        {selectedMethod === "razorpay" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <GlassCard className="p-4 sm:p-6">
+              <h3 className="text-lg font-semibold mb-4">Razorpay Payment</h3>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-500/10 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-400">
+                      <p className="font-medium">Secure Online Payment</p>
+                      <p>Pay securely using Credit/Debit Cards, UPI, or Net Banking</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <RazorpayPayment
+                  amount={amount}
+                  onSuccess={handleRazorpaySuccess}
+                  onError={handleRazorpayError}
+                />
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
+        {/* Razorpay Proof Upload */}
+        {selectedMethod === "razorpay_completed" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <GlassCard className="p-4 sm:p-6">
+              <h3 className="text-lg font-semibold mb-4">Upload Payment Proof</h3>
+              
+              <div className="mb-4 p-3 bg-success/10 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-success">
+                    <p className="font-medium">Payment Successful!</p>
+                    <p>Payment ID: {razorpayPaymentId}</p>
+                    <p>Please upload a screenshot of the payment confirmation</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-xl p-6 sm:p-8 text-center transition-all duration-300 cursor-pointer ${
+                  isDragActive 
+                    ? 'border-primary bg-primary/5' 
+                    : proofFile 
+                      ? 'border-success bg-success/5' 
+                      : 'border-border hover:border-primary/50 hover:bg-primary/5'
+                }`}
+              >
+                <input {...getInputProps()} />
+                
+                <motion.div
+                  initial={{ scale: 1 }}
+                  animate={{ scale: isDragActive ? 1.1 : 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
+                  {proofFile ? (
+                    <Check className="w-12 h-12 mx-auto mb-3 text-success" />
+                  ) : (
+                    <Upload className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                  )}
+                </motion.div>
+
+                {proofFile ? (
+                  <div>
+                    <p className="text-base font-medium mb-2 text-success">
+                      File uploaded successfully
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      {proofFile.name} ({(proofFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-base font-medium mb-2">
+                      {isDragActive ? 'Drop your file here' : 'Upload payment screenshot'}
+                    </p>
+                    <p className="text-muted-foreground text-sm mb-3">
+                      Drag & drop or click to browse
+                    </p>
+                    <div className="flex justify-center gap-2">
+                      <Badge variant="secondary">JPG</Badge>
+                      <Badge variant="secondary">PNG</Badge>
+                      <Badge variant="secondary">PDF</Badge>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
 
         {/* Offline Payment Details */}
         {selectedMethod === "offline" && (
@@ -475,9 +609,13 @@ export default function PaymentPage() {
               className="w-full h-12 text-base"
               onClick={handlePayment}
               loading={processing}
-              disabled={!selectedMethod || (selectedMethod === "offline" && !proofFile)}
+              disabled={!selectedMethod || 
+                       (selectedMethod === "offline" && !proofFile) || 
+                       (selectedMethod === "razorpay_completed" && !proofFile)}
             >
-              {processing ? 'Processing...' : `Pay ₹${amount.toLocaleString()}`}
+              {processing ? 'Processing...' : 
+               selectedMethod === "razorpay" ? 'Proceed to Razorpay' : 
+               'Submit Payment'}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             
