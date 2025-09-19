@@ -39,13 +39,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // Try to restore session from HttpOnly cookies via our secure endpoint
-        const { data: sessionData, error } = await supabase.functions.invoke('session-verify');
+        // Get the current session from Supabase
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (!mounted) return;
 
-        if (error || sessionData?.error) {
-          console.log('No valid session found:', error || sessionData?.error);
+        if (error) {
+          console.log('Session error:', error);
           setUser(null);
           setSession(null);
           setProfile(null);
@@ -53,18 +53,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        console.log('Session restored from HttpOnly cookies:', sessionData);
-        
-        // Set the session in Supabase client for API calls
-        if (sessionData.session) {
-          await supabase.auth.setSession({
-            access_token: sessionData.session.access_token,
-            refresh_token: sessionData.session.refresh_token
-          });
+        if (session?.user) {
+          console.log('Session found, setting user data');
+          setUser(session.user);
+          setSession(session);
           
-          setUser(sessionData.user);
-          setSession(sessionData.session);
-          setProfile(sessionData.profile);
+          // Fetch profile
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+            
+            if (mounted) {
+              setProfile(profile);
+            }
+          } catch (error) {
+            console.error('Error fetching profile:', error);
+          }
+        } else {
+          console.log('No session found');
+          setUser(null);
+          setSession(null);
+          setProfile(null);
         }
         
       } catch (error) {
@@ -79,14 +91,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Also set up Supabase auth state listener for real-time updates
+    // Set up Supabase auth state listener for real-time updates
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('Auth state changed:', event, session);
+        console.log('Auth state changed:', event, session?.user?.email);
         
-        if (event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
           setSession(null);
           setProfile(null);
@@ -100,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .from('profiles')
               .select('*')
               .eq('user_id', session.user.id)
-              .single();
+              .maybeSingle();
             
             if (mounted) {
               setProfile(profile);
@@ -126,10 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Call our secure logout endpoint to clear HttpOnly cookies
-      await supabase.functions.invoke('auth-logout');
-      
-      // Also sign out from Supabase client
+      // Sign out from Supabase client
       await supabase.auth.signOut();
       
       setUser(null);
