@@ -78,9 +78,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     try {
       // First, try to sign in with existing credentials
-      console.log('🔑 Step 1: Attempting sign in with credentials...');
-      console.log('📧 Email:', email);
-      console.log('🔐 Password length:', password?.length);
+      console.log('🔑 Step 1: Attempting sign in...');
       
       const signInResult = await supabase.auth.signInWithPassword({
         email: email,
@@ -89,64 +87,27 @@ const handler = async (req: Request): Promise<Response> => {
       
       console.log('📊 Sign in result - error:', signInResult.error?.message);
       console.log('📊 Sign in result - user exists:', !!signInResult.data?.user);
-      console.log('📊 Sign in result - session exists:', !!signInResult.data?.session);
 
       if (signInResult.data?.user && !signInResult.error) {
-        console.log('✅ Sign in successful for existing user:', signInResult.data.user.id);
+        console.log('✅ Sign in successful, getting profile...');
         
-        // Get or create profile
-        console.log('👤 Step 2: Getting profile for user:', signInResult.data.user.id);
+        // Get the profile (should exist due to trigger)
         const profileResult = await supabaseAdmin
           .from('profiles')
           .select('*')
           .eq('user_id', signInResult.data.user.id)
           .single();
 
-        console.log('📊 Profile query result - error:', profileResult.error?.message);
-        console.log('📊 Profile query result - data exists:', !!profileResult.data);
+        console.log('📊 Profile result - error:', profileResult.error?.message);
+        console.log('📊 Profile result - role:', profileResult.data?.role);
 
-        let profileData = profileResult.data;
-        
-        if (!profileData) {
-          console.log('👤 Step 3: Creating missing profile...');
-          const insertResult = await supabaseAdmin
-            .from('profiles')
-            .upsert({
-              user_id: signInResult.data.user.id,
-              email: email,
-              full_name: demoAccount.name,
-              role: demoAccount.role,
-              mobile_number: '1234567890',
-              station_id: 'DEMO001',
-              center_address: 'Demo Center Address'
-            })
-            .select()
-            .single();
-            
-          console.log('📊 Profile insert result - error:', insertResult.error?.message);
-          console.log('📊 Profile insert result - data exists:', !!insertResult.data);
-          
-          if (insertResult.error) {
-            console.error('❌ Profile creation failed:', insertResult.error);
-            return new Response(
-              JSON.stringify({ error: 'Profile creation failed: ' + insertResult.error.message }),
-              { 
-                status: 500, 
-                headers: { "Content-Type": "application/json", ...corsHeaders }
-              }
-            );
-          }
-          
-          profileData = insertResult.data;
-        }
-
-        console.log('✅ Step 4: Returning successful auth response');
+        // Return successful authentication
         return new Response(
           JSON.stringify({
             message: "Authentication successful",
             user: signInResult.data.user,
             session: signInResult.data.session,
-            profile: profileData || {
+            profile: profileResult.data || {
               full_name: demoAccount.name,
               role: demoAccount.role,
               email: email
@@ -159,98 +120,95 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      // If sign in failed, the user might not exist yet
-      if (signInResult.error) {
-        console.log('🔐 Step 5: Sign in failed, creating new user...', signInResult.error.message);
-        
-        // Create new user
-        const createResult = await supabaseAdmin.auth.admin.createUser({
-          email: email,
-          password: password,
-          email_confirm: true,
-          user_metadata: {
-            full_name: demoAccount.name,
-            role: demoAccount.role
-          }
-        });
-
-        console.log('📊 User creation result - error:', createResult.error?.message);
-        console.log('📊 User creation result - user exists:', !!createResult.data?.user);
-
-        if (createResult.error) {
-          console.error('❌ User creation failed:', createResult.error);
-          return new Response(
-            JSON.stringify({ error: 'User creation failed: ' + createResult.error.message }),
-            { 
-              status: 500, 
-              headers: { "Content-Type": "application/json", ...corsHeaders }
-            }
-          );
+      // If sign in failed, create new user (trigger will create profile automatically)
+      console.log('🔐 Step 2: Creating new user...');
+      const createResult = await supabaseAdmin.auth.admin.createUser({
+        email: email,
+        password: password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: demoAccount.name,
+          role: demoAccount.role,
+          mobile_number: '1234567890',
+          station_id: 'DEMO001',
+          center_address: 'Demo Center Address'
         }
+      });
 
-        // Create profile for new user
-        console.log('👤 Step 6: Creating profile for new user...');
-        const newProfileResult = await supabaseAdmin
-          .from('profiles')
-          .upsert({
-            user_id: createResult.data.user.id,
-            email: email,
+      console.log('📊 User creation - error:', createResult.error?.message);
+      console.log('📊 User creation - user exists:', !!createResult.data?.user);
+
+      if (createResult.error) {
+        console.error('❌ User creation failed:', createResult.error);
+        return new Response(
+          JSON.stringify({ error: 'User creation failed: ' + createResult.error.message }),
+          { 
+            status: 500, 
+            headers: { "Content-Type": "application/json", ...corsHeaders }
+          }
+        );
+      }
+
+      // Wait a moment for the trigger to create the profile
+      console.log('⏳ Waiting for profile creation trigger...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Update the profile with the correct role (trigger creates basic profile)
+      console.log('👤 Step 3: Updating profile with correct role...');
+      const updateResult = await supabaseAdmin
+        .from('profiles')
+        .update({ role: demoAccount.role })
+        .eq('user_id', createResult.data.user.id)
+        .select()
+        .single();
+
+      console.log('📊 Profile update - error:', updateResult.error?.message);
+
+      // Now sign in the newly created user
+      console.log('🔑 Step 4: Signing in new user...');
+      const newSignInResult = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+
+      console.log('📊 New sign in - error:', newSignInResult.error?.message);
+
+      if (newSignInResult.error) {
+        console.error('❌ New user sign in failed:', newSignInResult.error);
+        return new Response(
+          JSON.stringify({ error: 'New user sign in failed: ' + newSignInResult.error.message }),
+          { 
+            status: 401, 
+            headers: { "Content-Type": "application/json", ...corsHeaders }
+          }
+        );
+      }
+
+      console.log('✅ Step 5: Authentication successful for new user');
+      return new Response(
+        JSON.stringify({
+          message: "Authentication successful",
+          user: newSignInResult.data.user,
+          session: newSignInResult.data.session,
+          profile: updateResult.data || {
             full_name: demoAccount.name,
             role: demoAccount.role,
-            mobile_number: '1234567890',
-            station_id: 'DEMO001',
-            center_address: 'Demo Center Address'
-          })
-          .select()
-          .single();
-          
-        console.log('📊 New profile result - error:', newProfileResult.error?.message);
-
-        // Now sign in the newly created user
-        console.log('🔑 Step 7: Signing in newly created user...');
-        const newSignInResult = await supabase.auth.signInWithPassword({
-          email: email,
-          password: password
-        });
-
-        console.log('📊 New sign in result - error:', newSignInResult.error?.message);
-        console.log('📊 New sign in result - user exists:', !!newSignInResult.data?.user);
-
-        if (newSignInResult.error) {
-          console.error('❌ New user sign in failed:', newSignInResult.error);
-          return new Response(
-            JSON.stringify({ error: 'New user sign in failed: ' + newSignInResult.error.message }),
-            { 
-              status: 401, 
-              headers: { "Content-Type": "application/json", ...corsHeaders }
-            }
-          );
-        }
-
-        console.log('✅ Step 8: Returning successful auth response for new user');
-        return new Response(
-          JSON.stringify({
-            message: "Authentication successful",
-            user: newSignInResult.data.user,
-            session: newSignInResult.data.session,
-            profile: newProfileResult.data || {
-              full_name: demoAccount.name,
-              role: demoAccount.role,
-              email: email
-            }
-          }),
-          { 
-            status: 200,
-            headers: { "Content-Type": "application/json", ...corsHeaders }
+            email: email
           }
-        );
-      }
+        }),
+        { 
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        }
+      );
 
     } catch (authError: any) {
-      console.error('❌ Catch block - Demo auth error:', authError);
-      console.error('❌ Error name:', authError.name);
-      console.error('❌ Error message:', authError.message);
-      console.error('❌ Error stack:', authError.stack);
+      console.error('❌ Catch block error:', authError);
+      console.error('❌ Error details:', {
+        name: authError.name,
+        message: authError.message,
+        stack: authError.stack
+      });
       return new Response(
         JSON.stringify({ 
           error: 'Authentication failed',
