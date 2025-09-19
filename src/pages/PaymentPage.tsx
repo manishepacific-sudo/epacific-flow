@@ -67,12 +67,9 @@ export default function PaymentPage() {
 
       setReport(data);
       
-      // Get amount from sessionStorage (set during report upload)
-      const storedAmount = sessionStorage.getItem('reportAmount');
-      if (storedAmount) {
-        setReportAmount(parseFloat(storedAmount));
-        sessionStorage.removeItem('reportAmount'); // Clean up
-      }
+      // Get amount from report database instead of sessionStorage
+      const storedAmount = data.amount || 25000; // Fallback if amount not stored
+      setReportAmount(storedAmount);
     } catch (error) {
       console.error('Error fetching report:', error);
       toast({

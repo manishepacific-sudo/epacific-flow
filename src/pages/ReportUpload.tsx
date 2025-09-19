@@ -105,6 +105,7 @@ export default function ReportUpload() {
         .insert({
           user_id: user.id,
           attachment_url: fileName,
+          amount: reportData.amount,
           status: 'pending_approval'
         })
         .select()

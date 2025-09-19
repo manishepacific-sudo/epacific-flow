@@ -108,6 +108,7 @@ export type Database = {
       }
       reports: {
         Row: {
+          amount: number | null
           attachment_url: string | null
           created_at: string
           description: string
@@ -120,6 +121,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          amount?: number | null
           attachment_url?: string | null
           created_at?: string
           description?: string
@@ -132,6 +134,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          amount?: number | null
           attachment_url?: string | null
           created_at?: string
           description?: string

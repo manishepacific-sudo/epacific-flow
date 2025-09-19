@@ -10,6 +10,8 @@ import {
   XCircle,
   AlertTriangle
 } from "lucide-react";
+import ManagerReportApproval from "@/components/ManagerReportApproval";
+import ManagerPaymentApproval from "@/components/ManagerPaymentApproval";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
@@ -410,6 +412,23 @@ export default function ManagerDashboard() {
               </div>
             </div>
           </GlassCard>
+        </motion.div>
+
+        {/* Detailed Approval Sections */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+        >
+          <ManagerReportApproval />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.9 }}
+        >
+          <ManagerPaymentApproval />
         </motion.div>
       </div>
     </Layout>
