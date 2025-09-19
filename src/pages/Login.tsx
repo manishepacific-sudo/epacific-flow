@@ -257,14 +257,14 @@ export default function Login() {
                 Email Address
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-foreground/60 h-4 w-4 z-10" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="your.email@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 glass-button"
+                  className="pl-10 bg-background/50 border-border/50 focus:border-primary"
                   required
                 />
               </div>
@@ -275,20 +275,20 @@ export default function Login() {
                 Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-foreground/60 h-4 w-4 z-10" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 glass-button"
+                  className="pl-10 pr-10 bg-background/50 border-border/50 focus:border-primary"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-foreground/60 hover:text-foreground transition-colors z-10"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
