@@ -31,9 +31,6 @@ import { ParsedReportData } from "@/types";
 
 export default function ReportUpload() {
   const [file, setFile] = useState<File | null>(null);
-  const [reportData, setReportData] = useState<ParsedReportData | null>(null);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [reportDate, setReportDate] = useState<Date>();
   const [parsing, setParsing] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -46,43 +43,29 @@ export default function ReportUpload() {
     if (!selectedFile) return;
 
     setFile(selectedFile);
-    setParsing(true);
-    setReportData(null);
-
-    try {
-      const parsedData = await parseReport(selectedFile);
-      setReportData(parsedData);
-      toast({
-        title: "File parsed successfully",
-        description: `Found total amount: ₹${parsedData.amount.toLocaleString()}`,
-      });
-    } catch (error) {
-      toast({
-        title: "Parsing failed",
-        description: error instanceof Error ? error.message : "Failed to parse file",
-        variant: "destructive",
-      });
-      setFile(null);
-    } finally {
-      setParsing(false);
-    }
+    toast({
+      title: "File uploaded successfully",
+      description: `${selectedFile.name} is ready for submission`,
+    });
   }, [toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'text/csv': ['.csv'],
-      'text/html': ['.html', '.htm'],
+      'application/pdf': ['.pdf'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'image/*': ['.png', '.jpg', '.jpeg'],
     },
     maxFiles: 1,
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: 20 * 1024 * 1024, // 20MB
   });
 
   const handleSubmit = async () => {
-    if (!file || !user || !title.trim() || !description.trim() || !reportDate) {
+    if (!file || !user || !reportDate) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields including report date",
+        description: "Please select a file and report date",
         variant: "destructive"
       });
       return;
@@ -101,15 +84,13 @@ export default function ReportUpload() {
 
       if (uploadError) throw uploadError;
 
-      // Create report record
+      // Create report record with default title and description
       const { data: report, error: reportError } = await supabase
         .from('reports')
         .insert({
           user_id: user.id,
-          title: title.trim(),
-          description: description.trim(),
           attachment_url: fileName,
-          status: 'pending_review'
+          status: 'pending'
         })
         .select()
         .single();
@@ -122,7 +103,7 @@ export default function ReportUpload() {
       });
       
       // Redirect immediately to payment page
-      navigate(`/payments?reportId=${report.id}`);
+      navigate(`/payment/${report.id}`);
     } catch (error) {
       console.error('Error submitting report:', error);
       toast({
@@ -148,7 +129,7 @@ export default function ReportUpload() {
             Upload Monthly Report
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Upload your CSV or HTML report file to calculate the total amount
+            Upload your monthly report file for submission
           </p>
         </motion.div>
 
@@ -176,25 +157,14 @@ export default function ReportUpload() {
                 animate={{ scale: isDragActive ? 1.1 : 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
               >
-                {parsing ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-16 h-16 mx-auto mb-4 border-4 border-primary border-t-transparent rounded-full"
-                  />
-                ) : file ? (
+                {file ? (
                   <Check className="w-16 h-16 mx-auto mb-4 text-success" />
                 ) : (
                   <Upload className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
                 )}
               </motion.div>
 
-              {parsing ? (
-                <div>
-                  <p className="text-lg font-medium mb-2">Parsing file...</p>
-                  <p className="text-muted-foreground">Please wait while we analyze your report</p>
-                </div>
-              ) : file ? (
+              {file ? (
                 <div>
                   <p className="text-lg font-medium mb-2 text-success">
                     File uploaded successfully
@@ -212,8 +182,9 @@ export default function ReportUpload() {
                     Or click to browse files
                   </p>
                   <div className="flex justify-center gap-2">
-                    <Badge variant="secondary">CSV</Badge>
-                    <Badge variant="secondary">HTML</Badge>
+                    <Badge variant="secondary">PDF</Badge>
+                    <Badge variant="secondary">Excel</Badge>
+                    <Badge variant="secondary">Image</Badge>
                   </div>
                 </div>
               )}
@@ -222,78 +193,51 @@ export default function ReportUpload() {
         </motion.div>
 
         {/* Report Details */}
-        {reportData && (
+        {file && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8"
           >
-            {/* Report Summary */}
             <GlassCard>
               <div className="flex items-center gap-2 mb-4">
-                <DollarSign className="h-5 w-5 text-success" />
-                <h3 className="text-lg font-semibold">Report Summary</h3>
+                <FileText className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Report Details</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 glass-button rounded-lg">
-                  <span className="text-muted-foreground">Total Amount</span>
-                  <span className="text-2xl font-bold text-success">
-                    ₹{reportData.amount.toLocaleString()}
+                  <span className="text-muted-foreground">Selected File</span>
+                  <span className="font-medium">
+                    {file.name}
                   </span>
                 </div>
                 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Report Title *</Label>
-                    <Input
-                      id="title"
-                      placeholder="Enter report title"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Report Date *</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !reportDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {reportDate ? format(reportDate, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={reportDate}
-                          onSelect={setReportDate}
-                          initialFocus
-                          className={cn("p-3 pointer-events-auto")}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description *</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Describe your report..."
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      required
-                      rows={3}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Report Date *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !reportDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reportDate ? format(reportDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={reportDate}
+                        onSelect={setReportDate}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 
                 <Button 
@@ -301,57 +245,11 @@ export default function ReportUpload() {
                   className="w-full" 
                   onClick={handleSubmit}
                   loading={uploading}
-                  disabled={!file || !title.trim() || !description.trim() || !reportDate}
+                  disabled={!file || !reportDate}
                 >
-                  {uploading ? 'Submitting...' : 'Submit for Approval'}
+                  {uploading ? 'Submitting...' : 'Submit Report'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-              </div>
-            </GlassCard>
-
-            {/* Data Preview */}
-            <GlassCard>
-              <div className="flex items-center gap-2 mb-4">
-                <Eye className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Data Preview</h3>
-              </div>
-              
-              <div className="space-y-3">
-                {reportData ? (
-                  <>
-                    <div className="text-sm text-muted-foreground">
-                      First {reportData.preview.length} rows from your file:
-                    </div>
-                    
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {reportData.preview.map((row, index) => (
-                        <div key={index} className="p-3 glass-button rounded-lg text-xs">
-                          <div className="grid gap-1">
-                            {Object.entries(row).slice(0, 3).map(([key, value]) => (
-                              <div key={key} className="flex justify-between">
-                                <span className="text-muted-foreground truncate max-w-24">
-                                  {key}:
-                                </span>
-                                <span className="font-medium truncate">{value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-lg">
-                      <AlertCircle className="h-4 w-4 text-blue-400" />
-                      <span className="text-xs text-blue-400">
-                        Showing preview of parsed data
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    Upload a file to see preview
-                  </div>
-                )}
               </div>
             </GlassCard>
           </motion.div>
@@ -371,20 +269,22 @@ export default function ReportUpload() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-medium mb-2">CSV Files</h4>
+                <h4 className="font-medium mb-2">Supported Files</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Must contain a column with "TOTAL_AMOUNT_CHARGED"</li>
-                  <li>• Or any column containing "amount"</li>
-                  <li>• Numeric values only (commas and currency symbols are OK)</li>
+                  <li>• PDF documents</li>
+                  <li>• Excel files (.xls, .xlsx)</li>
+                  <li>• Image files (PNG, JPG, JPEG)</li>
+                  <li>• Maximum file size: 20MB</li>
                 </ul>
               </div>
               
               <div>
-                <h4 className="font-medium mb-2">HTML Files</h4>
+                <h4 className="font-medium mb-2">Submission Process</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Must contain a table with amount column</li>
-                  <li>• Table header should include "Total amount charged"</li>
-                  <li>• Or any header containing "amount"</li>
+                  <li>• Upload your monthly report file</li>
+                  <li>• Select the report date</li>
+                  <li>• Submit for approval and payment</li>
+                  <li>• Complete payment after submission</li>
                 </ul>
               </div>
             </div>

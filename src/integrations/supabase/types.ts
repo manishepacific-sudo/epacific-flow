@@ -122,12 +122,12 @@ export type Database = {
         Insert: {
           attachment_url?: string | null
           created_at?: string
-          description: string
+          description?: string
           id?: string
           manager_notes?: string | null
           rejection_message?: string | null
           status?: string
-          title: string
+          title?: string
           updated_at?: string
           user_id: string
         }
