@@ -75,27 +75,35 @@ export default function Login() {
 
   const setupDemoAccounts = async () => {
     try {
+      console.log('Setting up demo accounts...');
+      toast({
+        title: "Setting up demo accounts",
+        description: "Please wait while we create the demo accounts...",
+      });
+
       const { data, error } = await supabase.functions.invoke('setup-demo-accounts');
+      
+      console.log('Setup response:', { data, error });
       
       if (error) {
         console.error('Setup error:', error);
         toast({
           title: "Setup failed",
-          description: "Failed to set up demo accounts",
+          description: `Failed to set up demo accounts: ${error.message}`,
           variant: "destructive",
         });
       } else {
         console.log('Setup result:', data);
         toast({
-          title: "Demo accounts ready",
-          description: "Demo accounts have been created successfully",
+          title: "Demo accounts ready!",
+          description: "Demo accounts have been created. You can now login with the credentials below.",
         });
       }
-    } catch (error) {
-      console.error('Setup error:', error);
+    } catch (error: any) {
+      console.error('Setup catch error:', error);
       toast({
         title: "Setup failed",
-        description: "An error occurred while setting up demo accounts",
+        description: `An error occurred: ${error.message}`,
         variant: "destructive",
       });
     }
