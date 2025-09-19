@@ -119,6 +119,17 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
               console.log(`TH Header ${index}: "${headerText}"`);
             });
             headerRowIndex = 0;
+            
+            // Find the header row (the row that contains the th elements)
+            for (let rowIndex = 0; rowIndex < allRows.length; rowIndex++) {
+              const row = allRows[rowIndex];
+              const rowThElements = row.querySelectorAll('th');
+              if (rowThElements.length > 0) {
+                headerRowIndex = rowIndex;
+                console.log(`Found header row with TH elements at index ${rowIndex}`);
+                break;
+              }
+            }
           } else {
             // No th elements, examine all rows to find the header row
             console.log('No TH elements found, examining all rows for headers...');
@@ -169,16 +180,27 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
           
           // First priority: exact match for "Total amount charged"
           headers.forEach((header, index) => {
-            const lowerHeader = header.toLowerCase();
-            if (lowerHeader.includes('total') && 
-                lowerHeader.includes('amount') && 
-                lowerHeader.includes('charged')) {
+            const lowerHeader = header.toLowerCase().trim();
+            if (lowerHeader === 'total amount charged') {
               amountColumnIndex = index;
-              console.log(`Found exact match for "Total amount charged" at index ${index}: "${header}"`);
+              console.log(`Found EXACT match for "Total amount charged" at index ${index}: "${header}"`);
             }
           });
           
-          // Second priority: any amount-related column
+          // Second priority: partial match for "Total amount charged"
+          if (amountColumnIndex === -1) {
+            headers.forEach((header, index) => {
+              const lowerHeader = header.toLowerCase();
+              if (lowerHeader.includes('total') && 
+                  lowerHeader.includes('amount') && 
+                  lowerHeader.includes('charged')) {
+                amountColumnIndex = index;
+                console.log(`Found partial match for "Total amount charged" at index ${index}: "${header}"`);
+              }
+            });
+          }
+          
+          // Third priority: any amount-related column
           if (amountColumnIndex === -1) {
             headers.forEach((header, index) => {
               const lowerHeader = header.toLowerCase();
@@ -261,18 +283,19 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
         let totalAmount = 0;
         const extractedData: Array<{ [key: string]: string }> = [];
         
-        // Process data rows (skip header row)
-        const startIndex = table.querySelector('thead') ? 0 : 1; // Skip first row if no thead
-        
         console.log(`Processing HTML table with ${rows.length} rows, amount column index: ${amountColumnIndex}`);
         console.log(`Amount column header: ${headers[amountColumnIndex]}`);
         
-        for (let i = startIndex; i < rows.length; i++) {
+        // Process data rows (skip header row)
+        for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
           const cells = row.querySelectorAll('td');
           
-          // Skip rows that don't have enough cells or are header rows
-          if (cells.length <= amountColumnIndex) continue;
+          // Skip header rows (rows with th elements or rows that don't have enough cells)
+          if (row.querySelector('th') || cells.length <= amountColumnIndex) {
+            console.log(`Skipping row ${i}: has TH elements or insufficient cells (${cells.length} cells, need ${amountColumnIndex + 1})`);
+            continue;
+          }
           
           const amountText = cells[amountColumnIndex].textContent?.trim() || '';
           
@@ -280,6 +303,7 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
           if (!amountText || amountText.toLowerCase().includes('total') || 
               amountText.toLowerCase().includes('amount') || 
               amountText.toLowerCase().includes('charged')) {
+            console.log(`Skipping row ${i}: empty or header-like amount cell: "${amountText}"`);
             continue;
           }
           
@@ -287,8 +311,8 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
           const cleaned = amountText.replace(/[,$₹\s€£¥]/g, '').replace(/[()]/g, '');
           const numericValue = parseFloat(cleaned);
           
-          if (!isNaN(numericValue) && numericValue > 0) {
-            console.log(`Adding amount: ${amountText} -> ${numericValue}`);
+          if (!isNaN(numericValue) && numericValue >= 0) {
+            console.log(`Row ${i}: Adding amount: "${amountText}" -> ${numericValue}`);
             totalAmount += numericValue;
             
             // Extract row data for preview
@@ -299,7 +323,7 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
             });
             extractedData.push(rowData);
           } else {
-            console.log(`Skipping invalid amount: ${amountText}`);
+            console.log(`Row ${i}: Skipping invalid amount: "${amountText}" (cleaned: "${cleaned}")`);
           }
         }
         
