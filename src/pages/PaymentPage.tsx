@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   CreditCard, 
@@ -19,13 +19,62 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useDropzone } from "react-dropzone";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function PaymentPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
   const [selectedMethod, setSelectedMethod] = useState<string>("");
   const [proofFile, setProofFile] = useState<File | null>(null);
-  const [amount] = useState(25000); // Mock amount from report
+  const [transactionId, setTransactionId] = useState("");
   const [processing, setProcessing] = useState(false);
-  const { toast } = useToast();
+  const [report, setReport] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (id && user) {
+      fetchReport();
+    }
+  }, [id, user]);
+
+  const fetchReport = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) throw error;
+      if (!data) {
+        toast({
+          title: "Report not found",
+          description: "The requested report could not be found",
+          variant: "destructive"
+        });
+        navigate('/dashboard/user');
+        return;
+      }
+
+      setReport(data);
+    } catch (error) {
+      console.error('Error fetching report:', error);
+      toast({
+        title: "Error loading report",
+        description: "Failed to load report details",
+        variant: "destructive"
+      });
+      navigate('/dashboard/user');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const paymentMethods = [
     {
@@ -94,17 +143,83 @@ export default function PaymentPage() {
       return;
     }
 
+    if (!report || !user) return;
+
     setProcessing(true);
     
-    // Simulate payment processing
-    setTimeout(() => {
+    try {
+      let proofUrl = null;
+      
+      if (proofFile) {
+        // Upload proof file to storage
+        const fileExt = proofFile.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('payment-proofs')
+          .upload(fileName, proofFile);
+
+        if (uploadError) throw uploadError;
+        proofUrl = fileName;
+      }
+
+      // Create payment record
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          user_id: user.id,
+          report_id: report.id,
+          amount: 25000, // Fixed amount for now
+          method: selectedMethod,
+          proof_url: proofUrl,
+          phonepe_transaction_id: transactionId || null,
+          status: 'pending'
+        });
+
+      if (paymentError) throw paymentError;
+
       toast({
         title: "Payment submitted successfully",
         description: "Your payment has been sent for manager approval",
       });
+      
+      navigate('/dashboard/user');
+    } catch (error) {
+      console.error('Error submitting payment:', error);
+      toast({
+        title: "Payment submission failed",
+        description: "Failed to submit payment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
       setProcessing(false);
-    }, 2000);
+    }
   };
+
+  if (loading) {
+    return (
+      <Layout role="user">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!report) {
+    return (
+      <Layout role="user">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-2">Report Not Found</h2>
+            <p className="text-muted-foreground">The requested report could not be found.</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const amount = 25000; // Fixed amount for now
 
   return (
     <Layout role="user">
@@ -139,15 +254,15 @@ export default function PaymentPage() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Report ID:</span>
-                  <span className="font-medium">RPT-2024-001</span>
+                  <span className="font-medium">{report.id.slice(0, 8)}...</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Report Date:</span>
-                  <span className="font-medium">January 2024</span>
+                  <span className="text-muted-foreground">Report Title:</span>
+                  <span className="font-medium">{report.title}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status:</span>
-                  <Badge variant="default" className="bg-success">Approved</Badge>
+                  <Badge variant="default" className="bg-success">{report.status}</Badge>
                 </div>
               </div>
               
@@ -337,6 +452,8 @@ export default function PaymentPage() {
                     <Input
                       id="transactionId"
                       placeholder="Enter transaction reference number"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
                       className="w-full"
                     />
                   </div>

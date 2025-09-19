@@ -16,18 +16,25 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/components/AuthProvider";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { parseReport } from "@/utils/reportParser";
 import { ParsedReportData } from "@/types";
 
 export default function ReportUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [reportData, setReportData] = useState<ParsedReportData | null>(null);
-  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [parsing, setParsing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const selectedFile = acceptedFiles[0];
@@ -67,19 +74,59 @@ export default function ReportUpload() {
   });
 
   const handleSubmit = async () => {
-    if (!file || !reportData) return;
+    if (!file || !user || !title.trim() || !description.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setUploading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Upload file to storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('report-attachments')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Create report record
+      const { data: report, error: reportError } = await supabase
+        .from('reports')
+        .insert({
+          user_id: user.id,
+          title: title.trim(),
+          description: description.trim(),
+          attachment_url: fileName,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (reportError) throw reportError;
+
       toast({
         title: "Report submitted successfully",
-        description: "Your report has been sent for approval and you can now proceed to payment.",
+        description: "Your report has been sent for manager approval.",
       });
+      
+      navigate('/dashboard/user');
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      toast({
+        title: "Submission failed",
+        description: "Failed to submit report. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
       setUploading(false);
-      // In real app, would redirect to payment page
-    }, 2000);
+    }
   };
 
   return (
@@ -191,16 +238,27 @@ export default function ReportUpload() {
                   </span>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="reportDate">Report Date</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Report Title *</Label>
                     <Input
-                      id="reportDate"
-                      type="date"
-                      value={reportDate}
-                      onChange={(e) => setReportDate(e.target.value)}
-                      className="pl-10"
+                      id="title"
+                      placeholder="Enter report title"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description *</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Describe your report..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      required
+                      rows={3}
                     />
                   </div>
                 </div>
@@ -210,7 +268,7 @@ export default function ReportUpload() {
                   className="w-full" 
                   onClick={handleSubmit}
                   loading={uploading}
-                  disabled={!file || !reportData}
+                  disabled={!file || !title.trim() || !description.trim()}
                 >
                   {uploading ? 'Submitting...' : 'Submit for Approval'}
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -226,33 +284,41 @@ export default function ReportUpload() {
               </div>
               
               <div className="space-y-3">
-                <div className="text-sm text-muted-foreground">
-                  First {reportData.preview.length} rows from your file:
-                </div>
-                
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {reportData.preview.map((row, index) => (
-                    <div key={index} className="p-3 glass-button rounded-lg text-xs">
-                      <div className="grid gap-1">
-                        {Object.entries(row).slice(0, 3).map(([key, value]) => (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-muted-foreground truncate max-w-24">
-                              {key}:
-                            </span>
-                            <span className="font-medium truncate">{value}</span>
-                          </div>
-                        ))}
-                      </div>
+                {reportData ? (
+                  <>
+                    <div className="text-sm text-muted-foreground">
+                      First {reportData.preview.length} rows from your file:
                     </div>
-                  ))}
-                </div>
-                
-                <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-lg">
-                  <AlertCircle className="h-4 w-4 text-blue-400" />
-                  <span className="text-xs text-blue-400">
-                    Showing preview of parsed data
-                  </span>
-                </div>
+                    
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {reportData.preview.map((row, index) => (
+                        <div key={index} className="p-3 glass-button rounded-lg text-xs">
+                          <div className="grid gap-1">
+                            {Object.entries(row).slice(0, 3).map(([key, value]) => (
+                              <div key={key} className="flex justify-between">
+                                <span className="text-muted-foreground truncate max-w-24">
+                                  {key}:
+                                </span>
+                                <span className="font-medium truncate">{value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-blue-400" />
+                      <span className="text-xs text-blue-400">
+                        Showing preview of parsed data
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    Upload a file to see preview
+                  </div>
+                )}
               </div>
             </GlassCard>
           </motion.div>

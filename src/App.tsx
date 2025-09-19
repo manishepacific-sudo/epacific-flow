@@ -14,6 +14,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import ReportUpload from "./pages/ReportUpload";
 import PaymentPage from "./pages/PaymentPage";
+import PendingPayments from "./pages/PendingPayments";
 import AttendancePage from "./pages/AttendancePage";
 import NotFound from "./pages/NotFound";
 
@@ -54,6 +55,11 @@ const App = () => (
               <Route path="/payment/:id" element={
                 <ProtectedRoute>
                   <PaymentPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/payments" element={
+                <ProtectedRoute>
+                  <PendingPayments />
                 </ProtectedRoute>
               } />
               <Route path="/attendance" element={

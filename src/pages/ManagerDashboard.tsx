@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   FileText, 
@@ -13,15 +14,66 @@ import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
-import { mockDashboardStats, mockReports, mockPayments, mockAttendance } from "@/utils/mockData";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ManagerDashboard() {
-  const stats = mockDashboardStats.manager;
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+  const [reports, setReports] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchManagerData();
+    }
+  }, [user]);
+
+  const fetchManagerData = async () => {
+    try {
+      const [reportsRes, paymentsRes] = await Promise.all([
+        supabase
+          .from('reports')
+          .select(`
+            *,
+            profiles!inner(full_name, email)
+          `)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('payments')
+          .select(`
+            *,
+            profiles!inner(full_name, email)
+          `)
+          .order('created_at', { ascending: false })
+      ]);
+
+      if (reportsRes.error) throw reportsRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
+
+      setReports(reportsRes.data || []);
+      setPayments(paymentsRes.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error loading data",
+        description: "Failed to load dashboard data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pendingReports = reports.filter(r => r.status === 'pending');
+  const pendingPayments = payments.filter(p => p.status === 'pending');
 
   const dashboardCards = [
     {
       title: "Pending Reports",
-      value: stats.pendingReports,
+      value: pendingReports.length,
       icon: FileText,
       trend: "Awaiting review",
       color: "text-primary",
@@ -29,7 +81,7 @@ export default function ManagerDashboard() {
     },
     {
       title: "Pending Payments",
-      value: stats.pendingPayments,
+      value: pendingPayments.length,
       icon: CreditCard,
       trend: "Need approval",
       color: "text-warning",
@@ -37,7 +89,7 @@ export default function ManagerDashboard() {
     },
     {
       title: "Pending Attendance",
-      value: stats.pendingAttendance,
+      value: 0,
       icon: Camera,
       trend: "To be verified",
       color: "text-secondary",
@@ -45,7 +97,7 @@ export default function ManagerDashboard() {
     },
     {
       title: "Team Members",
-      value: stats.teamMembers,
+      value: reports.length > 0 ? new Set(reports.map(r => r.user_id)).size : 0,
       icon: Users,
       trend: "Active users",
       color: "text-success",
@@ -53,18 +105,56 @@ export default function ManagerDashboard() {
     },
   ];
 
-  const pendingReports = mockReports.filter(r => r.status === 'pending');
-  const pendingPayments = mockPayments.filter(p => p.status === 'pending');
-  const pendingAttendance = mockAttendance.filter(a => a.status === 'pending');
+  const handleApprove = async (type: string, id: string) => {
+    try {
+      const table = type === 'report' ? 'reports' : 'payments';
+      const { error } = await supabase
+        .from(table)
+        .update({ status: 'approved' })
+        .eq('id', id);
 
-  const handleApprove = (type: string, id: string) => {
-    console.log(`Approving ${type} with id: ${id}`);
-    // In real app, this would call an API
+      if (error) throw error;
+
+      toast({
+        title: "Approved successfully",
+        description: `${type} has been approved`,
+      });
+      
+      fetchManagerData();
+    } catch (error) {
+      console.error('Error approving:', error);
+      toast({
+        title: "Approval failed",
+        description: "Failed to approve item",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleReject = (type: string, id: string) => {
-    console.log(`Rejecting ${type} with id: ${id}`);
-    // In real app, this would call an API
+  const handleReject = async (type: string, id: string) => {
+    try {
+      const table = type === 'report' ? 'reports' : 'payments';
+      const { error } = await supabase
+        .from(table)
+        .update({ status: 'rejected' })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Rejected successfully",
+        description: `${type} has been rejected`,
+      });
+      
+      fetchManagerData();
+    } catch (error) {
+      console.error('Error rejecting:', error);
+      toast({
+        title: "Rejection failed",
+        description: "Failed to reject item",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -129,45 +219,55 @@ export default function ManagerDashboard() {
               </div>
               
               <div className="space-y-3">
-                {pendingReports.map((report) => (
-                  <div key={report.id} className="p-4 glass-button rounded-lg">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-medium text-sm">{report.filename}</p>
-                        <p className="text-xs text-muted-foreground">
-                          By {report.user?.fullName} • {new Date(report.reportDate).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm font-medium text-primary mt-1">
-                          ₹{report.amount.toLocaleString()}
-                        </p>
-                      </div>
-                      <Badge variant="secondary" className="bg-warning/20 text-warning">
-                        Pending
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="success" 
-                        className="flex-1"
-                        onClick={() => handleApprove('report', report.id)}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        className="flex-1"
-                        onClick={() => handleReject('report', report.id)}
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Reject
-                      </Button>
-                    </div>
+                {loading ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                   </div>
-                ))}
+                ) : pendingReports.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No pending reports
+                  </div>
+                ) : (
+                  pendingReports.map((report) => (
+                    <div key={report.id} className="p-4 glass-button rounded-lg">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="font-medium text-sm">{report.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            By {report.profiles?.full_name} • {new Date(report.created_at).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {report.description}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="bg-warning/20 text-warning">
+                          Pending
+                        </Badge>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="success" 
+                          className="flex-1"
+                          onClick={() => handleApprove('report', report.id)}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="destructive" 
+                          className="flex-1"
+                          onClick={() => handleReject('report', report.id)}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </GlassCard>
           </motion.div>
@@ -190,53 +290,63 @@ export default function ManagerDashboard() {
               </div>
               
               <div className="space-y-3">
-                {pendingPayments.map((payment) => (
-                  <div key={payment.id} className="p-4 glass-button rounded-lg">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-medium text-sm capitalize">{payment.method} Payment</p>
-                        <p className="text-xs text-muted-foreground">
-                          By {payment.user?.fullName} • {new Date(payment.createdAt).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm font-medium text-warning mt-1">
-                          ₹{payment.amount.toLocaleString()}
-                        </p>
+                {loading ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  </div>
+                ) : pendingPayments.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No pending payments
+                  </div>
+                ) : (
+                  pendingPayments.map((payment) => (
+                    <div key={payment.id} className="p-4 glass-button rounded-lg">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="font-medium text-sm capitalize">{payment.method} Payment</p>
+                          <p className="text-xs text-muted-foreground">
+                            By {payment.profiles?.full_name} • {new Date(payment.created_at).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm font-medium text-warning mt-1">
+                            ₹{payment.amount.toLocaleString()}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="bg-warning/20 text-warning">
+                          Pending
+                        </Badge>
                       </div>
-                      <Badge variant="secondary" className="bg-warning/20 text-warning">
-                        Pending
-                      </Badge>
-                    </div>
-                    
-                    {payment.proofUrl && (
-                      <div className="mb-3">
-                        <Button variant="outline" size="sm" className="text-xs">
-                          View Proof
+                      
+                      {payment.proof_url && (
+                        <div className="mb-3">
+                          <Button variant="outline" size="sm" className="text-xs">
+                            View Proof
+                          </Button>
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="success" 
+                          className="flex-1"
+                          onClick={() => handleApprove('payment', payment.id)}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="destructive" 
+                          className="flex-1"
+                          onClick={() => handleReject('payment', payment.id)}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Reject
                         </Button>
                       </div>
-                    )}
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="success" 
-                        className="flex-1"
-                        onClick={() => handleApprove('payment', payment.id)}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        className="flex-1"
-                        onClick={() => handleReject('payment', payment.id)}
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Reject
-                      </Button>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </GlassCard>
           </motion.div>
@@ -255,53 +365,16 @@ export default function ManagerDashboard() {
                 <h3 className="text-lg font-semibold">Pending Attendance</h3>
               </div>
               <Badge variant="secondary" className="bg-secondary/20 text-secondary">
-                {pendingAttendance.length}
+                0
               </Badge>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pendingAttendance.map((attendance) => (
-                <div key={attendance.id} className="p-4 glass-button rounded-lg">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <p className="font-medium text-sm">{attendance.user?.fullName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(attendance.attendanceDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Badge variant="secondary" className="bg-warning/20 text-warning">
-                      Pending
-                    </Badge>
-                  </div>
-                  
-                  <div className="mb-3">
-                    <Button variant="outline" size="sm" className="text-xs">
-                      View Photo
-                    </Button>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="success" 
-                      className="flex-1"
-                      onClick={() => handleApprove('attendance', attendance.id)}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Approve
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="destructive" 
-                      className="flex-1"
-                      onClick={() => handleReject('attendance', attendance.id)}
-                    >
-                      <XCircle className="h-4 w-4 mr-1" />
-                      Reject
-                    </Button>
-                  </div>
-                </div>
-              ))}
+              <div className="text-center py-8 text-muted-foreground col-span-full">
+                <Camera className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No pending attendance records</p>
+                <p className="text-sm mt-1">Attendance feature coming soon</p>
+              </div>
             </div>
           </GlassCard>
         </motion.div>

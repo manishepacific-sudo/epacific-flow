@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   FileText, 
@@ -15,14 +16,55 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
-import { mockDashboardStats, mockReports, mockPayments, mockAttendance } from "@/utils/mockData";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UserDashboard() {
   const navigate = useNavigate();
-  const stats = mockDashboardStats.user;
-  
-  const userReports = mockReports.filter(r => r.userId === "1");
-  const userPayments = mockPayments.filter(p => p.userId === "1");
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+  const [reports, setReports] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserData();
+    }
+  }, [user]);
+
+  const fetchUserData = async () => {
+    try {
+      const [reportsRes, paymentsRes] = await Promise.all([
+        supabase
+          .from('reports')
+          .select('*')
+          .eq('user_id', user?.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('payments')
+          .select('*')
+          .eq('user_id', user?.id)
+          .order('created_at', { ascending: false })
+      ]);
+
+      if (reportsRes.error) throw reportsRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
+
+      setReports(reportsRes.data || []);
+      setPayments(paymentsRes.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Error loading data",
+        description: "Failed to load dashboard data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const quickActions = [
     {
@@ -48,33 +90,36 @@ export default function UserDashboard() {
     },
   ];
 
+  const pendingPayments = payments.filter(p => p.status === 'pending').length;
+  const approvedReports = reports.filter(r => r.status === 'approved').length;
+  
   const dashboardCards = [
     {
       title: "Total Reports",
-      value: stats.totalReports,
+      value: reports.length,
       icon: FileText,
-      trend: "+2 this month",
+      trend: `${approvedReports} approved`,
       color: "text-primary",
     },
     {
       title: "Pending Payments",
-      value: stats.pendingPayments,
+      value: pendingPayments,
       icon: Clock,
       trend: "Awaiting approval",
       color: "text-warning",
     },
     {
       title: "Monthly Attendance",
-      value: stats.attendanceThisMonth,
+      value: 0, // Placeholder for now
       icon: Calendar,
-      trend: `${Math.round((stats.attendanceThisMonth / 20) * 100)}% this month`,
+      trend: "0% this month",
       color: "text-secondary",
     },
     {
       title: "Total Earnings",
-      value: `₹${stats.totalEarnings.toLocaleString()}`,
+      value: `₹0`,
       icon: TrendingUp,
-      trend: "+15% from last month",
+      trend: "No earnings yet",
       color: "text-success",
     },
   ];
@@ -89,7 +134,7 @@ export default function UserDashboard() {
           className="mb-8"
         >
           <h1 className="text-3xl font-bold gradient-text mb-2">
-            Good morning, John! 👋
+            Good morning, {profile?.full_name || 'User'}! 👋
           </h1>
           <p className="text-muted-foreground">
             Here's what's happening with your account today.
@@ -167,28 +212,37 @@ export default function UserDashboard() {
                 </Button>
               </div>
               <div className="space-y-3">
-                {userReports.slice(0, 3).map((report) => (
-                  <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-primary" />
-                      <div>
-                        <p className="font-medium text-sm">{report.filename}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(report.reportDate).toLocaleDateString()}
-                        </p>
+                {loading ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  </div>
+                ) : reports.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No reports submitted yet
+                  </div>
+                ) : (
+                  reports.slice(0, 3).map((report) => (
+                    <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <div>
+                          <p className="font-medium text-sm">{report.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(report.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant={report.status === 'approved' ? 'default' : 'secondary'}
+                          className={`text-xs ${report.status === 'approved' ? 'bg-success' : ''}`}
+                        >
+                          {report.status}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">₹{report.amount.toLocaleString()}</span>
-                      <Badge 
-                        variant={report.status === 'approved' ? 'default' : 'secondary'}
-                        className={`text-xs ${report.status === 'approved' ? 'bg-success' : ''}`}
-                      >
-                        {report.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </GlassCard>
           </motion.div>
@@ -207,28 +261,38 @@ export default function UserDashboard() {
                 </Button>
               </div>
               <div className="space-y-3">
-                {userPayments.slice(0, 3).map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="h-4 w-4 text-warning" />
-                      <div>
-                        <p className="font-medium text-sm capitalize">{payment.method} Payment</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(payment.createdAt).toLocaleDateString()}
-                        </p>
+                {loading ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  </div>
+                ) : payments.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No payments submitted yet
+                  </div>
+                ) : (
+                  payments.slice(0, 3).map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-4 w-4 text-warning" />
+                        <div>
+                          <p className="font-medium text-sm capitalize">{payment.method} Payment</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(payment.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">₹{payment.amount.toLocaleString()}</span>
+                        <Badge 
+                          variant={payment.status === 'approved' ? 'default' : 'secondary'}
+                          className={`text-xs ${payment.status === 'approved' ? 'bg-success' : ''}`}
+                        >
+                          {payment.status}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">₹{payment.amount.toLocaleString()}</span>
-                      <Badge 
-                        variant={payment.status === 'approved' ? 'default' : 'secondary'}
-                        className={`text-xs ${payment.status === 'approved' ? 'bg-success' : ''}`}
-                      >
-                        {payment.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </GlassCard>
           </motion.div>
@@ -246,16 +310,16 @@ export default function UserDashboard() {
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-success" />
                 <span className="text-sm text-muted-foreground">
-                  {stats.attendanceThisMonth}/20 days
+                  0/20 days
                 </span>
               </div>
             </div>
             <Progress 
-              value={(stats.attendanceThisMonth / 20) * 100} 
+              value={0} 
               className="h-3 mb-2"
             />
             <p className="text-sm text-muted-foreground">
-              {20 - stats.attendanceThisMonth} days remaining this month
+              No attendance records yet
             </p>
           </GlassCard>
         </motion.div>
