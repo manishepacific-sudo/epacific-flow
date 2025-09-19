@@ -77,9 +77,22 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
         // Look for tables first
         const tables = doc.querySelectorAll('table');
         
+        console.log(`Found ${tables.length} tables in HTML`);
+        
         if (tables.length === 0) {
           throw new Error('No tables found in the HTML file');
         }
+        
+        // Debug: log all table content first
+        tables.forEach((table, tableIndex) => {
+          console.log(`=== TABLE ${tableIndex} CONTENT ===`);
+          const allRows = table.querySelectorAll('tr');
+          allRows.forEach((row, rowIndex) => {
+            const cells = row.querySelectorAll('td, th');
+            const cellTexts = Array.from(cells).map(cell => cell.textContent?.trim() || '');
+            console.log(`Row ${rowIndex}: [${cellTexts.join(' | ')}]`);
+          });
+        });
         
         let bestMatch: {
           table: HTMLTableElement;
