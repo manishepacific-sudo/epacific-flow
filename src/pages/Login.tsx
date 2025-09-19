@@ -64,7 +64,7 @@ export default function Login() {
         console.log('✅ Demo login response:', authResponse);
         
         // Set demo user in AuthProvider
-        setDemoUser(authResponse.email, authResponse.role, authResponse.name);
+        await setDemoUser(authResponse.email, authResponse.role, authResponse.name);
         
         toast({
           title: "Demo login successful",

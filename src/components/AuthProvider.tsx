@@ -9,7 +9,7 @@ interface AuthContextType {
   profile: any | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  setDemoUser: (email: string, role: string, name: string) => void;
+  setDemoUser: (email: string, role: string, name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,7 +18,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   signOut: async () => {},
-  setDemoUser: () => {},
+  setDemoUser: async () => {},
 });
 
 export const useAuth = () => {
@@ -36,33 +36,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const setDemoUser = (email: string, role: string, name: string) => {
+  const setDemoUser = async (email: string, role: string, name: string) => {
     console.log('🎭 Setting demo user:', { email, role, name });
-    // Create a proper UUID for demo users using deterministic hex conversion
-    const emailBytes = new TextEncoder().encode(email);
-    const hex = Array.from(emailBytes, byte => byte.toString(16).padStart(2, '0')).join('').substring(0, 32);
-    const paddedHex = (hex + '0'.repeat(32)).substring(0, 32); // Ensure 32 hex chars
-    const demoId = `${paddedHex.substring(0, 8)}-${paddedHex.substring(8, 12)}-${paddedHex.substring(12, 16)}-${paddedHex.substring(16, 20)}-${paddedHex.substring(20, 32)}`;
-    const mockUser = {
-      id: demoId,
-      email: email,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as User;
     
-    const mockProfile = {
-      user_id: mockUser.id,
-      email: email,
-      full_name: name,
-      role: role,
-      mobile_number: '1234567890',
-      station_id: 'DEMO001',
-      center_address: 'Demo Center Address'
-    };
+    try {
+      // Sign in anonymously to create a valid Supabase session for demo users
+      const { data: authData, error: authError } = await supabase.auth.signInAnonymously({
+        options: {
+          data: {
+            email: email,
+            full_name: name,
+            role: role,
+            mobile_number: '1234567890',
+            station_id: 'DEMO001',
+            center_address: 'Demo Center Address',
+            demo: true
+          }
+        }
+      });
 
-    setUser(mockUser);
-    setProfile(mockProfile);
-    setLoading(false);
+      if (authError) {
+        console.error('Demo auth error:', authError);
+        return;
+      }
+
+      if (authData.user) {
+        console.log('✅ Demo user authenticated with Supabase:', authData.user.id);
+        
+        // Create or update profile for the demo user
+        const mockProfile = {
+          user_id: authData.user.id,
+          email: email,
+          full_name: name,
+          role: role,
+          mobile_number: '1234567890',
+          station_id: 'DEMO001',
+          center_address: 'Demo Center Address'
+        };
+
+        // Try to insert the profile (will be ignored if it already exists due to RLS)
+        await supabase
+          .from('profiles')
+          .upsert(mockProfile, { onConflict: 'user_id' })
+          .select()
+          .maybeSingle();
+        
+        // The auth state change listener will handle setting the user and profile
+      }
+    } catch (error) {
+      console.error('Error setting demo user:', error);
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
