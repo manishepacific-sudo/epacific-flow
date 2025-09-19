@@ -317,7 +317,7 @@ export default function UserManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
+                    {profile?.role === 'admin' && <SelectItem value="manager">Manager</SelectItem>}
                     {profile?.role === 'admin' && <SelectItem value="admin">Admin</SelectItem>}
                   </SelectContent>
                 </Select>
