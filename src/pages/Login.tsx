@@ -48,139 +48,65 @@ export default function Login() {
       console.log('Demo credentials valid, attempting Supabase authentication');
 
       // Try to sign in with Supabase directly
-      let authResult;
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error && error.message.includes('Invalid login credentials')) {
+        console.log('User does not exist, creating account...');
+        
+        // User doesn't exist, create them
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: demoAccount.name,
+              role: demoAccount.role
+            }
+          }
+        });
+
+        if (signUpError) {
+          console.error('Sign up error:', signUpError);
+          throw signUpError;
+        }
+
+        // Try to sign in again
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (error && error.message.includes('Invalid login credentials')) {
-          console.log('User does not exist, creating account...');
-          
-          // User doesn't exist, create them
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                full_name: demoAccount.name,
-                role: demoAccount.role
-              }
-            }
-          });
-
-          if (signUpError) {
-            console.error('Sign up error:', signUpError);
-            throw signUpError;
-          }
-
-          // Try to sign in again
-          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-
-          if (signInError) {
-            console.error('Sign in after signup error:', signInError);
-            throw signInError;
-          }
-
-          authResult = signInData;
-        } else if (error) {
-          throw error;
-        } else {
-          authResult = data;
+        if (signInError) {
+          console.error('Sign in after signup error:', signInError);
+          throw signInError;
         }
-      } catch (authError) {
-        console.error('Authentication error:', authError);
-        toast({
-          title: "Login failed",
-          description: "Authentication failed. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!authResult?.user) {
-        toast({
-          title: "Login failed",
-          description: "No user data received",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('Authentication successful, checking profile...');
-
-      // Get or create user profile
-      let profile;
-      try {
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', authResult.user.id)
-          .maybeSingle();
-
-        if (existingProfile) {
-          profile = existingProfile;
-        } else {
-          console.log('Creating profile...');
-          const { data: newProfile, error: profileError } = await supabase
-            .from('profiles')
-            .insert([{
-              user_id: authResult.user.id,
-              full_name: demoAccount.name,
-              email: email,
-              mobile_number: '+91 9876543210',
-              station_id: 'STN001',
-              center_address: 'Demo Office',
-              role: demoAccount.role
-            }])
-            .select()
-            .single();
-
-          if (profileError) {
-            console.error('Profile creation error:', profileError);
-            // Continue with basic profile info
-            profile = {
-              full_name: demoAccount.name,
-              role: demoAccount.role
-            };
-          } else {
-            profile = newProfile;
-          }
-        }
-      } catch (profileError) {
-        console.error('Profile error:', profileError);
-        profile = {
-          full_name: demoAccount.name,
-          role: demoAccount.role
-        };
+      } else if (error) {
+        throw error;
       }
 
       toast({
         title: "Login successful",
-        description: `Welcome back, ${profile?.full_name || demoAccount.name}!`,
+        description: `Welcome back, ${demoAccount.name}!`,
       });
 
-      console.log('Redirecting to dashboard based on role:', profile?.role);
+      console.log('Redirecting to dashboard based on role:', demoAccount.role);
 
-      // Redirect based on role
-      setTimeout(() => {
-        switch (profile?.role) {
-          case "admin":
-            navigate("/dashboard/admin");
-            break;
-          case "manager":
-            navigate("/dashboard/manager");
-            break;
-          case "user":
-          default:
-            navigate("/dashboard/user");
-            break;
-        }
-      }, 100);
+      // Redirect based on role immediately
+      switch (demoAccount.role) {
+        case "admin":
+          navigate("/dashboard/admin");
+          break;
+        case "manager":
+          navigate("/dashboard/manager");
+          break;
+        case "user":
+        default:
+          navigate("/dashboard/user");
+          break;
+      }
 
     } catch (error: any) {
       console.error('Login catch error:', error);
