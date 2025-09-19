@@ -14,7 +14,6 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ReportFlow } from "@/components/ReportFlow";
 import { useNavigate } from "react-router-dom";
 import { mockDashboardStats, mockReports, mockPayments, mockAttendance } from "@/utils/mockData";
 
@@ -24,7 +23,6 @@ export default function UserDashboard() {
   
   const userReports = mockReports.filter(r => r.userId === "1");
   const userPayments = mockPayments.filter(p => p.userId === "1");
-  const userAttendance = mockAttendance.filter(a => a.userId === "1");
 
   const quickActions = [
     {
@@ -83,23 +81,23 @@ export default function UserDashboard() {
 
   return (
     <Layout role="user">
-      <div className="space-y-8">
+      <div className="space-y-8 max-w-7xl mx-auto">
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 sm:mb-8"
+          className="mb-8"
         >
-          <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-2">
+          <h1 className="text-3xl font-bold gradient-text mb-2">
             Good morning, John! 👋
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
+          <p className="text-muted-foreground">
             Here's what's happening with your account today.
           </p>
         </motion.div>
 
         {/* Dashboard Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {dashboardCards.map((card, index) => (
             <motion.div
               key={card.title}
@@ -107,15 +105,15 @@ export default function UserDashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <GlassCard className="hover-glow p-3 sm:p-6">
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">{card.title}</p>
-                    <p className="text-lg sm:text-2xl font-bold truncate">{card.value}</p>
-                    <p className="text-xs text-muted-foreground mt-1 truncate">{card.trend}</p>
+              <GlassCard className="hover-glow p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground mb-1">{card.title}</p>
+                    <p className="text-2xl font-bold mb-1">{card.value}</p>
+                    <p className="text-xs text-muted-foreground">{card.trend}</p>
                   </div>
-                  <div className={`p-2 rounded-lg bg-accent ${card.color} flex-shrink-0`}>
-                    <card.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <div className={`p-3 rounded-lg bg-accent ${card.color}`}>
+                    <card.icon className="h-5 w-5" />
                   </div>
                 </div>
               </GlassCard>
@@ -129,8 +127,8 @@ export default function UserDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <h2 className="text-lg sm:text-xl font-semibold mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <h2 className="text-xl font-semibold mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {quickActions.map((action, index) => (
               <motion.div
                 key={action.title}
@@ -139,59 +137,49 @@ export default function UserDashboard() {
                 transition={{ delay: 0.5 + index * 0.1 }}
               >
                 <GlassCard 
-                  className="hover-glow cursor-pointer text-center p-4 sm:p-6"
+                  className="hover-glow cursor-pointer text-center p-6 transition-all duration-300"
                   onClick={action.action}
                 >
-                  <div className={`w-10 h-10 sm:w-12 sm:h-12 ${action.color} rounded-lg flex items-center justify-center mx-auto mb-3 sm:mb-4`}>
-                    <action.icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                  <div className={`w-12 h-12 ${action.color} rounded-lg flex items-center justify-center mx-auto mb-4`}>
+                    <action.icon className="h-6 w-6 text-white" />
                   </div>
-                  <h3 className="font-semibold mb-2 text-sm sm:text-base">{action.title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">{action.description}</p>
+                  <h3 className="font-semibold mb-2">{action.title}</h3>
+                  <p className="text-sm text-muted-foreground">{action.description}</p>
                 </GlassCard>
               </motion.div>
             ))}
           </div>
         </motion.div>
 
-        {/* Report Upload and Processing Flow */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          <h2 className="text-lg sm:text-xl font-semibold mb-4">Report Management</h2>
-          <ReportFlow />
-        </motion.div>
-
         {/* Recent Activity */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Recent Reports */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.8 }}
+            transition={{ delay: 0.6 }}
           >
-            <GlassCard className="p-4 sm:p-6">
+            <GlassCard className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base sm:text-lg font-semibold">Recent Reports</h3>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/reports")} className="text-xs sm:text-sm">
+                <h3 className="text-lg font-semibold">Recent Reports</h3>
+                <Button variant="ghost" size="sm" onClick={() => navigate("/reports")}>
                   View All
                 </Button>
               </div>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
+              <div className="space-y-3">
                 {userReports.slice(0, 3).map((report) => (
                   <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-xs sm:text-sm truncate">{report.filename}</p>
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <div>
+                        <p className="font-medium text-sm">{report.filename}</p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(report.reportDate).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 flex-shrink-0">
-                      <span className="text-xs sm:text-sm font-medium">₹{report.amount.toLocaleString()}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">₹{report.amount.toLocaleString()}</span>
                       <Badge 
                         variant={report.status === 'approved' ? 'default' : 'secondary'}
                         className={`text-xs ${report.status === 'approved' ? 'bg-success' : ''}`}
@@ -209,29 +197,29 @@ export default function UserDashboard() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.9 }}
+            transition={{ delay: 0.7 }}
           >
-            <GlassCard className="p-4 sm:p-6">
+            <GlassCard className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base sm:text-lg font-semibold">Payment Status</h3>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/payments")} className="text-xs sm:text-sm">
+                <h3 className="text-lg font-semibold">Payment Status</h3>
+                <Button variant="ghost" size="sm" onClick={() => navigate("/payments")}>
                   View All
                 </Button>
               </div>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
+              <div className="space-y-3">
                 {userPayments.slice(0, 3).map((payment) => (
                   <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <CreditCard className="h-4 w-4 text-warning flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-xs sm:text-sm capitalize truncate">{payment.method} Payment</p>
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="h-4 w-4 text-warning" />
+                      <div>
+                        <p className="font-medium text-sm capitalize">{payment.method} Payment</p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(payment.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 flex-shrink-0">
-                      <span className="text-xs sm:text-sm font-medium">₹{payment.amount.toLocaleString()}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">₹{payment.amount.toLocaleString()}</span>
                       <Badge 
                         variant={payment.status === 'approved' ? 'default' : 'secondary'}
                         className={`text-xs ${payment.status === 'approved' ? 'bg-success' : ''}`}
@@ -250,14 +238,14 @@ export default function UserDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.0 }}
+          transition={{ delay: 0.8 }}
         >
-          <GlassCard className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
-              <h3 className="text-base sm:text-lg font-semibold">Monthly Attendance Progress</h3>
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Monthly Attendance Progress</h3>
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-success" />
-                <span className="text-xs sm:text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   {stats.attendanceThisMonth}/20 days
                 </span>
               </div>
@@ -266,7 +254,7 @@ export default function UserDashboard() {
               value={(stats.attendanceThisMonth / 20) * 100} 
               className="h-3 mb-2"
             />
-            <p className="text-xs sm:text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {20 - stats.attendanceThisMonth} days remaining this month
             </p>
           </GlassCard>
