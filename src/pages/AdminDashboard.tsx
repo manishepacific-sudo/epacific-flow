@@ -8,15 +8,18 @@ import {
   TrendingUp,
   Clock,
   BarChart3,
-  UserPlus
+  UserPlus,
+  Settings
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
+import UserManagement from "@/components/UserManagement";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -141,6 +144,21 @@ export default function AdminDashboard() {
             </div>
           </div>
         </motion.div>
+
+        {/* Tabs for different sections */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="overview" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="users" className="gap-2">
+              <Users className="h-4 w-4" />
+              User Management
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-8 mt-6">
 
         {/* Dashboard Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -279,6 +297,12 @@ export default function AdminDashboard() {
             </div>
           </div>
         </motion.div>
+          </TabsContent>
+
+          <TabsContent value="users" className="mt-6">
+            <UserManagement />
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
