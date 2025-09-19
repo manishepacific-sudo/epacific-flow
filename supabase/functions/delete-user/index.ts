@@ -44,27 +44,47 @@ serve(async (req) => {
       }
     });
 
-    // Verify admin/manager permissions
+    // Check for demo admin credentials first
     console.log('🔐 Verifying admin permissions...');
-    const { data: adminProfile, error: adminError } = await supabase
-      .from('profiles')
-      .select('role, user_id')
-      .eq('email', admin_email)
-      .single();
+    let adminRole = null;
+    let adminUserId = null;
 
-    if (adminError || !adminProfile) {
-      console.error('❌ Admin profile not found:', adminError);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+    // Demo credentials check
+    const demoCredentials = {
+      'admin@epacific.com': 'admin',
+      'manager@epacific.com': 'manager'
+    };
+
+    if (demoCredentials[admin_email]) {
+      console.log('✅ Demo admin credentials detected');
+      adminRole = demoCredentials[admin_email];
+      // For demo accounts, we don't need a specific user_id for permission checks
+      adminUserId = 'demo-admin';
+    } else {
+      // Regular database lookup for non-demo accounts
+      const { data: adminProfile, error: adminError } = await supabase
+        .from('profiles')
+        .select('role, user_id')
+        .eq('email', admin_email)
+        .single();
+
+      if (adminError || !adminProfile) {
+        console.error('❌ Admin profile not found:', adminError);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      adminRole = adminProfile.role;
+      adminUserId = adminProfile.user_id;
     }
 
-    if (!['admin', 'manager'].includes(adminProfile.role)) {
-      console.error('❌ Insufficient permissions:', adminProfile.role);
+    if (!['admin', 'manager'].includes(adminRole)) {
+      console.error('❌ Insufficient permissions:', adminRole);
       return new Response(
         JSON.stringify({ error: 'Unauthorized: Insufficient permissions' }),
         { 
@@ -93,8 +113,8 @@ serve(async (req) => {
       );
     }
 
-    // Prevent self-deletion
-    if (adminProfile.user_id === user_id) {
+    // Prevent self-deletion (skip for demo accounts)
+    if (adminUserId !== 'demo-admin' && adminUserId === user_id) {
       console.error('❌ Attempted self-deletion');
       return new Response(
         JSON.stringify({ error: 'Cannot delete your own account' }),
@@ -106,7 +126,7 @@ serve(async (req) => {
     }
 
     // Manager role restrictions
-    if (adminProfile.role === 'manager' && targetProfile.role !== 'user') {
+    if (adminRole === 'manager' && targetProfile.role !== 'user') {
       console.error('❌ Manager cannot delete admin/manager accounts');
       return new Response(
         JSON.stringify({ error: 'Managers can only delete regular user accounts' }),
