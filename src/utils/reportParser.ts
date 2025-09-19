@@ -99,16 +99,23 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
             headers.push(headerText);
             
             const lowerHeader = headerText.toLowerCase();
-            // More flexible matching for amount columns
-            if (lowerHeader.includes('amount') || 
-                lowerHeader.includes('total') || 
-                lowerHeader.includes('price') ||
-                lowerHeader.includes('cost') ||
-                lowerHeader.includes('value') ||
-                lowerHeader.includes('charged') ||
-                lowerHeader.includes('fee') ||
-                lowerHeader.includes('payment')) {
+            // Prioritize exact matches for "Total amount charged"
+            if (lowerHeader.includes('total') && 
+                lowerHeader.includes('amount') && 
+                lowerHeader.includes('charged')) {
               amountColumnIndex = index;
+            } else if (amountColumnIndex === -1) {
+              // Fallback to other amount columns if exact match not found
+              if (lowerHeader.includes('amount') || 
+                  lowerHeader.includes('total') || 
+                  lowerHeader.includes('price') ||
+                  lowerHeader.includes('cost') ||
+                  lowerHeader.includes('value') ||
+                  lowerHeader.includes('charged') ||
+                  lowerHeader.includes('fee') ||
+                  lowerHeader.includes('payment')) {
+                amountColumnIndex = index;
+              }
             }
           });
           
@@ -122,15 +129,23 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
                 headers.push(headerText);
                 
                 const lowerHeader = headerText.toLowerCase();
-                if (lowerHeader.includes('amount') || 
-                    lowerHeader.includes('total') || 
-                    lowerHeader.includes('price') ||
-                    lowerHeader.includes('cost') ||
-                    lowerHeader.includes('value') ||
-                    lowerHeader.includes('charged') ||
-                    lowerHeader.includes('fee') ||
-                    lowerHeader.includes('payment')) {
+                // Prioritize exact matches for "Total amount charged"
+                if (lowerHeader.includes('total') && 
+                    lowerHeader.includes('amount') && 
+                    lowerHeader.includes('charged')) {
                   amountColumnIndex = index;
+                } else if (amountColumnIndex === -1) {
+                  // Fallback to other amount columns if exact match not found
+                  if (lowerHeader.includes('amount') || 
+                      lowerHeader.includes('total') || 
+                      lowerHeader.includes('price') ||
+                      lowerHeader.includes('cost') ||
+                      lowerHeader.includes('value') ||
+                      lowerHeader.includes('charged') ||
+                      lowerHeader.includes('fee') ||
+                      lowerHeader.includes('payment')) {
+                    amountColumnIndex = index;
+                  }
                 }
               });
             }
@@ -179,29 +194,46 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
         // Process data rows (skip header row)
         const startIndex = table.querySelector('thead') ? 0 : 1; // Skip first row if no thead
         
+        console.log(`Processing HTML table with ${rows.length} rows, amount column index: ${amountColumnIndex}`);
+        console.log(`Amount column header: ${headers[amountColumnIndex]}`);
+        
         for (let i = startIndex; i < rows.length; i++) {
           const row = rows[i];
           const cells = row.querySelectorAll('td');
           
-          if (cells.length > amountColumnIndex) {
-            const amountText = cells[amountColumnIndex].textContent?.trim() || '';
-            // More flexible number extraction
-            const cleaned = amountText.replace(/[,$₹\s]/g, '');
-            const numericValue = parseFloat(cleaned);
+          // Skip rows that don't have enough cells or are header rows
+          if (cells.length <= amountColumnIndex) continue;
+          
+          const amountText = cells[amountColumnIndex].textContent?.trim() || '';
+          
+          // Skip empty cells or cells that look like headers
+          if (!amountText || amountText.toLowerCase().includes('total') || 
+              amountText.toLowerCase().includes('amount') || 
+              amountText.toLowerCase().includes('charged')) {
+            continue;
+          }
+          
+          // More flexible number extraction - handle various currency formats
+          const cleaned = amountText.replace(/[,$₹\s€£¥]/g, '').replace(/[()]/g, '');
+          const numericValue = parseFloat(cleaned);
+          
+          if (!isNaN(numericValue) && numericValue > 0) {
+            console.log(`Adding amount: ${amountText} -> ${numericValue}`);
+            totalAmount += numericValue;
             
-            if (!isNaN(numericValue) && numericValue > 0) {
-              totalAmount += numericValue;
-              
-              // Extract row data for preview
-              const rowData: { [key: string]: string } = {};
-              cells.forEach((cell, index) => {
-                const header = headers[index] || `Column ${index + 1}`;
-                rowData[header] = cell.textContent?.trim() || '';
-              });
-              extractedData.push(rowData);
-            }
+            // Extract row data for preview
+            const rowData: { [key: string]: string } = {};
+            cells.forEach((cell, index) => {
+              const header = headers[index] || `Column ${index + 1}`;
+              rowData[header] = cell.textContent?.trim() || '';
+            });
+            extractedData.push(rowData);
+          } else {
+            console.log(`Skipping invalid amount: ${amountText}`);
           }
         }
+        
+        console.log(`Final calculated total: ${totalAmount}`);
         
         if (extractedData.length === 0) {
           throw new Error('No valid numeric amount values found in the HTML table. Please check that your table contains monetary data.');
