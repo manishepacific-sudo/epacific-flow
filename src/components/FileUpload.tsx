@@ -67,7 +67,7 @@ export function FileUpload({
       setProcessingProgress(100);
       
       const parsedResult: ParsedData = {
-        total: result.total,
+        total: result.amount,
         preview: result.preview,
         headers: result.headers,
         filename: file.name
