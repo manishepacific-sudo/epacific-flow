@@ -78,50 +78,79 @@ const handler = async (req: Request): Promise<Response> => {
 
     try {
       // First, try to sign in with existing credentials
-      console.log('🔑 Attempting sign in...');
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      console.log('🔑 Step 1: Attempting sign in with credentials...');
+      console.log('📧 Email:', email);
+      console.log('🔐 Password length:', password?.length);
+      
+      const signInResult = await supabase.auth.signInWithPassword({
         email: email,
         password: password
       });
+      
+      console.log('📊 Sign in result - error:', signInResult.error?.message);
+      console.log('📊 Sign in result - user exists:', !!signInResult.data?.user);
+      console.log('📊 Sign in result - session exists:', !!signInResult.data?.session);
 
-      if (signInData.user && !signInError) {
-        console.log('✅ Sign in successful for existing user');
+      if (signInResult.data?.user && !signInResult.error) {
+        console.log('✅ Sign in successful for existing user:', signInResult.data.user.id);
         
         // Get or create profile
-        console.log('👤 Getting/creating profile...');
-        const { data: existingProfile } = await supabaseAdmin
+        console.log('👤 Step 2: Getting profile for user:', signInResult.data.user.id);
+        const profileResult = await supabaseAdmin
           .from('profiles')
           .select('*')
-          .eq('user_id', signInData.user.id)
+          .eq('user_id', signInResult.data.user.id)
           .single();
 
-        if (!existingProfile) {
-          // Create profile if it doesn't exist
-          await supabaseAdmin
+        console.log('📊 Profile query result - error:', profileResult.error?.message);
+        console.log('📊 Profile query result - data exists:', !!profileResult.data);
+
+        let profileData = profileResult.data;
+        
+        if (!profileData) {
+          console.log('👤 Step 3: Creating missing profile...');
+          const insertResult = await supabaseAdmin
             .from('profiles')
             .upsert({
-              user_id: signInData.user.id,
+              user_id: signInResult.data.user.id,
               email: email,
               full_name: demoAccount.name,
               role: demoAccount.role,
               mobile_number: '1234567890',
               station_id: 'DEMO001',
               center_address: 'Demo Center Address'
-            });
+            })
+            .select()
+            .single();
+            
+          console.log('📊 Profile insert result - error:', insertResult.error?.message);
+          console.log('📊 Profile insert result - data exists:', !!insertResult.data);
+          
+          if (insertResult.error) {
+            console.error('❌ Profile creation failed:', insertResult.error);
+            return new Response(
+              JSON.stringify({ error: 'Profile creation failed: ' + insertResult.error.message }),
+              { 
+                status: 500, 
+                headers: { "Content-Type": "application/json", ...corsHeaders }
+              }
+            );
+          }
+          
+          profileData = insertResult.data;
         }
 
-        const profileData = existingProfile || {
-          full_name: demoAccount.name,
-          role: demoAccount.role,
-          email: email
-        };
-
+        console.log('✅ Step 4: Returning successful auth response');
         return new Response(
           JSON.stringify({
             message: "Authentication successful",
-            user: signInData.user,
-            session: signInData.session,
-            profile: profileData
+            user: signInResult.data.user,
+            session: signInResult.data.session,
+            profile: profileData || {
+              full_name: demoAccount.name,
+              role: demoAccount.role,
+              email: email
+            }
           }),
           { 
             status: 200,
@@ -130,12 +159,12 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      // If sign in failed, try to create user (might be first time)
-      if (signInError) {
-        console.log('🔐 Sign in failed, trying to create user...', signInError.message);
+      // If sign in failed, the user might not exist yet
+      if (signInResult.error) {
+        console.log('🔐 Step 5: Sign in failed, creating new user...', signInResult.error.message);
         
         // Create new user
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        const createResult = await supabaseAdmin.auth.admin.createUser({
           email: email,
           password: password,
           email_confirm: true,
@@ -145,10 +174,13 @@ const handler = async (req: Request): Promise<Response> => {
           }
         });
 
-        if (authError) {
-          console.error('❌ User creation failed:', authError);
+        console.log('📊 User creation result - error:', createResult.error?.message);
+        console.log('📊 User creation result - user exists:', !!createResult.data?.user);
+
+        if (createResult.error) {
+          console.error('❌ User creation failed:', createResult.error);
           return new Response(
-            JSON.stringify({ error: 'Authentication failed' }),
+            JSON.stringify({ error: 'User creation failed: ' + createResult.error.message }),
             { 
               status: 500, 
               headers: { "Content-Type": "application/json", ...corsHeaders }
@@ -157,30 +189,37 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         // Create profile for new user
-        console.log('👤 Creating profile for new user...');
-        await supabaseAdmin
+        console.log('👤 Step 6: Creating profile for new user...');
+        const newProfileResult = await supabaseAdmin
           .from('profiles')
           .upsert({
-            user_id: authData.user.id,
+            user_id: createResult.data.user.id,
             email: email,
             full_name: demoAccount.name,
             role: demoAccount.role,
             mobile_number: '1234567890',
             station_id: 'DEMO001',
             center_address: 'Demo Center Address'
-          });
+          })
+          .select()
+          .single();
+          
+        console.log('📊 New profile result - error:', newProfileResult.error?.message);
 
         // Now sign in the newly created user
-        console.log('🔑 Signing in newly created user...');
-        const { data: newSignInData, error: newSignInError } = await supabase.auth.signInWithPassword({
+        console.log('🔑 Step 7: Signing in newly created user...');
+        const newSignInResult = await supabase.auth.signInWithPassword({
           email: email,
           password: password
         });
 
-        if (newSignInError) {
-          console.error('❌ New user sign in failed:', newSignInError);
+        console.log('📊 New sign in result - error:', newSignInResult.error?.message);
+        console.log('📊 New sign in result - user exists:', !!newSignInResult.data?.user);
+
+        if (newSignInResult.error) {
+          console.error('❌ New user sign in failed:', newSignInResult.error);
           return new Response(
-            JSON.stringify({ error: 'Sign in failed' }),
+            JSON.stringify({ error: 'New user sign in failed: ' + newSignInResult.error.message }),
             { 
               status: 401, 
               headers: { "Content-Type": "application/json", ...corsHeaders }
@@ -188,12 +227,13 @@ const handler = async (req: Request): Promise<Response> => {
           );
         }
 
+        console.log('✅ Step 8: Returning successful auth response for new user');
         return new Response(
           JSON.stringify({
             message: "Authentication successful",
-            user: newSignInData.user,
-            session: newSignInData.session,
-            profile: {
+            user: newSignInResult.data.user,
+            session: newSignInResult.data.session,
+            profile: newProfileResult.data || {
               full_name: demoAccount.name,
               role: demoAccount.role,
               email: email
@@ -207,9 +247,16 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
     } catch (authError: any) {
-      console.error('❌ Demo auth error:', authError);
+      console.error('❌ Catch block - Demo auth error:', authError);
+      console.error('❌ Error name:', authError.name);
+      console.error('❌ Error message:', authError.message);
+      console.error('❌ Error stack:', authError.stack);
       return new Response(
-        JSON.stringify({ error: 'Authentication failed' }),
+        JSON.stringify({ 
+          error: 'Authentication failed',
+          details: authError.message,
+          name: authError.name
+        }),
         { 
           status: 500, 
           headers: { "Content-Type": "application/json", ...corsHeaders }
