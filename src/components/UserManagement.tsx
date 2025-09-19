@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +52,7 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState<UserFormData>({
     full_name: "",
     email: "",
@@ -200,6 +202,38 @@ export default function UserManagement() {
         description: error.message || "An unexpected error occurred",
         variant: "destructive"
       });
+    }
+  };
+
+  const deleteUser = async (user: any) => {
+    setDeletingUserId(user.id);
+
+    try {
+      const { data: result, error } = await supabase.functions.invoke('delete-user', {
+        body: {
+          user_id: user.user_id,
+          admin_email: profile?.email
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "User deleted successfully",
+        description: result.message || `${user.full_name} has been deleted`,
+      });
+
+      fetchUsers();
+
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: "Failed to delete user",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -393,6 +427,55 @@ export default function UserManagement() {
                         <RotateCcw className="h-4 w-4" />
                         Reset Password
                       </Button>
+                      
+                      {/* Delete User Button with Confirmation */}
+                      {((profile?.role === 'admin') || 
+                        (profile?.role === 'manager' && user.role === 'user')) && 
+                        user.user_id !== profile?.user_id && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              disabled={deletingUserId === user.id}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              {deletingUserId === user.id ? "Deleting..." : "Delete"}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete User Account</AlertDialogTitle>
+                              <AlertDialogDescription className="space-y-2">
+                                <p>
+                                  Are you sure you want to permanently delete <strong>{user.full_name}</strong> ({user.email})?
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  This action will also delete:
+                                </p>
+                                <ul className="text-sm text-muted-foreground list-disc list-inside ml-4">
+                                  <li>All reports submitted by this user</li>
+                                  <li>All payment records associated with this user</li>
+                                  <li>The user's profile and authentication data</li>
+                                </ul>
+                                <p className="text-sm font-medium text-red-600">
+                                  This action cannot be undone.
+                                </p>
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteUser(user)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Yes, Delete User
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </div>
                 </motion.div>
