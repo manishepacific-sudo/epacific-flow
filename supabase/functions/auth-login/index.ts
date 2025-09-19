@@ -76,20 +76,108 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('✅ Demo credentials valid for:', email, 'role:', demoAccount.role);
 
-    // For now, just return success without creating users to test basic function
-    console.log('🎯 Returning test success response');
-    return new Response(
-      JSON.stringify({ 
-        message: "Test success",
+    try {
+      // Create or get the user account
+      console.log('🔐 Creating/getting user account...');
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: email,
-        role: demoAccount.role,
-        name: demoAccount.name
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        password: password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: demoAccount.name,
+          role: demoAccount.role
+        }
+      });
+
+      if (authError && authError.message !== 'User already registered') {
+        console.error('❌ Auth error:', authError);
+        return new Response(
+          JSON.stringify({ error: 'Authentication failed' }),
+          { 
+            status: 500, 
+            headers: { "Content-Type": "application/json", ...corsHeaders }
+          }
+        );
       }
-    );
+
+      const userId = authData?.user?.id || (authError?.message === 'User already registered' ? 
+        (await supabaseAdmin.auth.admin.listUsers()).data.users.find(u => u.email === email)?.id : null);
+
+      if (!userId) {
+        console.error('❌ Could not get user ID');
+        return new Response(
+          JSON.stringify({ error: 'Authentication failed' }),
+          { 
+            status: 500, 
+            headers: { "Content-Type": "application/json", ...corsHeaders }
+          }
+        );
+      }
+
+      // Create or update the profile
+      console.log('👤 Creating/updating profile...');
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .upsert({
+          user_id: userId,
+          email: email,
+          full_name: demoAccount.name,
+          role: demoAccount.role,
+          mobile_number: '1234567890',
+          station_id: 'DEMO001',
+          center_address: 'Demo Center Address'
+        });
+
+      if (profileError) {
+        console.error('❌ Profile error:', profileError);
+      }
+
+      // Sign in the user to create a valid session
+      console.log('🔑 Signing in user...');
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+
+      if (signInError) {
+        console.error('❌ Sign in error:', signInError);
+        return new Response(
+          JSON.stringify({ error: 'Sign in failed' }),
+          { 
+            status: 401, 
+            headers: { "Content-Type": "application/json", ...corsHeaders }
+          }
+        );
+      }
+
+      console.log('✅ Authentication successful');
+      return new Response(
+        JSON.stringify({
+          message: "Authentication successful",
+          user: signInData.user,
+          session: signInData.session,
+          profile: {
+            full_name: demoAccount.name,
+            role: demoAccount.role,
+            email: email
+          }
+        }),
+        { 
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        }
+      );
+
+    } catch (authError: any) {
+      console.error('❌ Demo auth error:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed' }),
+        { 
+          status: 500, 
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        }
+      );
+    }
 
   } catch (error: any) {
     console.error("💥 Critical error in auth-login function:", error);

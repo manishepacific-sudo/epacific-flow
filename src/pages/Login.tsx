@@ -57,6 +57,32 @@ export default function Login() {
         return;
       }
 
+      // Handle full auth response with session first (highest priority)
+      if (authResponse?.user && authResponse?.session) {
+        console.log('✅ Full auth success with session:', authResponse);
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${authResponse.profile?.full_name}!`,
+        });
+
+        setTimeout(() => {
+          switch (authResponse.profile?.role) {
+            case 'admin':
+              navigate('/dashboard/admin', { replace: true });
+              break;
+            case 'manager':
+              navigate('/dashboard/manager', { replace: true });
+              break;
+            case 'user':
+            default:
+              navigate('/dashboard/user', { replace: true });
+              break;
+          }
+          setLoading(false);
+        }, 500);
+        return;
+      }
+
       // For now, handle test response
       if (authResponse?.message === "Test success") {
         console.log('✅ Test success response:', authResponse);
