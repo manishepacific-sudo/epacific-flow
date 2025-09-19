@@ -12,14 +12,14 @@ export function AuthRedirect() {
         // User is authenticated, redirect to appropriate dashboard
         switch (profile.role) {
           case 'admin':
-            navigate('/admin-dashboard', { replace: true });
+            navigate('/admin', { replace: true });
             break;
           case 'manager':
-            navigate('/manager-dashboard', { replace: true });
+            navigate('/manager', { replace: true });
             break;
           case 'user':
           default:
-            navigate('/user-dashboard', { replace: true });
+            navigate('/user', { replace: true });
             break;
         }
       } else {

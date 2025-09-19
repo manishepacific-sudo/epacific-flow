@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthRedirect } from "@/components/AuthRedirect";
+import { withRoleGuard } from "@/components/withRoleGuard";
 import Login from "./pages/Login";
 import SetPassword from "./pages/SetPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -14,11 +15,18 @@ import ResetPassword from "./pages/ResetPassword";
 import UserDashboard from "./pages/UserDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ManagerDashboard from "./pages/ManagerDashboard";
+
 import ReportUpload from "./pages/ReportUpload";
 import PaymentPage from "./pages/PaymentPage";
 import PendingPayments from "./pages/PendingPayments";
 import AttendancePage from "./pages/AttendancePage";
 import NotFound from "./pages/NotFound";
+
+// Create role-guarded components
+const GuardedUserDashboard = withRoleGuard(UserDashboard, 'user');
+const GuardedAdminDashboard = withRoleGuard(AdminDashboard, 'admin');
+const GuardedManagerDashboard = withRoleGuard(ManagerDashboard, 'manager');
+const GuardedReportUpload = withRoleGuard(ReportUpload, 'user');
 
 const queryClient = new QueryClient();
 
@@ -35,26 +43,10 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/set-password" element={<SetPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/user-dashboard" element={
-                <ProtectedRoute allowedRoles={['user']}>
-                  <UserDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin-dashboard" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/manager-dashboard" element={
-                <ProtectedRoute allowedRoles={['manager']}>
-                  <ManagerDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/upload/report" element={
-                <ProtectedRoute allowedRoles={['user']}>
-                  <ReportUpload />
-                </ProtectedRoute>
-              } />
+              <Route path="/user" element={<GuardedUserDashboard />} />
+              <Route path="/admin" element={<GuardedAdminDashboard />} />
+              <Route path="/manager" element={<GuardedManagerDashboard />} />
+              <Route path="/upload/report" element={<GuardedReportUpload />} />
               <Route path="/payment/:id" element={
                 <ProtectedRoute>
                   <PaymentPage />

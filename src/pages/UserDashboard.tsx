@@ -207,8 +207,8 @@ export default function UserDashboard() {
             <GlassCard className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Recent Reports</h3>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/reports")}>
-                  View All
+                  <Button variant="ghost" size="sm" onClick={() => navigate("/upload/report")}>
+                    View All
                 </Button>
               </div>
               <div className="space-y-3">

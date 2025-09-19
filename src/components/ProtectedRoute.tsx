@@ -26,14 +26,14 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         // Redirect to appropriate dashboard based on user role
         switch (profile.role) {
           case 'admin':
-            navigate('/admin-dashboard');
+            navigate('/admin');
             break;
           case 'manager':
-            navigate('/manager-dashboard');
+            navigate('/manager');
             break;
           case 'user':
           default:
-            navigate('/user-dashboard');
+            navigate('/user');
             break;
         }
         return;
