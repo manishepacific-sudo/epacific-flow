@@ -73,6 +73,34 @@ export default function Login() {
     }
   };
 
+  const setupDemoAccounts = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('setup-demo-accounts');
+      
+      if (error) {
+        console.error('Setup error:', error);
+        toast({
+          title: "Setup failed",
+          description: "Failed to set up demo accounts",
+          variant: "destructive",
+        });
+      } else {
+        console.log('Setup result:', data);
+        toast({
+          title: "Demo accounts ready",
+          description: "Demo accounts have been created successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Setup error:', error);
+      toast({
+        title: "Setup failed",
+        description: "An error occurred while setting up demo accounts",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <AuthLayout>
       <motion.div
@@ -190,10 +218,20 @@ export default function Login() {
             transition={{ delay: 1.2 }}
             className="mt-6 p-6 bg-gray-50 rounded-xl border border-gray-200"
           >
-            <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Demo Access
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Demo Access
+              </h3>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={setupDemoAccounts}
+                className="text-xs"
+              >
+                Setup Demo Accounts
+              </Button>
+            </div>
             <div className="text-sm text-gray-600 space-y-2">
               <p><strong className="text-gray-900">User:</strong> john.doe@epacific.com / password123</p>
               <p><strong className="text-gray-900">Manager:</strong> jane.manager@epacific.com / password123</p>
