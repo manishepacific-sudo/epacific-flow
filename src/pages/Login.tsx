@@ -27,63 +27,33 @@ export default function Login() {
     try {
       console.log('Attempting login for:', email);
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Use our custom auth-login function that handles user creation
+      const { data: authResponse, error: loginError } = await supabase.functions.invoke('auth-login', {
+        body: { email, password }
       });
 
-      if (error) {
-        console.error('Login error:', error);
+      if (loginError || authResponse.error) {
+        console.error('Login error:', loginError || authResponse.error);
         toast({
           title: "Login failed",
-          description: error.message || "Invalid credentials. Please try again.",
+          description: authResponse?.error || loginError?.message || "Invalid credentials. Please try again.",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      if (data.user) {
-        console.log('Login successful, fetching profile...');
-        
-        // Fetch user profile to get role
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', data.user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error('Profile fetch error:', profileError);
-          toast({
-            title: "Login failed", 
-            description: "Could not fetch user profile. Please try again.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
-        if (!profile) {
-          toast({
-            title: "Profile not found",
-            description: "User profile not found. Please contact administrator.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
-        console.log('Profile found:', profile);
+      if (authResponse.user && authResponse.profile) {
+        console.log('Login successful:', authResponse);
         
         toast({
           title: "Login successful",
-          description: `Welcome back, ${profile.full_name}!`,
+          description: `Welcome back, ${authResponse.profile.full_name}!`,
         });
 
         // Redirect based on role
         setTimeout(() => {
-          switch (profile.role) {
+          switch (authResponse.profile.role) {
             case 'admin':
               navigate('/dashboard/admin', { replace: true });
               break;
@@ -97,6 +67,13 @@ export default function Login() {
           }
           setLoading(false);
         }, 500);
+      } else {
+        toast({
+          title: "Login failed",
+          description: "Authentication failed. Please try again.",
+          variant: "destructive"
+        });
+        setLoading(false);
       }
 
     } catch (error: any) {
