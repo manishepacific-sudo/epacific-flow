@@ -65,26 +65,23 @@ export default function Layout({ children, role }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-background">
+    <div className="min-h-screen bg-gradient-background transition-colors duration-300">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+        <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <motion.aside
-        initial={{ x: -300 }}
-        animate={{ x: sidebarOpen ? 0 : -300 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="fixed left-0 top-0 h-full w-80 z-50 lg:translate-x-0 lg:static lg:z-auto"
-      >
-        <GlassCard hover={false} className="h-full rounded-none lg:rounded-r-2xl p-6">
+      <aside className={`
+        fixed left-0 top-0 h-full w-72 sm:w-80 z-50
+        transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0 lg:static lg:z-auto
+      `}>
+        <GlassCard hover={false} className="h-full rounded-none lg:rounded-r-2xl p-4 sm:p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6 sm:mb-8">
             <div className="flex items-center gap-2 sm:gap-3">
@@ -107,12 +104,7 @@ export default function Layout({ children, role }: LayoutProps) {
           {/* Navigation */}
           <nav className="space-y-2 mb-6 sm:mb-8 overflow-y-auto max-h-[calc(100vh-300px)]">
             {currentMenuItems.map((item, index) => (
-              <motion.div
-                key={item.path}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
+              <div key={item.path}>
                 <Button
                   variant={isActive(item.path) ? "hero" : "ghost"}
                   className="w-full justify-start gap-2 sm:gap-3 h-10 sm:h-12 text-sm sm:text-base"
@@ -124,7 +116,7 @@ export default function Layout({ children, role }: LayoutProps) {
                   <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
                   <span className="truncate">{item.label}</span>
                 </Button>
-              </motion.div>
+              </div>
             ))}
           </nav>
 
@@ -152,10 +144,10 @@ export default function Layout({ children, role }: LayoutProps) {
             </Button>
           </div>
         </GlassCard>
-      </motion.aside>
+      </aside>
 
       {/* Main Content */}
-      <div className="lg:ml-72 xl:ml-80 min-h-screen">
+      <div className="lg:ml-72 xl:ml-80 min-h-screen flex flex-col">
         {/* Top Bar */}
         <header className="sticky top-0 z-30 border-b border-border backdrop-blur-md bg-background/80 transition-colors duration-300">
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
@@ -191,8 +183,8 @@ export default function Layout({ children, role }: LayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="p-4 sm:p-6">
-          <div className="max-w-full overflow-hidden">
+        <main className="flex-1 p-4 sm:p-6">
+          <div className="w-full max-w-none">
             {children}
           </div>
         </main>
