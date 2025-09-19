@@ -194,21 +194,7 @@ export default function Login() {
     }
   };
 
-  const setupDemoAccounts = async () => {
-    try {
-      console.log('Setting up demo accounts...');
-      toast({
-        title: "Demo accounts ready!",
-        description: "The demo accounts are already set up. You can login with the credentials below.",
-      });
-    } catch (error: any) {
-      console.error('Setup catch error:', error);
-      toast({
-        title: "Demo accounts ready",
-        description: "Demo accounts are available for login",
-      });
-    }
-  };
+  // Demo accounts are pre-configured
 
   return (
     <AuthLayout>
@@ -332,19 +318,11 @@ export default function Login() {
             transition={{ delay: 1.2 }}
             className="mt-6 p-6 bg-muted/50 dark:bg-muted/30 rounded-xl border border-border"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3">
               <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
-                Demo Access
+                Demo Credentials
               </h3>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={setupDemoAccounts}
-                className="text-xs"
-              >
-                Setup Demo Accounts
-              </Button>
             </div>
             <div className="text-sm text-muted-foreground space-y-2">
               <p><strong className="text-foreground">User:</strong> john.doe@epacific.com / password123</p>
