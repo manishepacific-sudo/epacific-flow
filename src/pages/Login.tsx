@@ -83,7 +83,7 @@ export default function Login() {
               <img 
                 src={epacificLogo} 
                 alt="Epacific Technologies" 
-                className="w-24 h-24 mx-auto rounded-2xl shadow-glow"
+                className="w-24 h-24 mx-auto rounded-2xl shadow-glow dark:bg-white dark:p-2"
               />
             </motion.div>
             

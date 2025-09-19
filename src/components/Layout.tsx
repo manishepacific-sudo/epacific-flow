@@ -88,7 +88,7 @@ export default function Layout({ children, role }: LayoutProps) {
           {/* Header */}
           <div className="flex items-center justify-between mb-6 sm:mb-8">
             <div className="flex items-center gap-2 sm:gap-3">
-              <img src={epacificLogo} alt="Epacific" className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg" />
+              <img src={epacificLogo} alt="Epacific" className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg dark:bg-white dark:p-1" />
               <div className="min-w-0">
                 <h1 className="font-bold text-base sm:text-lg gradient-text truncate">Epacific</h1>
                 <p className="text-xs text-muted-foreground capitalize truncate">{role} Panel</p>
