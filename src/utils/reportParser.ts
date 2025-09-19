@@ -285,6 +285,12 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
         
         console.log(`Processing HTML table with ${rows.length} rows, amount column index: ${amountColumnIndex}`);
         console.log(`Amount column header: ${headers[amountColumnIndex]}`);
+        console.log(`Total headers found: ${headers.length}`);
+        
+        // Debug: Show all headers with their indices
+        headers.forEach((header, index) => {
+          console.log(`Header ${index}: "${header}"`);
+        });
         
         // Process data rows (skip header row)
         for (let i = 0; i < rows.length; i++) {
@@ -297,7 +303,16 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
             continue;
           }
           
-          const amountText = cells[amountColumnIndex].textContent?.trim() || '';
+          // Debug: Show what value we're trying to extract
+          const amountCell = cells[amountColumnIndex];
+          const amountText = amountCell?.textContent?.trim() || '';
+          
+          console.log(`Row ${i}: Cell count: ${cells.length}, Amount column index: ${amountColumnIndex}, Amount text: "${amountText}"`);
+          
+          // Debug: Show the last few cells to verify we're getting the right column
+          const lastFewCells = Array.from(cells).slice(-3).map(cell => cell.textContent?.trim());
+          console.log(`Row ${i}: Last 3 cells: [${lastFewCells.join(' | ')}]`);
+          
           
           // Skip empty cells or cells that look like headers
           if (!amountText || amountText.toLowerCase().includes('total') || 
