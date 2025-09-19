@@ -97,15 +97,24 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
           thElements.forEach((th, index) => {
             const headerText = th.textContent?.trim() || '';
             headers.push(headerText);
-            
-            const lowerHeader = headerText.toLowerCase();
-            // Prioritize exact matches for "Total amount charged"
+            console.log(`Header ${index}: "${headerText}"`);
+          });
+          
+          // Find the exact "Total amount charged" column first
+          headers.forEach((header, index) => {
+            const lowerHeader = header.toLowerCase();
             if (lowerHeader.includes('total') && 
                 lowerHeader.includes('amount') && 
                 lowerHeader.includes('charged')) {
               amountColumnIndex = index;
-            } else if (amountColumnIndex === -1) {
-              // Fallback to other amount columns if exact match not found
+              console.log(`Found exact match for "Total amount charged" at index ${index}`);
+            }
+          });
+          
+          // If no exact match, look for other amount-related columns
+          if (amountColumnIndex === -1) {
+            headers.forEach((header, index) => {
+              const lowerHeader = header.toLowerCase();
               if (lowerHeader.includes('amount') || 
                   lowerHeader.includes('total') || 
                   lowerHeader.includes('price') ||
@@ -115,9 +124,10 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
                   lowerHeader.includes('fee') ||
                   lowerHeader.includes('payment')) {
                 amountColumnIndex = index;
+                console.log(`Found fallback amount column "${header}" at index ${index}`);
               }
-            }
-          });
+            });
+          }
           
           // If no th elements, try first row td elements as headers
           if (headers.length === 0) {
@@ -127,15 +137,24 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
               cells.forEach((cell, index) => {
                 const headerText = cell.textContent?.trim() || '';
                 headers.push(headerText);
-                
-                const lowerHeader = headerText.toLowerCase();
-                // Prioritize exact matches for "Total amount charged"
+                console.log(`Header from first row ${index}: "${headerText}"`);
+              });
+              
+              // Find the exact "Total amount charged" column first
+              headers.forEach((header, index) => {
+                const lowerHeader = header.toLowerCase();
                 if (lowerHeader.includes('total') && 
                     lowerHeader.includes('amount') && 
                     lowerHeader.includes('charged')) {
                   amountColumnIndex = index;
-                } else if (amountColumnIndex === -1) {
-                  // Fallback to other amount columns if exact match not found
+                  console.log(`Found exact match for "Total amount charged" at index ${index}`);
+                }
+              });
+              
+              // If no exact match, look for other amount-related columns
+              if (amountColumnIndex === -1) {
+                headers.forEach((header, index) => {
+                  const lowerHeader = header.toLowerCase();
                   if (lowerHeader.includes('amount') || 
                       lowerHeader.includes('total') || 
                       lowerHeader.includes('price') ||
@@ -145,30 +164,36 @@ export const parseHTMLReport = (file: File): Promise<ParsedReportData> => {
                       lowerHeader.includes('fee') ||
                       lowerHeader.includes('payment')) {
                     amountColumnIndex = index;
+                    console.log(`Found fallback amount column "${header}" at index ${index}`);
                   }
-                }
-              });
+                });
+              }
             }
           }
           
           // If still no amount column found, try to find numeric data in any column
           if (amountColumnIndex === -1) {
+            console.log('No amount column found by header, trying to find numeric columns...');
             const rows = table.querySelectorAll('tr');
             for (let colIndex = 0; colIndex < headers.length; colIndex++) {
               let numericCount = 0;
+              let sampleValues = [];
               for (let rowIndex = 1; rowIndex < Math.min(rows.length, 6); rowIndex++) { // Check first 5 data rows
                 const cells = rows[rowIndex].querySelectorAll('td');
                 if (cells[colIndex]) {
                   const cellText = cells[colIndex].textContent?.trim() || '';
-                  const cleaned = cellText.replace(/[,$₹\s]/g, '');
+                  const cleaned = cellText.replace(/[,$₹\s€£¥]/g, '');
                   if (!isNaN(parseFloat(cleaned)) && cleaned.length > 0) {
                     numericCount++;
+                    sampleValues.push(cellText);
                   }
                 }
               }
+              console.log(`Column ${colIndex} (${headers[colIndex]}): ${numericCount} numeric values, samples: ${sampleValues.slice(0,3).join(', ')}`);
               // If most values in this column are numeric, consider it as amount column
               if (numericCount >= Math.min(3, rows.length - 1)) {
                 amountColumnIndex = colIndex;
+                console.log(`Using column ${colIndex} as amount column based on numeric content`);
                 break;
               }
             }
