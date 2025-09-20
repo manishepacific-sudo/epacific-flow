@@ -105,7 +105,17 @@ serve(async (req: Request): Promise<Response> => {
           // For non-demo users, check if password is already set
           if (existingProfile.password_set) {
             console.error("❌ User already exists with password set");
-            throw new Error("User already exists with password set. Cannot resend invitation.");
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                error: "User with this email already exists and has an active account. Please use a different email address.",
+                userExists: true
+              }),
+              {
+                status: 409, // Conflict status code for duplicate resource
+                headers: { "Content-Type": "application/json", ...corsHeaders },
+              }
+            );
           }
           
           // If password not set, this is a resend invitation - update existing user

@@ -124,6 +124,15 @@ export default function EnhancedUserManagement() {
       if (error) throw error;
 
       if (!data.success) {
+        // Check if it's a duplicate user error
+        if (data.userExists) {
+          toast({
+            title: "User Already Exists",
+            description: data.error || "A user with this email already exists.",
+            variant: "destructive"
+          });
+          return;
+        }
         throw new Error(data.error);
       }
 
