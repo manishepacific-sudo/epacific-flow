@@ -191,10 +191,10 @@ export default function EnhancedUserManagement() {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('manageUser', {
+      const { data, error } = await supabase.functions.invoke('delete-user', {
         body: {
-          action: 'delete',
-          data: { userId }
+          user_id: userId,
+          admin_email: currentProfile?.email
         }
       });
 
