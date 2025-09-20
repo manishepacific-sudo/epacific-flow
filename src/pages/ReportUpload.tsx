@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DataPreview } from "@/components/ui/data-preview";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/AuthProvider";
@@ -292,42 +293,13 @@ export default function ReportUpload() {
             </GlassCard>
 
             {/* Data Preview */}
-            <GlassCard>
-              <div className="flex items-center gap-2 mb-4">
-                <Eye className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Data Preview</h3>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="text-sm text-muted-foreground">
-                  First {reportData.preview.length} rows from your file:
-                </div>
-                
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {reportData.preview.map((row, index) => (
-                    <div key={index} className="p-3 glass-button rounded-lg text-xs">
-                      <div className="grid gap-1">
-                        {Object.entries(row).slice(0, 3).map(([key, value]) => (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-muted-foreground truncate max-w-24">
-                              {key}:
-                            </span>
-                            <span className="font-medium truncate">{value}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-lg">
-                  <AlertCircle className="h-4 w-4 text-blue-400" />
-                  <span className="text-xs text-blue-400">
-                    Showing preview of parsed data
-                  </span>
-                </div>
-              </div>
-            </GlassCard>
+            <DataPreview 
+              data={{
+                headers: reportData.headers,
+                preview: reportData.preview,
+                total: reportData.preview.length
+              }}
+            />
           </motion.div>
         )}
 

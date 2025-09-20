@@ -33,13 +33,26 @@ export default function Login() {
         // Check user profile and redirect accordingly
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, password_set')
+          .select('role, password_set, is_demo, full_name')
           .eq('user_id', data.user.id)
           .single();
 
         if (profile && !profile.password_set) {
           navigate('/set-password');
         } else if (profile) {
+          // Show appropriate welcome message based on user type
+          if (profile.is_demo) {
+            toast({
+              title: "Demo login successful",
+              description: `Welcome to the ${profile.role} demo, ${profile.full_name}!`,
+            });
+          } else {
+            toast({
+              title: "Welcome back!",
+              description: `Hello ${profile.full_name}, you have been successfully logged in.`,
+            });
+          }
+
           switch (profile.role) {
             case 'admin':
               navigate('/dashboard/admin');
@@ -52,11 +65,6 @@ export default function Login() {
               break;
           }
         }
-
-        toast({
-          title: "Welcome back!",
-          description: "You have been successfully logged in.",
-        });
       }
     } catch (error: any) {
       toast({
@@ -79,9 +87,16 @@ export default function Login() {
 
       if (error) throw error;
 
+      // Fetch profile to show correct demo message
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, full_name, is_demo')
+        .eq('user_id', data.user.id)
+        .single();
+
       toast({
         title: "Demo login successful",
-        description: "Welcome to the admin demo!",
+        description: `Welcome to the ${profile?.role || 'admin'} demo, ${profile?.full_name || 'Admin'}!`,
       });
       
       navigate('/dashboard/admin');

@@ -8,7 +8,8 @@ import {
   AlertCircle,
   ArrowRight,
   FileText,
-  DollarSign
+  DollarSign,
+  CalendarIcon
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -17,17 +18,21 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import RazorpayPayment from "@/components/RazorpayPayment";
 import { useToast } from "@/hooks/use-toast";
 import { useDropzone } from "react-dropzone";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export default function PaymentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   
   const [selectedMethod, setSelectedMethod] = useState<string>("");
@@ -38,6 +43,7 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(true);
   const [reportAmount, setReportAmount] = useState<number>(25000);
   const [razorpayPaymentId, setRazorpayPaymentId] = useState<string>("");
+  const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
 
   useEffect(() => {
     if (id && user) {
@@ -270,42 +276,92 @@ export default function PaymentPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <GlassCard className="p-4 sm:p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <DollarSign className="h-5 w-5 text-success" />
-              <h2 className="text-lg sm:text-xl font-semibold">Payment Summary</h2>
+          <GlassCard className="p-6" glass>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-gradient-primary rounded-lg">
+                <DollarSign className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold">Payment Summary</h2>
+                <p className="text-sm text-muted-foreground">Review your payment details</p>
+              </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-border/30">
                   <span className="text-muted-foreground">Report ID:</span>
-                  <span className="font-medium">{report.id.slice(0, 8)}...</span>
+                  <span className="font-medium font-mono text-sm">{report.id.slice(0, 8)}...</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center py-2 border-b border-border/30">
                   <span className="text-muted-foreground">Report Title:</span>
                   <span className="font-medium">{report.title}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center py-2">
                   <span className="text-muted-foreground">Status:</span>
-                  <Badge variant="default" className="bg-success">{report.status}</Badge>
+                  <Badge variant="default" className="bg-success hover:bg-success">{report.status}</Badge>
                 </div>
               </div>
               
-              <div className="space-y-3">
-                <div className="flex justify-between">
+              <div className="bg-gradient-secondary/20 rounded-xl p-4 space-y-4">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Calculated Amount:</span>
                   <span className="font-medium">₹{amount.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Processing Fee:</span>
-                  <span className="font-medium">₹0</span>
+                  <span className="font-medium text-success">₹0</span>
                 </div>
-                <div className="flex justify-between text-lg font-bold border-t pt-2">
-                  <span>Total Amount:</span>
-                  <span className="text-success">₹{amount.toLocaleString()}</span>
+                <div className="border-t border-border/30 pt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold">Total Amount:</span>
+                    <span className="text-2xl font-bold text-success">₹{amount.toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
+            </div>
+          </GlassCard>
+        </motion.div>
+
+        {/* Payment Date */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <GlassCard className="p-6" glass>
+            <div className="flex items-center gap-3 mb-4">
+              <CalendarIcon className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Payment Date</h3>
+            </div>
+            
+            <div className="max-w-sm">
+              <Label className="text-sm text-muted-foreground mb-2 block">
+                Select payment date *
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal bg-card/50 border-border hover:bg-card/70 hover:border-primary/50 transition-all duration-300",
+                      !paymentDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {paymentDate ? format(paymentDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={paymentDate}
+                    onSelect={setPaymentDate}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </GlassCard>
         </motion.div>
@@ -316,8 +372,11 @@ export default function PaymentPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <GlassCard className="p-4 sm:p-6">
-            <h2 className="text-lg sm:text-xl font-semibold mb-4">Select Payment Method</h2>
+          <GlassCard className="p-6" glass>
+            <div className="flex items-center gap-3 mb-6">
+              <CreditCard className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Select Payment Method</h2>
+            </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {paymentMethods.map((method) => (
@@ -325,32 +384,38 @@ export default function PaymentPage() {
                   key={method.id}
                   whileHover={{ scale: method.available ? 1.02 : 1 }}
                   whileTap={{ scale: method.available ? 0.98 : 1 }}
+                  className="h-full"
                 >
                   <div
-                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 ${
+                    className={cn(
+                      "p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 h-full flex flex-col",
                       selectedMethod === method.id
-                        ? 'border-primary bg-primary/5'
+                        ? 'border-primary bg-primary/5 shadow-glow'
                         : method.available
-                        ? 'border-border hover:border-primary/50 hover:bg-primary/5'
-                        : 'border-border bg-muted/20 opacity-50 cursor-not-allowed'
-                    }`}
+                        ? 'border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-lg'
+                        : 'border-border/50 bg-muted/20 opacity-50 cursor-not-allowed'
+                    )}
                     onClick={() => method.available && setSelectedMethod(method.id)}
                   >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={`p-2 rounded-lg ${method.color} ${!method.available ? 'grayscale' : ''}`}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={cn(
+                        "p-3 rounded-lg transition-all duration-300",
+                        method.color,
+                        !method.available && 'grayscale'
+                      )}>
                         <method.icon className="h-5 w-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium truncate">{method.name}</h3>
+                        <h3 className="font-semibold text-sm truncate">{method.name}</h3>
                         {!method.available && (
-                          <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                          <Badge variant="secondary" className="text-xs mt-1">Coming Soon</Badge>
                         )}
                       </div>
                       {selectedMethod === method.id && (
-                        <Check className="h-5 w-5 text-primary" />
+                        <Check className="h-5 w-5 text-primary flex-shrink-0" />
                       )}
                     </div>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{method.description}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{method.description}</p>
                   </div>
                 </motion.div>
               ))}
@@ -365,16 +430,19 @@ export default function PaymentPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <GlassCard className="p-4 sm:p-6">
-              <h3 className="text-lg font-semibold mb-4">Razorpay Payment</h3>
+            <GlassCard className="p-6" glass>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                Razorpay Payment
+              </h3>
               
               <div className="space-y-4">
-                <div className="p-4 bg-blue-500/10 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
                     <div className="text-sm text-blue-400">
-                      <p className="font-medium">Secure Online Payment</p>
-                      <p>Pay securely using Credit/Debit Cards, UPI, or Net Banking</p>
+                      <p className="font-medium mb-1">Secure Online Payment</p>
+                      <p className="leading-relaxed">Pay securely using Credit/Debit Cards, UPI, or Net Banking with industry-standard encryption</p>
                     </div>
                   </div>
                 </div>
@@ -389,238 +457,166 @@ export default function PaymentPage() {
           </motion.div>
         )}
 
-        {/* Razorpay Proof Upload */}
-        {selectedMethod === "razorpay_completed" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <GlassCard className="p-4 sm:p-6">
-              <h3 className="text-lg font-semibold mb-4">Upload Payment Proof</h3>
-              
-              <div className="mb-4 p-3 bg-success/10 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-success">
-                    <p className="font-medium">Payment Successful!</p>
-                    <p>Payment ID: {razorpayPaymentId}</p>
-                    <p>Please upload a screenshot of the payment confirmation</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-xl p-6 sm:p-8 text-center transition-all duration-300 cursor-pointer ${
-                  isDragActive 
-                    ? 'border-primary bg-primary/5' 
-                    : proofFile 
-                      ? 'border-success bg-success/5' 
-                      : 'border-border hover:border-primary/50 hover:bg-primary/5'
-                }`}
-              >
-                <input {...getInputProps()} />
-                
-                <motion.div
-                  initial={{ scale: 1 }}
-                  animate={{ scale: isDragActive ? 1.1 : 1 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                >
-                  {proofFile ? (
-                    <Check className="w-12 h-12 mx-auto mb-3 text-success" />
-                  ) : (
-                    <Upload className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                  )}
-                </motion.div>
-
-                {proofFile ? (
-                  <div>
-                    <p className="text-base font-medium mb-2 text-success">
-                      File uploaded successfully
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      {proofFile.name} ({(proofFile.size / 1024 / 1024).toFixed(2)} MB)
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-base font-medium mb-2">
-                      {isDragActive ? 'Drop your file here' : 'Upload payment screenshot'}
-                    </p>
-                    <p className="text-muted-foreground text-sm mb-3">
-                      Drag & drop or click to browse
-                    </p>
-                    <div className="flex justify-center gap-2">
-                      <Badge variant="secondary">JPG</Badge>
-                      <Badge variant="secondary">PNG</Badge>
-                      <Badge variant="secondary">PDF</Badge>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </GlassCard>
-          </motion.div>
-        )}
-
-        {/* Offline Payment Details */}
         {selectedMethod === "offline" && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <Tabs defaultValue="details" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="details">Bank Details</TabsTrigger>
-                <TabsTrigger value="proof">Upload Proof</TabsTrigger>
-              </TabsList>
+            <GlassCard className="p-6" glass>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Offline Payment
+              </h3>
               
-              <TabsContent value="details">
-                <GlassCard className="p-4 sm:p-6">
-                  <h3 className="text-lg font-semibold mb-4">Bank Transfer Details</h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Account Name</Label>
-                        <div className="font-medium">Epacific Technologies Pvt. Ltd.</div>
-                      </div>
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Account Number</Label>
-                        <div className="font-medium font-mono">1234567890123456</div>
-                      </div>
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Bank Name</Label>
-                        <div className="font-medium">State Bank of India</div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-sm text-muted-foreground">IFSC Code</Label>
-                        <div className="font-medium font-mono">SBIN0001234</div>
-                      </div>
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Branch</Label>
-                        <div className="font-medium">Mumbai Central</div>
-                      </div>
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Amount to Transfer</Label>
-                        <div className="font-bold text-success text-lg">₹{amount.toLocaleString()}</div>
-                      </div>
+              <div className="space-y-4">
+                <div className="p-4 bg-secondary/10 rounded-xl border border-secondary/20">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-secondary">
+                      <p className="font-medium mb-1">Bank Transfer Details</p>
+                      <ul className="leading-relaxed list-disc pl-5">
+                        <li>Account Name: ePacific Solutions</li>
+                        <li>Bank Name: HDFC Bank</li>
+                        <li>Account Number: 1234567890</li>
+                        <li>IFSC Code: HDFC0000123</li>
+                      </ul>
                     </div>
                   </div>
-                  
-                  <div className="mt-4 p-3 bg-blue-500/10 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-blue-400">
-                        <p className="font-medium">Important:</p>
-                        <p>Please mention your User ID as reference while making the transfer.</p>
-                      </div>
-                    </div>
-                  </div>
-                </GlassCard>
-              </TabsContent>
-              
-              <TabsContent value="proof">
-                <GlassCard className="p-4 sm:p-6">
-                  <h3 className="text-lg font-semibold mb-4">Upload Payment Proof</h3>
-                  
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="transactionId" className="text-sm font-medium">
+                    Transaction ID *
+                  </Label>
+                  <Input
+                    id="transactionId"
+                    type="text"
+                    placeholder="Enter transaction ID"
+                    value={transactionId}
+                    onChange={(e) => setTransactionId(e.target.value)}
+                    required
+                    className="bg-card/50 border-border"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Upload Payment Proof *
+                  </Label>
                   <div
                     {...getRootProps()}
-                    className={`border-2 border-dashed rounded-xl p-6 sm:p-8 text-center transition-all duration-300 cursor-pointer ${
-                      isDragActive 
-                        ? 'border-primary bg-primary/5' 
-                        : proofFile 
-                          ? 'border-success bg-success/5' 
-                          : 'border-border hover:border-primary/50 hover:bg-primary/5'
-                    }`}
+                    className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all duration-300 border-border hover:border-primary/50 hover:bg-primary/5"
                   >
                     <input {...getInputProps()} />
                     
-                    <motion.div
-                      initial={{ scale: 1 }}
-                      animate={{ scale: isDragActive ? 1.1 : 1 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    >
+                    <div className="space-y-2">
                       {proofFile ? (
-                        <Check className="w-12 h-12 mx-auto mb-3 text-success" />
-                      ) : (
-                        <Upload className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                      )}
-                    </motion.div>
-
-                    {proofFile ? (
-                      <div>
-                        <p className="text-base font-medium mb-2 text-success">
-                          File uploaded successfully
-                        </p>
-                        <p className="text-muted-foreground text-sm">
-                          {proofFile.name} ({(proofFile.size / 1024 / 1024).toFixed(2)} MB)
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-base font-medium mb-2">
-                          {isDragActive ? 'Drop your file here' : 'Upload payment proof'}
-                        </p>
-                        <p className="text-muted-foreground text-sm mb-3">
-                          Drag & drop or click to browse
-                        </p>
-                        <div className="flex justify-center gap-2">
-                          <Badge variant="secondary">JPG</Badge>
-                          <Badge variant="secondary">PNG</Badge>
-                          <Badge variant="secondary">PDF</Badge>
+                        <div className="flex items-center justify-center gap-2">
+                          <Check className="h-5 w-5 text-success" />
+                          <p className="text-sm text-success">
+                            {proofFile.name}
+                          </p>
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                          <p className="text-muted-foreground">
+                            Drag & drop your proof file here, or click to browse
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Supported formats: JPG, PNG, PDF • Max size: 5MB
+                          </p>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  
-                  <div className="mt-4 space-y-2">
-                    <Label htmlFor="transactionId">Transaction ID (Optional)</Label>
-                    <Input
-                      id="transactionId"
-                      placeholder="Enter transaction reference number"
-                      value={transactionId}
-                      onChange={(e) => setTransactionId(e.target.value)}
-                      className="w-full"
-                    />
+                </div>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
+        {selectedMethod === "razorpay_completed" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <GlassCard className="p-6" glass>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Razorpay Payment Confirmation
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-400">
+                      <p className="font-medium mb-1">Razorpay Payment Successful</p>
+                      <p className="leading-relaxed">Please upload a screenshot of your payment confirmation from Razorpay to complete the process.</p>
+                    </div>
                   </div>
-                </GlassCard>
-              </TabsContent>
-            </Tabs>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Upload Payment Proof *
+                  </Label>
+                  <div
+                    {...getRootProps()}
+                    className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all duration-300 border-border hover:border-primary/50 hover:bg-primary/5"
+                  >
+                    <input {...getInputProps()} />
+                    
+                    <div className="space-y-2">
+                      {proofFile ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <Check className="h-5 w-5 text-success" />
+                          <p className="text-sm text-success">
+                            {proofFile.name}
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                          <p className="text-muted-foreground">
+                            Drag & drop your proof file here, or click to browse
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Supported formats: JPG, PNG, PDF • Max size: 5MB
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
           </motion.div>
         )}
 
         {/* Submit Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <GlassCard className="p-4 sm:p-6">
-            <Button 
-              variant="hero" 
-              className="w-full h-12 text-base"
+        {selectedMethod && selectedMethod !== "razorpay" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="flex justify-end"
+          >
+            <Button
               onClick={handlePayment}
+              disabled={processing || !paymentDate}
               loading={processing}
-              disabled={!selectedMethod || 
-                       (selectedMethod === "offline" && !proofFile) || 
-                       (selectedMethod === "razorpay_completed" && !proofFile)}
+              className="bg-gradient-primary hover:shadow-glow min-w-[200px]"
+              size="lg"
             >
-              {processing ? 'Processing...' : 
-               selectedMethod === "razorpay" ? 'Proceed to Razorpay' : 
-               'Submit Payment'}
-              <ArrowRight className="ml-2 h-5 w-5" />
+              {processing ? 'Processing...' : 'Submit Payment'}
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-            
-            <p className="text-center text-xs text-muted-foreground mt-3">
-              Your payment will be reviewed by a manager and processed within 24 hours
-            </p>
-          </GlassCard>
-        </motion.div>
+          </motion.div>
+        )}
       </div>
     </Layout>
   );

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DataPreview } from "@/components/ui/data-preview";
 import { parseReport } from '@/utils/reportParser';
 
 interface ParsedData {
@@ -203,60 +204,14 @@ export function FileUpload({
 
       {/* Parsed Data Preview */}
       {parsedData && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Parsed Results</h3>
-            <Badge variant="secondary" className="bg-success text-success-foreground">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Successfully Parsed
-            </Badge>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="p-4 bg-accent/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Amount</p>
-              <p className="text-2xl font-bold text-primary">₹{parsedData.total.toLocaleString()}</p>
-            </div>
-            <div className="p-4 bg-accent/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Records Found</p>
-              <p className="text-2xl font-bold">{parsedData.preview.length}</p>
-            </div>
-          </div>
-
-          {/* Data Preview Table */}
-          <div className="space-y-3">
-            <h4 className="font-medium">Data Preview</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full border border-border rounded-lg">
-                <thead>
-                  <tr className="bg-accent/50">
-                    {parsedData.headers.slice(0, 4).map((header, index) => (
-                      <th key={index} className="p-3 text-left text-sm font-medium border-r border-border last:border-r-0">
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {parsedData.preview.slice(0, 3).map((row, rowIndex) => (
-                    <tr key={rowIndex} className="border-b border-border last:border-b-0">
-                      {parsedData.headers.slice(0, 4).map((header, colIndex) => (
-                        <td key={colIndex} className="p-3 text-sm border-r border-border last:border-r-0">
-                          {row[header] || '-'}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {parsedData.preview.length > 3 && (
-              <p className="text-sm text-muted-foreground">
-                Showing 3 of {parsedData.preview.length} records
-              </p>
-            )}
-          </div>
-        </Card>
+        <DataPreview 
+          data={{
+            headers: parsedData.headers,
+            preview: parsedData.preview,
+            total: parsedData.preview.length
+          }}
+          className="mt-6"
+        />
       )}
     </div>
   );
