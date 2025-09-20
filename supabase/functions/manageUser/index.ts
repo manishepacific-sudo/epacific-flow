@@ -52,14 +52,13 @@ const handler = async (req: Request): Promise<Response> => {
           throw new Error('User with this email already exists');
         }
 
-        // Create invite redirect URL
-        const redirectUrl = `${Deno.env.get('SUPABASE_URL')?.replace('/supabase', '')}/set-password`;
+        // Create invite redirect URL - use production URL format
+        const redirectUrl = `https://nimxzvhzxsfkfpnbhphm.supabase.co/auth/v1/verify?token={token}&type=invite&redirect_to=${encodeURIComponent(`${Deno.env.get('SUPABASE_URL')?.replace('/supabase', '')}/set-password`)}`;
 
         // Invite user via Supabase Auth with native email
         const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
           email,
           {
-            redirectTo: redirectUrl,
             data: {
               full_name: full_name || email.split('@')[0],
               role,
