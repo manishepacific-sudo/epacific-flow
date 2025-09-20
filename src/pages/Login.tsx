@@ -77,11 +77,11 @@ export default function Login() {
     }
   };
 
-  const handleDemoLogin = async () => {
+  const createAdminAccount = async () => {
     setLoading(true);
     try {
-      // First try to create admin account if it doesn't exist
-      const { data: adminData, error: createError } = await supabase.functions.invoke('manageUser', {
+      // Create admin account using edge function
+      const { data, error } = await supabase.functions.invoke('manageUser', {
         body: {
           action: 'create',
           data: {
@@ -95,42 +95,32 @@ export default function Login() {
         }
       });
 
-      // If creation failed because user exists, that's fine
-      if (createError && !createError.message?.includes('already')) {
-        console.error('Error creating admin:', createError);
+      if (error) {
+        console.error('Error creating admin:', error);
+        toast({
+          title: "Creation failed",
+          description: error.message || "Failed to create admin account.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Set password if the account was just created
-      if (adminData?.success && adminData?.user?.id) {
-        await supabase.functions.invoke('manageUser', {
-          body: {
-            action: 'setPassword',
-            data: {
-              userId: adminData.user.id,
-              password: 'admin123'
-            }
-          }
+      if (data?.success) {
+        toast({
+          title: "Admin Account Created!",
+          description: "You can now login with admin@epacific.com / password from invite email",
+        });
+      } else {
+        toast({
+          title: "Account may already exist",
+          description: "Try logging in with admin@epacific.com",
         });
       }
-
-      // Now try to login
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: 'admin@epacific.com',
-        password: 'admin123',
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Admin Login Successful",
-        description: "You are now logged in as admin.",
-      });
-      
-      navigate('/dashboard/admin');
     } catch (error: any) {
+      console.error('Create admin error:', error);
       toast({
-        title: "Login failed",
-        description: error.message || "Failed to create or login to admin account.",
+        title: "Creation failed",
+        description: error.message || "Failed to create admin account.",
         variant: "destructive",
       });
     } finally {
@@ -268,16 +258,16 @@ export default function Login() {
               )}
             </motion.button>
 
-            {/* Demo login button */}
+            {/* Create admin account button */}
             <motion.button
               type="button"
-              onClick={handleDemoLogin}
+              onClick={createAdminAccount}
               disabled={loading}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="w-full py-3 px-4 glass-button text-foreground rounded-xl font-medium hover:bg-card/20 transition-all duration-300"
             >
-              Quick Demo Login (Admin)
+              Create Admin Account
             </motion.button>
           </motion.form>
 
