@@ -32,6 +32,11 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error("Email, role, and full name are required");
     }
 
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
     // Validate admin permissions
     if (admin_email) {
       console.log("🔐 Validating admin permissions...");
@@ -75,11 +80,6 @@ serve(async (req: Request): Promise<Response> => {
         throw new Error("Managers cannot create other manager accounts");
       }
     }
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
 
     const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
