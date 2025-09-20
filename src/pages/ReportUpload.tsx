@@ -33,7 +33,7 @@ import { ParsedReportData } from "@/types";
 export default function ReportUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [reportData, setReportData] = useState<ParsedReportData | null>(null);
-  const [reportDate, setReportDate] = useState<Date>();
+  const [reportDate, setReportDate] = useState<Date | undefined>();
   const [parsing, setParsing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
@@ -271,7 +271,9 @@ export default function ReportUpload() {
                       <Calendar
                         mode="single"
                         selected={reportDate}
-                        onSelect={setReportDate}
+                        onSelect={(date) => {
+                          setReportDate(date);
+                        }}
                         initialFocus
                         className={cn("p-3 pointer-events-auto")}
                       />
