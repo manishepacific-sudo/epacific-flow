@@ -28,7 +28,16 @@ serve(async (req: Request): Promise<Response> => {
 
     if (!email || !role || !full_name) {
       console.error("❌ Missing required fields:", { email: !!email, role: !!role, full_name: !!full_name });
-      throw new Error("Email, role, and full name are required");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Email, role, and full name are required" 
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
     const supabaseAdmin = createClient(
@@ -61,7 +70,16 @@ serve(async (req: Request): Promise<Response> => {
           
         if (adminError || !adminProfile) {
           console.error("❌ Admin profile not found:", adminError);
-          throw new Error("Unauthorized: Admin profile not found");
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Unauthorized: Admin profile not found" 
+            }),
+            {
+              status: 401,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
         }
         
         adminRole = adminProfile.role;
@@ -70,26 +88,43 @@ serve(async (req: Request): Promise<Response> => {
       
       if (!['admin', 'manager'].includes(adminRole)) {
         console.error("❌ Insufficient permissions:", adminRole);
-        throw new Error("Unauthorized: Insufficient permissions to invite users");
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Unauthorized: Insufficient permissions to invite users" 
+          }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
       }
       
-      // Manager role restrictions
-      if (adminRole === 'manager' && role === 'manager') {
-        console.error("❌ Manager cannot create other managers");
-        throw new Error("Managers cannot create other manager accounts");
+      // Enhanced role restrictions: managers can create other managers now
+      if (adminRole === 'manager' && !['manager', 'user'].includes(role)) {
+        console.error("❌ Manager cannot create admin accounts");
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Managers cannot create admin accounts" 
+          }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
       }
     }
 
-    
-
     // Check if user already exists
     console.log("🔍 Checking for existing user...");
-    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-    const userExists = existingUser.users.find(u => u.email === email);
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const userExists = existingUsers.users.find(u => u.email === email);
     console.log(`👤 User exists: ${!!userExists}`);
 
     if (userExists) {
       console.log("🔄 Processing existing user...");
+      
       // Check if profile exists
       const { data: existingProfile } = await supabaseAdmin
         .from("profiles")
@@ -100,151 +135,126 @@ serve(async (req: Request): Promise<Response> => {
       if (existingProfile) {
         console.log(`📋 Existing profile found - is_demo: ${existingProfile.is_demo}, password_set: ${existingProfile.password_set}`);
         
-        if (!existingProfile.is_demo) {
-          // For non-demo users, check if password is already set
-          if (existingProfile.password_set) {
-            console.error("❌ User already exists with password set");
-            return new Response(
-              JSON.stringify({ 
-                success: false, 
-                error: "User with this email already exists and has an active account. Please use a different email address.",
-                userExists: true
-              }),
-              {
-                status: 409, // Conflict status code for duplicate resource
-                headers: { "Content-Type": "application/json", ...corsHeaders },
-              }
-            );
-          }
-          
-          // If password not set, this is a resend invitation - update existing user
-          console.log(`🔄 Resending invitation to existing user: ${email}`);
-          
-          // Generate new invitation token
-          const inviteToken = crypto.randomUUID();
-          const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-          
-          // Update user metadata with new token
-          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userExists.id, {
-            user_metadata: {
-              ...userExists.user_metadata,
-              invite_token: inviteToken,
-              invite_expires_at: expiresAt.toISOString(),
-            },
-          });
-          
-          if (updateError) throw updateError;
-          
-          // Update profile with any new information
-          const { error: profileUpdateError } = await supabaseAdmin
-            .from("profiles")
-            .update({
-              full_name,
-              role,
-              mobile_number: mobile_number || existingProfile.mobile_number,
-              station_id: station_id || existingProfile.station_id,
-              center_address: center_address || existingProfile.center_address,
-            })
-            .eq("user_id", userExists.id);
-            
-          if (profileUpdateError) throw profileUpdateError;
-          
-          // Send new invitation email using Supabase
-          const inviteUrl = `${Deno.env.get("SUPABASE_URL")?.replace('supabase.co', 'lovable.app')}/set-password?token=${inviteToken}&email=${encodeURIComponent(email)}`;
-          
-          console.log(`📧 Attempting to resend email via Supabase to: ${email}`);
-          
-          try {
-            const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-              redirectTo: inviteUrl,
-              data: {
-                full_name,
-                role,
-                invite_token: inviteToken,
-                custom_subject: "ePacific - Password Setup Reminder",
-                custom_message: `Hello ${full_name}, this is a reminder to complete your ePacific account setup.`
-              }
-            });
-            
-            if (emailError) {
-              console.error("❌ Supabase email failed:", emailError);
-              console.error("❌ Supabase email error details:", JSON.stringify(emailError));
-            } else {
-              console.log("✅ Supabase email sent successfully to:", email);
-            }
-          } catch (emailException) {
-            console.error("❌ Supabase email exception:", emailException);
-          }
-          
+        // If user already has password set and is not a demo user, return conflict
+        if (existingProfile.password_set && !existingProfile.is_demo) {
+          console.error("❌ User already exists with password set");
           return new Response(
-            JSON.stringify({
-              success: true,
-              user: {
-                id: userExists.id,
-                email,
-                role,
-                invite_token: inviteToken,
-                expires_at: expiresAt.toISOString(),
-              },
-              message: "Invitation resent successfully.",
+            JSON.stringify({ 
+              success: false, 
+              error: "User with this email already exists and has an active account. Please use a different email address.",
+              userExists: true
             }),
-            { 
-              status: 200, 
-              headers: { "Content-Type": "application/json", ...corsHeaders } 
+            {
+              status: 409,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
             }
           );
         }
 
-        // Delete existing demo user and profile
+        // Clean up expired invitations or demo users before creating new invitation
         try {
-          console.log(`🗑️ Deleting existing demo profile for: ${email}`);
+          console.log(`🗑️ Cleaning up existing user for: ${email}`);
           await supabaseAdmin.from("profiles").delete().eq("user_id", userExists.id);
-          console.log(`🗑️ Deleting existing demo auth user for: ${email}`);
           await supabaseAdmin.auth.admin.deleteUser(userExists.id);
-          console.log(`✅ Deleted existing demo user: ${email}`);
+          console.log(`✅ Cleaned up existing user: ${email}`);
         } catch (deleteError) {
-          console.error("❌ Error deleting existing demo user:", deleteError);
-          throw new Error("Failed to remove existing demo user");
+          console.error("❌ Error cleaning up existing user:", deleteError);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Failed to clean up existing user. Please try again." 
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
         }
       } else {
-        // User exists in auth but no profile - delete auth user
+        // User exists in auth but no profile - clean up auth user
         try {
-          console.log(`🗑️ Deleting auth user without profile: ${email}`);
+          console.log(`🗑️ Cleaning up auth user without profile: ${email}`);
           await supabaseAdmin.auth.admin.deleteUser(userExists.id);
-          console.log(`✅ Deleted auth user without profile: ${email}`);
+          console.log(`✅ Cleaned up auth user without profile: ${email}`);
         } catch (deleteError) {
-          console.error("❌ Error deleting auth user:", deleteError);
-          throw new Error("Failed to remove existing auth user");
+          console.error("❌ Error cleaning up auth user:", deleteError);
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Failed to clean up existing auth user. Please try again." 
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
         }
       }
     }
 
-    // Generate invitation token (expires in 10 minutes)
-    const inviteToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    // Generate invitation token with 2-hour expiry
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+    console.log(`⏰ Invitation expires at: ${expiresAt.toISOString()}`);
 
-    // Create user with temporary password
-    const tempPassword = crypto.randomUUID();
-    const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
+    // Construct invitation URL
+    const baseUrl = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.lovable.app') || '';
+    const inviteUrl = `${baseUrl}/set-password?email=${encodeURIComponent(email)}`;
+    
+    console.log(`🔗 Invite URL: ${inviteUrl}`);
+    console.log(`📧 Attempting to send invitation via Supabase to: ${email}`);
+
+    // Use ONLY inviteUserByEmail - this handles both user creation and email sending
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: inviteUrl,
+      data: {
         full_name,
         role,
         mobile_number: mobile_number || "",
         station_id: station_id || "",
         center_address: center_address || "",
-        invite_token: inviteToken,
-        invite_expires_at: expiresAt.toISOString(),
-      },
+        invite_expires_at: expiresAt.toISOString()
+      }
     });
 
-    if (createError) throw createError;
+    if (inviteError) {
+      console.error("❌ Supabase invitation failed:", inviteError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Failed to send invitation: ${inviteError.message}` 
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    console.log("✅ Invitation sent successfully via Supabase");
+    console.log("📊 Invite data:", inviteData);
+
+    // Get the created user to obtain user ID
+    const { data: newUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const newUser = newUsers.users.find(u => u.email === email);
+    
+    if (!newUser) {
+      console.error("❌ Could not find newly created user");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "User invitation sent but could not retrieve user details" 
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
     // Create profile entry
+    console.log(`👤 Creating profile for user: ${newUser.id}`);
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
-      user_id: userData.user.id,
+      user_id: newUser.id,
       email,
       full_name,
       role,
@@ -252,88 +262,35 @@ serve(async (req: Request): Promise<Response> => {
       station_id: station_id || "",
       center_address: center_address || "",
       is_demo: false,
-      password_set: false, // User needs to set password
+      password_set: false,
     });
 
-    if (profileError) throw profileError;
-
-    // Send invitation email using Supabase
-    const inviteUrl = `${Deno.env.get("SUPABASE_URL")?.replace('supabase.co', 'lovable.app')}/set-password?token=${inviteToken}&email=${encodeURIComponent(email)}`;
-    
-    console.log(`📧 Attempting to send email via Supabase to: ${email}`);
-    console.log(`🔗 Invite URL: ${inviteUrl}`);
-    
-    try {
-      const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: inviteUrl,
-        data: {
-          full_name,
-          role,
-          invite_token: inviteToken,
-          custom_subject: "You're invited to join ePacific",
-          custom_message: `Hello ${full_name}, you've been invited to join ePacific as a ${role}.`
-        }
-      });
-
-      if (emailError) {
-        console.error("❌ Supabase email sending failed:", emailError);
-        console.error("❌ Supabase email error details:", JSON.stringify(emailError));
-        
-        // Still return success since user was created, but mention email issue
-        return new Response(
-          JSON.stringify({
-            success: true,
-            user: {
-              id: userData.user.id,
-              email,
-              role,
-              invite_token: inviteToken,
-              expires_at: expiresAt.toISOString(),
-            },
-            message: "User created successfully, but there was an issue sending the invitation email. Please resend the invitation.",
-            emailError: true
-          }),
-          { 
-            status: 200, 
-            headers: { "Content-Type": "application/json", ...corsHeaders } 
-          }
-        );
-      }
-      
-      console.log("✅ Supabase email sent successfully to:", email);
-    } catch (emailException) {
-      console.error("❌ Supabase email sending exception:", emailException);
-      console.error("❌ Supabase email exception details:", JSON.stringify(emailException));
-      
-      // Still return success since user was created
+    if (profileError) {
+      console.error("❌ Error creating profile:", profileError);
+      // Clean up auth user if profile creation fails
+      await supabaseAdmin.auth.admin.deleteUser(newUser.id);
       return new Response(
-        JSON.stringify({
-          success: true,
-          user: {
-            id: userData.user.id,
-            email,
-            role,
-            invite_token: inviteToken,
-            expires_at: expiresAt.toISOString(),
-          },
-          message: "User created successfully, but there was an issue sending the invitation email. Please check your email configuration.",
-          emailError: true
+        JSON.stringify({ 
+          success: false, 
+          error: `Failed to create user profile: ${profileError.message}` 
         }),
-        { 
-          status: 200, 
-          headers: { "Content-Type": "application/json", ...corsHeaders } 
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
     }
+
+    console.log("✅ User profile created successfully");
 
     return new Response(
       JSON.stringify({
         success: true,
         user: {
-          id: userData.user.id,
+          id: newUser.id,
           email,
+          full_name,
           role,
-          invite_token: inviteToken,
           expires_at: expiresAt.toISOString(),
         },
         message: "User invited successfully. Check email for setup instructions.",
@@ -343,6 +300,7 @@ serve(async (req: Request): Promise<Response> => {
         headers: { "Content-Type": "application/json", ...corsHeaders } 
       }
     );
+
   } catch (err: any) {
     console.error("❌ Error in user-invite function:", err);
     console.error("❌ Error message:", err.message);
@@ -350,10 +308,10 @@ serve(async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: err.message 
+        error: err.message || "An unexpected error occurred" 
       }),
       {
-        status: 400,
+        status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
