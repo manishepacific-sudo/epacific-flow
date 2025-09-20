@@ -41,8 +41,22 @@ serve(async (req: Request): Promise<Response> => {
           throw new Error("Email and role are required");
         }
 
+        // Check if user already exists and delete if found
+        const { data: existingProfiles } = await supabaseAdmin
+          .from("profiles")
+          .select("user_id")
+          .eq("email", email);
+
+        if (existingProfiles && existingProfiles.length > 0) {
+          const userId = existingProfiles[0].user_id;
+          // Delete profile first
+          await supabaseAdmin.from("profiles").delete().eq("user_id", userId);
+          // Delete auth user
+          await supabaseAdmin.auth.admin.deleteUser(userId);
+        }
+
         // Create user directly with password (for admin accounts)
-        const defaultPassword = email === 'admin@epacific.com' ? 'admin123' : 'tempPassword123';
+        const defaultPassword = email === 'manish.epacific@gmail.com' ? 'admin123' : 'tempPassword123';
         
         const { data: userData, error: createError } =
           await supabaseAdmin.auth.admin.createUser({
