@@ -41,10 +41,15 @@ serve(async (req: Request): Promise<Response> => {
           throw new Error("Email and role are required");
         }
 
-        // Invite user - Supabase will handle the email automatically
-        const { data: inviteData, error: inviteError } =
-          await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-            data: {
+        // Create user directly with password (for admin accounts)
+        const defaultPassword = email === 'admin@epacific.com' ? 'admin123' : 'tempPassword123';
+        
+        const { data: userData, error: createError } =
+          await supabaseAdmin.auth.admin.createUser({
+            email,
+            password: defaultPassword,
+            email_confirm: true, // Skip email confirmation
+            user_metadata: {
               full_name: full_name || email.split("@")[0],
               role,
               mobile_number: mobile_number || "",
@@ -53,11 +58,11 @@ serve(async (req: Request): Promise<Response> => {
             },
           });
 
-        if (inviteError) throw inviteError;
+        if (createError) throw createError;
 
         // Create profile
         const { error: profileError } = await supabaseAdmin.from("profiles").insert({
-          user_id: inviteData.user.id,
+          user_id: userData.user.id,
           email,
           full_name: full_name || email.split("@")[0],
           role,
@@ -65,7 +70,7 @@ serve(async (req: Request): Promise<Response> => {
           station_id: station_id || "",
           center_address: center_address || "",
           is_demo: false,
-          password_set: false,
+          password_set: true, // Password is already set
         });
 
         if (profileError) throw profileError;
@@ -74,10 +79,11 @@ serve(async (req: Request): Promise<Response> => {
           JSON.stringify({
             success: true,
             user: {
-              id: inviteData.user.id,
+              id: userData.user.id,
               email,
               role,
             },
+            password: defaultPassword, // Return the password for convenience
           }),
           { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
