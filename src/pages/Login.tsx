@@ -77,56 +77,6 @@ export default function Login() {
     }
   };
 
-  const createAdminAccount = async () => {
-    setLoading(true);
-    try {
-      // Create admin account using edge function
-      const { data, error } = await supabase.functions.invoke('manageUser', {
-        body: {
-          action: 'create',
-          data: {
-            email: 'admin@epacific.com',
-            role: 'admin',
-            full_name: 'Admin User',
-            mobile_number: '1234567890',
-            station_id: 'HQ001',
-            center_address: 'Head Office'
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Error creating admin:', error);
-        toast({
-          title: "Creation failed",
-          description: error.message || "Failed to create admin account.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (data?.success) {
-        toast({
-          title: "Admin Account Created!",
-          description: "You can now login with admin@epacific.com / password from invite email",
-        });
-      } else {
-        toast({
-          title: "Account may already exist",
-          description: "Try logging in with admin@epacific.com",
-        });
-      }
-    } catch (error: any) {
-      console.error('Create admin error:', error);
-      toast({
-        title: "Creation failed",
-        description: error.message || "Failed to create admin account.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-background relative overflow-hidden">
@@ -258,17 +208,6 @@ export default function Login() {
               )}
             </motion.button>
 
-            {/* Create admin account button */}
-            <motion.button
-              type="button"
-              onClick={createAdminAccount}
-              disabled={loading}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full py-3 px-4 glass-button text-foreground rounded-xl font-medium hover:bg-card/20 transition-all duration-300"
-            >
-              Create Admin Account
-            </motion.button>
           </motion.form>
 
           {/* Footer */}
