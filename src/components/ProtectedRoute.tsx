@@ -21,6 +21,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         return;
       }
 
+      // Check if user needs to set password first
+      if (profile && !profile.password_set) {
+        console.log('User needs to set password');
+        navigate('/set-password');
+        return;
+      }
+
       if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
         console.log('User role not allowed:', profile.role, 'allowed:', allowedRoles);
         // Redirect to appropriate dashboard based on user role

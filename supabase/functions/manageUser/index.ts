@@ -41,7 +41,7 @@ serve(async (req: Request): Promise<Response> => {
           throw new Error("Email and role are required");
         }
 
-        // Invite user
+        // Invite user - Supabase will handle the email automatically
         const { data: inviteData, error: inviteError } =
           await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
             data: {

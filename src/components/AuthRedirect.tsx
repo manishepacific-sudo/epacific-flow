@@ -9,6 +9,12 @@ export function AuthRedirect() {
   useEffect(() => {
     if (!loading) {
       if (user && profile) {
+        // Check if user needs to set password first
+        if (!profile.password_set) {
+          navigate('/set-password', { replace: true });
+          return;
+        }
+        
         // User is authenticated, redirect to appropriate dashboard
         switch (profile.role) {
           case 'admin':

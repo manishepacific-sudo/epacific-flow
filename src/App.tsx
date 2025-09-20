@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthRedirect } from "@/components/AuthRedirect";
 import { withRoleGuard } from "@/components/withRoleGuard";
 import Login from "./pages/Login";
+import HandleInvite from "./pages/HandleInvite";
 import SetPassword from "./pages/SetPassword";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -41,6 +42,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<AuthRedirect />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/handle-invite" element={<HandleInvite />} />
               <Route path="/set-password" element={<SetPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard/user" element={<GuardedUserDashboard />} />
