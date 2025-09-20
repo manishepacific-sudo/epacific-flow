@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-import { Resend } from "npm:resend@4.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,7 +80,7 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+    
 
     // Check if user already exists
     console.log("🔍 Checking for existing user...");
@@ -150,42 +149,31 @@ serve(async (req: Request): Promise<Response> => {
             
           if (profileUpdateError) throw profileUpdateError;
           
-          // Send new invitation email
+          // Send new invitation email using Supabase
           const inviteUrl = `${Deno.env.get("SUPABASE_URL")?.replace('supabase.co', 'lovable.app')}/set-password?token=${inviteToken}&email=${encodeURIComponent(email)}`;
           
-          console.log(`📧 Attempting to resend email to: ${email}`);
+          console.log(`📧 Attempting to resend email via Supabase to: ${email}`);
           
           try {
-            const { error: emailError } = await resend.emails.send({
-              from: "noreply@epacific.com",
-              to: [email],
-              subject: "ePacific - Password Setup Reminder",
-              html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2 style="color: #2563eb;">ePacific - Complete Your Setup</h2>
-                  <p>Hello ${full_name},</p>
-                  <p>This is a reminder to complete your ePacific account setup. Please click the link below to set your password.</p>
-                  <div style="margin: 30px 0;">
-                    <a href="${inviteUrl}" 
-                       style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
-                      Set Your Password
-                    </a>
-                  </div>
-                  <p style="color: #6b7280; font-size: 14px;">
-                    This link will expire in 10 minutes.
-                  </p>
-                </div>
-              `,
+            const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+              redirectTo: inviteUrl,
+              data: {
+                full_name,
+                role,
+                invite_token: inviteToken,
+                custom_subject: "ePacific - Password Setup Reminder",
+                custom_message: `Hello ${full_name}, this is a reminder to complete your ePacific account setup.`
+              }
             });
             
             if (emailError) {
-              console.error("❌ Resend email failed:", emailError);
-              console.error("❌ Resend email error details:", JSON.stringify(emailError));
+              console.error("❌ Supabase email failed:", emailError);
+              console.error("❌ Supabase email error details:", JSON.stringify(emailError));
             } else {
-              console.log("✅ Resend email sent successfully to:", email);
+              console.log("✅ Supabase email sent successfully to:", email);
             }
           } catch (emailException) {
-            console.error("❌ Resend email exception:", emailException);
+            console.error("❌ Supabase email exception:", emailException);
           }
           
           return new Response(
@@ -269,41 +257,27 @@ serve(async (req: Request): Promise<Response> => {
 
     if (profileError) throw profileError;
 
-    // Send invitation email
+    // Send invitation email using Supabase
     const inviteUrl = `${Deno.env.get("SUPABASE_URL")?.replace('supabase.co', 'lovable.app')}/set-password?token=${inviteToken}&email=${encodeURIComponent(email)}`;
     
-    console.log(`📧 Attempting to send email to: ${email}`);
+    console.log(`📧 Attempting to send email via Supabase to: ${email}`);
     console.log(`🔗 Invite URL: ${inviteUrl}`);
     
     try {
-      const { error: emailError } = await resend.emails.send({
-        from: "noreply@epacific.com",
-        to: [email],
-        subject: "You're invited to join ePacific",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2563eb;">Welcome to ePacific</h2>
-            <p>Hello ${full_name},</p>
-            <p>You've been invited to join ePacific as a ${role}. Please click the link below to set your password and complete your account setup.</p>
-            <div style="margin: 30px 0;">
-              <a href="${inviteUrl}" 
-                 style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
-                Set Your Password
-              </a>
-            </div>
-            <p style="color: #6b7280; font-size: 14px;">
-              This invitation link will expire in 10 minutes. If the link expires, please contact your administrator for a new invitation.
-            </p>
-            <p style="color: #6b7280; font-size: 14px;">
-              If you didn't expect this invitation, you can safely ignore this email.
-            </p>
-          </div>
-        `,
+      const { error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: inviteUrl,
+        data: {
+          full_name,
+          role,
+          invite_token: inviteToken,
+          custom_subject: "You're invited to join ePacific",
+          custom_message: `Hello ${full_name}, you've been invited to join ePacific as a ${role}.`
+        }
       });
 
       if (emailError) {
-        console.error("❌ Email sending failed:", emailError);
-        console.error("❌ Email error details:", JSON.stringify(emailError));
+        console.error("❌ Supabase email sending failed:", emailError);
+        console.error("❌ Supabase email error details:", JSON.stringify(emailError));
         
         // Still return success since user was created, but mention email issue
         return new Response(
@@ -326,10 +300,10 @@ serve(async (req: Request): Promise<Response> => {
         );
       }
       
-      console.log("✅ Email sent successfully to:", email);
+      console.log("✅ Supabase email sent successfully to:", email);
     } catch (emailException) {
-      console.error("❌ Email sending exception:", emailException);
-      console.error("❌ Email exception details:", JSON.stringify(emailException));
+      console.error("❌ Supabase email sending exception:", emailException);
+      console.error("❌ Supabase email exception details:", JSON.stringify(emailException));
       
       // Still return success since user was created
       return new Response(
