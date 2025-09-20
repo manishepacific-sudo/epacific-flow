@@ -7,6 +7,16 @@ export function AuthRedirect() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check if URL has invite tokens in hash and redirect to handle-invite
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const hasInviteTokens = hashParams.get('access_token') && hashParams.get('refresh_token') && hashParams.get('type') === 'invite';
+    
+    if (hasInviteTokens) {
+      // Redirect to handle-invite with the hash intact
+      navigate('/handle-invite' + window.location.hash, { replace: true });
+      return;
+    }
+
     if (!loading) {
       if (user && profile) {
         // Check if user needs to set password first

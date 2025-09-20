@@ -197,7 +197,9 @@ serve(async (req: Request): Promise<Response> => {
     console.log(`⏰ Invitation expires at: ${expiresAt.toISOString()}`);
 
     // Construct invitation URL - redirect to handle-invite to process Supabase tokens
-    const baseUrl = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.lovable.app') || '';
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || '';
+    // For development, use localhost:3000, for production use the lovable.app URL
+    const baseUrl = supabaseUrl.includes('localhost') ? 'http://localhost:3000' : supabaseUrl.replace('.supabase.co', '.lovable.app');
     const inviteUrl = `${baseUrl}/handle-invite`;
     
     console.log(`🔗 Invite URL: ${inviteUrl}`);
