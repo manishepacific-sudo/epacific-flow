@@ -23,12 +23,14 @@ import PaymentPage from "./pages/PaymentPage";
 import PendingPayments from "./pages/PendingPayments";
 import AttendancePage from "./pages/AttendancePage";
 import NotFound from "./pages/NotFound";
+import { UserProfilePage } from "./pages/UserProfilePage";
 
 // Create role-guarded components
 const GuardedUserDashboard = withRoleGuard(UserDashboard, 'user');
 const GuardedAdminDashboard = withRoleGuard(AdminDashboard, 'admin');
 const GuardedManagerDashboard = withRoleGuard(ManagerDashboard, 'manager');
 const GuardedReportUpload = withRoleGuard(ReportUpload, 'user');
+const GuardedUserProfile = withRoleGuard(UserProfilePage, 'admin');
 
 const queryClient = new QueryClient();
 
@@ -65,6 +67,7 @@ const App = () => (
                   <AttendancePage />
                 </ProtectedRoute>
               } />
+              <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

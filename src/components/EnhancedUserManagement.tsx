@@ -255,19 +255,19 @@ export default function EnhancedUserManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">User Management</h2>
-          <p className="text-muted-foreground">Invite and manage system users</p>
+          <p className="text-muted-foreground">Add and manage system users</p>
         </div>
         
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <UserPlus className="h-4 w-4" />
-              Invite User
+              Add User
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Invite New User</DialogTitle>
+              <DialogTitle>Add New User</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleInviteUser} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -363,7 +363,7 @@ export default function EnhancedUserManagement() {
                   ) : (
                     <>
                       <Mail className="h-4 w-4 mr-2" />
-                      Send Invite
+                      Add User
                     </>
                   )}
                 </Button>
@@ -450,6 +450,10 @@ export default function EnhancedUserManagement() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => window.location.href = `/user-profile/${user.id}`}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View/Edit Profile
+                            </DropdownMenuItem>
                             {!user.password_set && !user.is_demo && (
                               <DropdownMenuItem onClick={() => handleResendInvite(user.email)}>
                                 <RefreshCw className="h-4 w-4 mr-2" />
