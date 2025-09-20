@@ -19,7 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
-import UserManagement from "@/components/UserManagement";
+import EnhancedUserManagement from "@/components/EnhancedUserManagement";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -335,7 +335,7 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="users" className="mt-6">
-            <UserManagement />
+            <EnhancedUserManagement />
           </TabsContent>
         </Tabs>
       </div>

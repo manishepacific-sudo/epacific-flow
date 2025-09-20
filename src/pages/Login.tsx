@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { GlassCard } from '@/components/ui/glass-card';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -12,8 +12,22 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+
+  // Display success message from password setup
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.message) {
+      toast({
+        title: "Success!",
+        description: state.message,
+      });
+      // Clear the state
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, toast, navigate, location.pathname]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

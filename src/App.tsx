@@ -11,6 +11,7 @@ import { withRoleGuard } from "@/components/withRoleGuard";
 import Login from "./pages/Login";
 import HandleInvite from "./pages/HandleInvite";
 import SetPassword from "./pages/SetPassword";
+import SetPasswordPage from "./pages/SetPasswordPage";
 import ResetPassword from "./pages/ResetPassword";
 
 import UserDashboard from "./pages/UserDashboard";
@@ -43,7 +44,7 @@ const App = () => (
               <Route path="/" element={<AuthRedirect />} />
               <Route path="/login" element={<Login />} />
               <Route path="/handle-invite" element={<HandleInvite />} />
-              <Route path="/set-password" element={<SetPassword />} />
+              <Route path="/set-password" element={<SetPasswordPage />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard/user" element={<GuardedUserDashboard />} />
               <Route path="/dashboard/admin" element={<GuardedAdminDashboard />} />

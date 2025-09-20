@@ -1,0 +1,162 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { Resend } from "npm:resend@4.0.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface InviteUserRequest {
+  email: string;
+  role: "manager" | "user";
+  full_name: string;
+  mobile_number?: string;
+  station_id?: string;
+  center_address?: string;
+}
+
+serve(async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { email, role, full_name, mobile_number, station_id, center_address }: InviteUserRequest = await req.json();
+
+    if (!email || !role || !full_name) {
+      throw new Error("Email, role, and full name are required");
+    }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+    // Check if user already exists
+    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
+    const userExists = existingUser.users.find(u => u.email === email);
+
+    if (userExists) {
+      // Check if profile exists and is not demo
+      const { data: existingProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .eq("email", email)
+        .single();
+
+      if (existingProfile && !existingProfile.is_demo) {
+        throw new Error("User already exists");
+      }
+
+      // Delete existing demo user if exists
+      if (existingProfile) {
+        await supabaseAdmin.from("profiles").delete().eq("user_id", userExists.id);
+        await supabaseAdmin.auth.admin.deleteUser(userExists.id);
+      }
+    }
+
+    // Generate invitation token (expires in 10 minutes)
+    const inviteToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Create user with temporary password
+    const tempPassword = crypto.randomUUID();
+    const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name,
+        role,
+        mobile_number: mobile_number || "",
+        station_id: station_id || "",
+        center_address: center_address || "",
+        invite_token: inviteToken,
+        invite_expires_at: expiresAt.toISOString(),
+      },
+    });
+
+    if (createError) throw createError;
+
+    // Create profile entry
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      user_id: userData.user.id,
+      email,
+      full_name,
+      role,
+      mobile_number: mobile_number || "",
+      station_id: station_id || "",
+      center_address: center_address || "",
+      is_demo: false,
+      password_set: false, // User needs to set password
+    });
+
+    if (profileError) throw profileError;
+
+    // Send invitation email
+    const inviteUrl = `${Deno.env.get("SUPABASE_URL")?.replace('supabase.co', 'lovable.app')}/set-password?token=${inviteToken}&email=${encodeURIComponent(email)}`;
+    
+    const { error: emailError } = await resend.emails.send({
+      from: "noreply@epacific.com",
+      to: [email],
+      subject: "You're invited to join ePacific",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">Welcome to ePacific</h2>
+          <p>Hello ${full_name},</p>
+          <p>You've been invited to join ePacific as a ${role}. Please click the link below to set your password and complete your account setup.</p>
+          <div style="margin: 30px 0;">
+            <a href="${inviteUrl}" 
+               style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+              Set Your Password
+            </a>
+          </div>
+          <p style="color: #6b7280; font-size: 14px;">
+            This invitation link will expire in 10 minutes. If the link expires, please contact your administrator for a new invitation.
+          </p>
+          <p style="color: #6b7280; font-size: 14px;">
+            If you didn't expect this invitation, you can safely ignore this email.
+          </p>
+        </div>
+      `,
+    });
+
+    if (emailError) {
+      console.error("Email error:", emailError);
+      // Don't fail the request if email fails, user was still created
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        user: {
+          id: userData.user.id,
+          email,
+          role,
+          invite_token: inviteToken,
+          expires_at: expiresAt.toISOString(),
+        },
+        message: "User invited successfully. Check email for setup instructions.",
+      }),
+      { 
+        status: 200, 
+        headers: { "Content-Type": "application/json", ...corsHeaders } 
+      }
+    );
+  } catch (err: any) {
+    console.error("Error in user-invite function:", err);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: err.message 
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+});

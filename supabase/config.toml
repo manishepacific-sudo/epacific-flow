@@ -43,6 +43,7 @@ jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
 enable_manual_linking = false
+enable_signup = false
 
 [auth.email]
 enable_signup = false
@@ -61,7 +62,6 @@ verify_jwt = false
 [functions.auth-login]
 verify_jwt = false
 
-# Edge Functions configuration
 [functions.bootstrap-demo-admin]
 verify_jwt = false
 
@@ -86,8 +86,11 @@ verify_jwt = false
 [functions.delete-user]
 verify_jwt = false
 
-[functions.bootstrap-demo-admin]
+[functions.manageUser]
 verify_jwt = false
 
-[functions.manageUser]
+[functions.user-invite]
+verify_jwt = true
+
+[functions.setup-password]
 verify_jwt = false
