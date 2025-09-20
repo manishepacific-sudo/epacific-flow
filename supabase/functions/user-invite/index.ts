@@ -233,7 +233,7 @@ serve(async (req: Request): Promise<Response> => {
     console.log("✅ Invitation sent successfully via Supabase");
     console.log("📊 Invite data:", inviteData);
 
-    // Get the created user to obtain user ID
+    // Get the created user to obtain user ID for response
     const { data: newUsers } = await supabaseAdmin.auth.admin.listUsers();
     const newUser = newUsers.users.find(u => u.email === email);
     
@@ -251,11 +251,10 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // Create profile entry
-    console.log(`👤 Creating profile for user: ${newUser.id}`);
-    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
-      user_id: newUser.id,
-      email,
+    // Profile will be automatically created by database trigger
+    // Update the profile with the invitation data since trigger only sets basic fields
+    console.log(`👤 Updating profile for user: ${newUser.id}`);
+    const { error: profileError } = await supabaseAdmin.from("profiles").update({
       full_name,
       role,
       mobile_number: mobile_number || "",
@@ -263,16 +262,14 @@ serve(async (req: Request): Promise<Response> => {
       center_address: center_address || "",
       is_demo: false,
       password_set: false,
-    });
+    }).eq('user_id', newUser.id);
 
     if (profileError) {
-      console.error("❌ Error creating profile:", profileError);
-      // Clean up auth user if profile creation fails
-      await supabaseAdmin.auth.admin.deleteUser(newUser.id);
+      console.error("❌ Error updating profile:", profileError);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Failed to create user profile: ${profileError.message}` 
+          error: `Failed to update user profile: ${profileError.message}` 
         }),
         {
           status: 500,
@@ -281,7 +278,7 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("✅ User profile created successfully");
+    console.log("✅ User profile updated successfully");
 
     return new Response(
       JSON.stringify({
