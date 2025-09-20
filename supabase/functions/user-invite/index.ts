@@ -49,7 +49,85 @@ serve(async (req: Request): Promise<Response> => {
 
       if (existingProfile) {
         if (!existingProfile.is_demo) {
-          throw new Error("User already exists and is not a demo user");
+          // For non-demo users, check if password is already set
+          if (existingProfile.password_set) {
+            throw new Error("User already exists with password set. Cannot resend invitation.");
+          }
+          
+          // If password not set, this is a resend invitation - update existing user
+          console.log(`Resending invitation to existing user: ${email}`);
+          
+          // Generate new invitation token
+          const inviteToken = crypto.randomUUID();
+          const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+          
+          // Update user metadata with new token
+          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userExists.id, {
+            user_metadata: {
+              ...userExists.user_metadata,
+              invite_token: inviteToken,
+              invite_expires_at: expiresAt.toISOString(),
+            },
+          });
+          
+          if (updateError) throw updateError;
+          
+          // Update profile with any new information
+          const { error: profileUpdateError } = await supabaseAdmin
+            .from("profiles")
+            .update({
+              full_name,
+              role,
+              mobile_number: mobile_number || existingProfile.mobile_number,
+              station_id: station_id || existingProfile.station_id,
+              center_address: center_address || existingProfile.center_address,
+            })
+            .eq("user_id", userExists.id);
+            
+          if (profileUpdateError) throw profileUpdateError;
+          
+          // Send new invitation email
+          const inviteUrl = `${Deno.env.get("SUPABASE_URL")?.replace('supabase.co', 'lovable.app')}/set-password?token=${inviteToken}&email=${encodeURIComponent(email)}`;
+          
+          await resend.emails.send({
+            from: "noreply@epacific.com",
+            to: [email],
+            subject: "ePacific - Password Setup Reminder",
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">ePacific - Complete Your Setup</h2>
+                <p>Hello ${full_name},</p>
+                <p>This is a reminder to complete your ePacific account setup. Please click the link below to set your password.</p>
+                <div style="margin: 30px 0;">
+                  <a href="${inviteUrl}" 
+                     style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+                    Set Your Password
+                  </a>
+                </div>
+                <p style="color: #6b7280; font-size: 14px;">
+                  This link will expire in 10 minutes.
+                </p>
+              </div>
+            `,
+          });
+          
+          return new Response(
+            JSON.stringify({
+              success: true,
+              user: {
+                id: userExists.id,
+                email,
+                role,
+                invite_token: inviteToken,
+                expires_at: expiresAt.toISOString(),
+              },
+              message: "Invitation resent successfully.",
+            }),
+            { 
+              status: 200, 
+              headers: { "Content-Type": "application/json", ...corsHeaders } 
+            }
+          );
         }
 
         // Delete existing demo user and profile
