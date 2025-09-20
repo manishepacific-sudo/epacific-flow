@@ -6,16 +6,17 @@ import { GlassCard } from '@/components/ui/glass-card';
 
 export default function HandleInvite() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleInviteLink = async () => {
       try {
-        const accessToken = searchParams.get('access_token');
-        const refreshToken = searchParams.get('refresh_token');
-        const type = searchParams.get('type');
+        // Parse URL hash fragments (Supabase uses # not ? for invite tokens)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
 
         if (!accessToken || !refreshToken || type !== 'invite') {
           setError('Invalid invite link');
@@ -61,7 +62,7 @@ export default function HandleInvite() {
     };
 
     handleInviteLink();
-  }, [searchParams, navigate]);
+  }, [navigate]);
 
   if (loading) {
     return (
