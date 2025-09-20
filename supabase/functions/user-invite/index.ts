@@ -196,9 +196,9 @@ serve(async (req: Request): Promise<Response> => {
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
     console.log(`⏰ Invitation expires at: ${expiresAt.toISOString()}`);
 
-    // Construct invitation URL
+    // Construct invitation URL - redirect to handle-invite to process Supabase tokens
     const baseUrl = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.lovable.app') || '';
-    const inviteUrl = `${baseUrl}/set-password?email=${encodeURIComponent(email)}`;
+    const inviteUrl = `${baseUrl}/handle-invite`;
     
     console.log(`🔗 Invite URL: ${inviteUrl}`);
     console.log(`📧 Attempting to send invitation via Supabase to: ${email}`);
