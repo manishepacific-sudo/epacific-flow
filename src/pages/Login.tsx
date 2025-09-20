@@ -80,6 +80,40 @@ export default function Login() {
   const handleDemoLogin = async () => {
     setLoading(true);
     try {
+      // First try to create admin account if it doesn't exist
+      const { data: adminData, error: createError } = await supabase.functions.invoke('manageUser', {
+        body: {
+          action: 'create',
+          data: {
+            email: 'admin@epacific.com',
+            role: 'admin',
+            full_name: 'Admin User',
+            mobile_number: '1234567890',
+            station_id: 'HQ001',
+            center_address: 'Head Office'
+          }
+        }
+      });
+
+      // If creation failed because user exists, that's fine
+      if (createError && !createError.message?.includes('already')) {
+        console.error('Error creating admin:', createError);
+      }
+
+      // Set password if the account was just created
+      if (adminData?.success && adminData?.user?.id) {
+        await supabase.functions.invoke('manageUser', {
+          body: {
+            action: 'setPassword',
+            data: {
+              userId: adminData.user.id,
+              password: 'admin123'
+            }
+          }
+        });
+      }
+
+      // Now try to login
       const { data, error } = await supabase.auth.signInWithPassword({
         email: 'admin@epacific.com',
         password: 'admin123',
@@ -87,23 +121,16 @@ export default function Login() {
 
       if (error) throw error;
 
-      // Fetch profile to show correct demo message
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, full_name, is_demo')
-        .eq('user_id', data.user.id)
-        .single();
-
       toast({
-        title: "Demo login successful",
-        description: `Welcome to the ${profile?.role || 'admin'} demo, ${profile?.full_name || 'Admin'}!`,
+        title: "Admin Login Successful",
+        description: "You are now logged in as admin.",
       });
       
       navigate('/dashboard/admin');
     } catch (error: any) {
       toast({
-        title: "Demo login failed",
-        description: error.message,
+        title: "Login failed",
+        description: error.message || "Failed to create or login to admin account.",
         variant: "destructive",
       });
     } finally {
