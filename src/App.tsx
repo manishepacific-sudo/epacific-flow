@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { InviteRedirectHandler } from "@/components/InviteRedirectHandler";
 import { AuthRedirect } from "@/components/AuthRedirect";
 import { withRoleGuard } from "@/components/withRoleGuard";
 import Login from "./pages/Login";
@@ -42,6 +43,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
+            <InviteRedirectHandler />
             <Routes>
               <Route path="/" element={<AuthRedirect />} />
               <Route path="/login" element={<Login />} />
