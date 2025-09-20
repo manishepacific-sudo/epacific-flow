@@ -92,27 +92,27 @@ export default function SetPassword() {
     setLoading(true);
 
     try {
-      // Update the user's password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password
-      });
-
-      if (updateError) {
-        throw updateError;
+      // Get current user session
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('No user session found');
       }
 
-      // Update the profile to mark password as set
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ password_set: true })
-          .eq('user_id', user.id);
-
-        if (profileError) {
-          console.error("Profile update error:", profileError);
-          // Don't throw - password was set successfully
+      // Use edge function to set password securely
+      const { data: result, error } = await supabase.functions.invoke('manageUser', {
+        body: {
+          action: 'setPassword',
+          data: {
+            userId: user.id,
+            password: password
+          }
         }
+      });
+
+      if (error) throw error;
+
+      if (!result?.success) {
+        throw new Error(result?.error || 'Failed to set password');
       }
 
       toast({
@@ -120,13 +120,9 @@ export default function SetPassword() {
         description: "You can now sign in with your email and password",
       });
 
-      // Sign out the user so they can log in normally
+      // Sign out and redirect to login
       await supabase.auth.signOut();
-      
-      // Redirect to login page
-      setTimeout(() => {
-        navigate('/login');
-      }, 1000);
+      navigate('/login');
 
     } catch (error: any) {
       console.error('Set password error:', error);

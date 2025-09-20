@@ -107,47 +107,30 @@ export default function UserManagement() {
     setCreating(true);
 
     try {
-      // Use edge function to create user (bypasses RLS issues with demo auth)
-      const { data: result, error: createError } = await supabase.functions.invoke('create-user', {
+      const { data: result, error: createError } = await supabase.functions.invoke('manageUser', {
         body: {
-          full_name: formData.full_name,
-          email: formData.email,
-          mobile_number: formData.mobile_number,
-          station_id: formData.station_id,
-          center_address: formData.center_address,
-          role: formData.role,
-          admin_email: profile?.email // Pass admin email for authorization
+          action: 'create',
+          data: {
+            email: formData.email,
+            role: formData.role,
+            full_name: formData.full_name,
+            mobile_number: formData.mobile_number,
+            station_id: formData.station_id,
+            center_address: formData.center_address
+          }
         }
       });
 
       if (createError) throw createError;
 
-      // Send invitation email
-      const inviteLink = `${window.location.origin}/set-password?token=${result.user.id}`;
-      
-      const { error: emailError } = await supabase.functions.invoke('send-invitation', {
-        body: {
-          email: formData.email,
-          full_name: formData.full_name,
-          role: formData.role,
-          inviteLink
-        }
-      });
-
-      if (emailError) {
-        console.error('Email error:', emailError);
-        // Don't fail the user creation if email fails
-        toast({
-          title: "User created",
-          description: "User created successfully, but invitation email failed to send",
-          variant: "default"
-        });
-      } else {
-        toast({
-          title: "User created successfully",
-          description: `Invitation email sent to ${formData.email}`,
-        });
+      if (!result?.success) {
+        throw new Error(result?.error || 'Failed to create user');
       }
+
+      toast({
+        title: "User created successfully",
+        description: `Invitation email sent to ${formData.email}`,
+      });
 
       // Reset form and close dialog
       setFormData({
@@ -175,20 +158,13 @@ export default function UserManagement() {
 
   const sendPasswordReset = async (user: any) => {
     try {
-      // For demo system, only use the custom email function
-      const resetLink = `${window.location.origin}/reset-password`;
-      
-      const { error: emailError } = await supabase.functions.invoke('send-password-reset', {
-        body: {
-          email: user.email,
-          full_name: user.full_name,
-          resetLink
-        }
+      // Use Supabase's built-in password reset
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/reset-password`
       });
 
-      if (emailError) {
-        console.error('Email send error:', emailError);
-        throw new Error(emailError.message || 'Failed to send reset email');
+      if (error) {
+        throw error;
       }
 
       toast({
@@ -209,18 +185,24 @@ export default function UserManagement() {
     setDeletingUserId(user.id);
 
     try {
-      const { data: result, error } = await supabase.functions.invoke('delete-user', {
+      const { data: result, error } = await supabase.functions.invoke('manageUser', {
         body: {
-          user_id: user.user_id,
-          admin_email: profile?.email
+          action: 'delete',
+          data: {
+            userId: user.user_id
+          }
         }
       });
 
       if (error) throw error;
 
+      if (!result?.success) {
+        throw new Error(result?.error || 'Failed to delete user');
+      }
+
       toast({
         title: "User deleted successfully",
-        description: result.message || `${user.full_name} has been deleted`,
+        description: `${user.full_name} has been deleted`,
       });
 
       fetchUsers();

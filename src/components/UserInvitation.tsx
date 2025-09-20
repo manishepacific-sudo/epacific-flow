@@ -21,11 +21,14 @@ export default function UserInvitation() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('invite-user', {
+      const { data, error } = await supabase.functions.invoke('manageUser', {
         body: {
-          email: email,
-          role: role,
-          full_name: fullName
+          action: 'create',
+          data: {
+            email: email,
+            role: role,
+            full_name: fullName
+          }
         }
       });
 
@@ -33,8 +36,8 @@ export default function UserInvitation() {
         throw error;
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to invite user');
       }
 
       toast({
