@@ -153,27 +153,40 @@ serve(async (req: Request): Promise<Response> => {
           // Send new invitation email
           const inviteUrl = `${Deno.env.get("SUPABASE_URL")?.replace('supabase.co', 'lovable.app')}/set-password?token=${inviteToken}&email=${encodeURIComponent(email)}`;
           
-          await resend.emails.send({
-            from: "noreply@epacific.com",
-            to: [email],
-            subject: "ePacific - Password Setup Reminder",
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #2563eb;">ePacific - Complete Your Setup</h2>
-                <p>Hello ${full_name},</p>
-                <p>This is a reminder to complete your ePacific account setup. Please click the link below to set your password.</p>
-                <div style="margin: 30px 0;">
-                  <a href="${inviteUrl}" 
-                     style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
-                    Set Your Password
-                  </a>
+          console.log(`📧 Attempting to resend email to: ${email}`);
+          
+          try {
+            const { error: emailError } = await resend.emails.send({
+              from: "noreply@epacific.com",
+              to: [email],
+              subject: "ePacific - Password Setup Reminder",
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2 style="color: #2563eb;">ePacific - Complete Your Setup</h2>
+                  <p>Hello ${full_name},</p>
+                  <p>This is a reminder to complete your ePacific account setup. Please click the link below to set your password.</p>
+                  <div style="margin: 30px 0;">
+                    <a href="${inviteUrl}" 
+                       style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+                      Set Your Password
+                    </a>
+                  </div>
+                  <p style="color: #6b7280; font-size: 14px;">
+                    This link will expire in 10 minutes.
+                  </p>
                 </div>
-                <p style="color: #6b7280; font-size: 14px;">
-                  This link will expire in 10 minutes.
-                </p>
-              </div>
-            `,
-          });
+              `,
+            });
+            
+            if (emailError) {
+              console.error("❌ Resend email failed:", emailError);
+              console.error("❌ Resend email error details:", JSON.stringify(emailError));
+            } else {
+              console.log("✅ Resend email sent successfully to:", email);
+            }
+          } catch (emailException) {
+            console.error("❌ Resend email exception:", emailException);
+          }
           
           return new Response(
             JSON.stringify({
@@ -259,34 +272,84 @@ serve(async (req: Request): Promise<Response> => {
     // Send invitation email
     const inviteUrl = `${Deno.env.get("SUPABASE_URL")?.replace('supabase.co', 'lovable.app')}/set-password?token=${inviteToken}&email=${encodeURIComponent(email)}`;
     
-    const { error: emailError } = await resend.emails.send({
-      from: "noreply@epacific.com",
-      to: [email],
-      subject: "You're invited to join ePacific",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">Welcome to ePacific</h2>
-          <p>Hello ${full_name},</p>
-          <p>You've been invited to join ePacific as a ${role}. Please click the link below to set your password and complete your account setup.</p>
-          <div style="margin: 30px 0;">
-            <a href="${inviteUrl}" 
-               style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
-              Set Your Password
-            </a>
+    console.log(`📧 Attempting to send email to: ${email}`);
+    console.log(`🔗 Invite URL: ${inviteUrl}`);
+    
+    try {
+      const { error: emailError } = await resend.emails.send({
+        from: "noreply@epacific.com",
+        to: [email],
+        subject: "You're invited to join ePacific",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Welcome to ePacific</h2>
+            <p>Hello ${full_name},</p>
+            <p>You've been invited to join ePacific as a ${role}. Please click the link below to set your password and complete your account setup.</p>
+            <div style="margin: 30px 0;">
+              <a href="${inviteUrl}" 
+                 style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+                Set Your Password
+              </a>
+            </div>
+            <p style="color: #6b7280; font-size: 14px;">
+              This invitation link will expire in 10 minutes. If the link expires, please contact your administrator for a new invitation.
+            </p>
+            <p style="color: #6b7280; font-size: 14px;">
+              If you didn't expect this invitation, you can safely ignore this email.
+            </p>
           </div>
-          <p style="color: #6b7280; font-size: 14px;">
-            This invitation link will expire in 10 minutes. If the link expires, please contact your administrator for a new invitation.
-          </p>
-          <p style="color: #6b7280; font-size: 14px;">
-            If you didn't expect this invitation, you can safely ignore this email.
-          </p>
-        </div>
-      `,
-    });
+        `,
+      });
 
-    if (emailError) {
-      console.error("Email error:", emailError);
-      // Don't fail the request if email fails, user was still created
+      if (emailError) {
+        console.error("❌ Email sending failed:", emailError);
+        console.error("❌ Email error details:", JSON.stringify(emailError));
+        
+        // Still return success since user was created, but mention email issue
+        return new Response(
+          JSON.stringify({
+            success: true,
+            user: {
+              id: userData.user.id,
+              email,
+              role,
+              invite_token: inviteToken,
+              expires_at: expiresAt.toISOString(),
+            },
+            message: "User created successfully, but there was an issue sending the invitation email. Please resend the invitation.",
+            emailError: true
+          }),
+          { 
+            status: 200, 
+            headers: { "Content-Type": "application/json", ...corsHeaders } 
+          }
+        );
+      }
+      
+      console.log("✅ Email sent successfully to:", email);
+    } catch (emailException) {
+      console.error("❌ Email sending exception:", emailException);
+      console.error("❌ Email exception details:", JSON.stringify(emailException));
+      
+      // Still return success since user was created
+      return new Response(
+        JSON.stringify({
+          success: true,
+          user: {
+            id: userData.user.id,
+            email,
+            role,
+            invite_token: inviteToken,
+            expires_at: expiresAt.toISOString(),
+          },
+          message: "User created successfully, but there was an issue sending the invitation email. Please check your email configuration.",
+          emailError: true
+        }),
+        { 
+          status: 200, 
+          headers: { "Content-Type": "application/json", ...corsHeaders } 
+        }
+      );
     }
 
     return new Response(

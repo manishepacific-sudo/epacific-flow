@@ -138,7 +138,10 @@ export default function EnhancedUserManagement() {
 
       toast({
         title: "User invited successfully!",
-        description: `Invitation sent to ${inviteForm.email}`,
+        description: data.emailError 
+          ? `User created but email sending failed. Please resend the invitation to ${inviteForm.email}` 
+          : `Invitation sent to ${inviteForm.email}`,
+        variant: data.emailError ? "destructive" : "default"
       });
 
       setInviteForm({
