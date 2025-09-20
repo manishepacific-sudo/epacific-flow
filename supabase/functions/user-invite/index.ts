@@ -109,7 +109,7 @@ serve(async (req: Request): Promise<Response> => {
           }
           
           // If password not set, this is a resend invitation - update existing user
-          console.log(`Resending invitation to existing user: ${email}`);
+          console.log(`🔄 Resending invitation to existing user: ${email}`);
           
           // Generate new invitation token
           const inviteToken = crypto.randomUUID();
@@ -186,20 +186,23 @@ serve(async (req: Request): Promise<Response> => {
 
         // Delete existing demo user and profile
         try {
+          console.log(`🗑️ Deleting existing demo profile for: ${email}`);
           await supabaseAdmin.from("profiles").delete().eq("user_id", userExists.id);
+          console.log(`🗑️ Deleting existing demo auth user for: ${email}`);
           await supabaseAdmin.auth.admin.deleteUser(userExists.id);
-          console.log(`Deleted existing demo user: ${email}`);
+          console.log(`✅ Deleted existing demo user: ${email}`);
         } catch (deleteError) {
-          console.error("Error deleting existing demo user:", deleteError);
+          console.error("❌ Error deleting existing demo user:", deleteError);
           throw new Error("Failed to remove existing demo user");
         }
       } else {
         // User exists in auth but no profile - delete auth user
         try {
+          console.log(`🗑️ Deleting auth user without profile: ${email}`);
           await supabaseAdmin.auth.admin.deleteUser(userExists.id);
-          console.log(`Deleted auth user without profile: ${email}`);
+          console.log(`✅ Deleted auth user without profile: ${email}`);
         } catch (deleteError) {
-          console.error("Error deleting auth user:", deleteError);
+          console.error("❌ Error deleting auth user:", deleteError);
           throw new Error("Failed to remove existing auth user");
         }
       }
