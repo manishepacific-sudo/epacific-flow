@@ -40,21 +40,36 @@ serve(async (req: Request): Promise<Response> => {
     const userExists = existingUser.users.find(u => u.email === email);
 
     if (userExists) {
-      // Check if profile exists and is not demo
+      // Check if profile exists
       const { data: existingProfile } = await supabaseAdmin
         .from("profiles")
         .select("*")
         .eq("email", email)
-        .single();
+        .maybeSingle();
 
-      if (existingProfile && !existingProfile.is_demo) {
-        throw new Error("User already exists");
-      }
-
-      // Delete existing demo user if exists
       if (existingProfile) {
-        await supabaseAdmin.from("profiles").delete().eq("user_id", userExists.id);
-        await supabaseAdmin.auth.admin.deleteUser(userExists.id);
+        if (!existingProfile.is_demo) {
+          throw new Error("User already exists and is not a demo user");
+        }
+
+        // Delete existing demo user and profile
+        try {
+          await supabaseAdmin.from("profiles").delete().eq("user_id", userExists.id);
+          await supabaseAdmin.auth.admin.deleteUser(userExists.id);
+          console.log(`Deleted existing demo user: ${email}`);
+        } catch (deleteError) {
+          console.error("Error deleting existing demo user:", deleteError);
+          throw new Error("Failed to remove existing demo user");
+        }
+      } else {
+        // User exists in auth but no profile - delete auth user
+        try {
+          await supabaseAdmin.auth.admin.deleteUser(userExists.id);
+          console.log(`Deleted auth user without profile: ${email}`);
+        } catch (deleteError) {
+          console.error("Error deleting auth user:", deleteError);
+          throw new Error("Failed to remove existing auth user");
+        }
       }
     }
 
