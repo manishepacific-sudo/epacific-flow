@@ -56,7 +56,7 @@ serve(async (req: Request): Promise<Response> => {
         }
 
         // Create user directly with password (for admin accounts)
-        const defaultPassword = email === 'manish.epacific@gmail.com' ? 'admin123' : 'tempPassword123';
+        const defaultPassword = email === 'admin@myapp.com' ? 'SecurePassword123!' : 'tempPassword123';
         
         const { data: userData, error: createError } =
           await supabaseAdmin.auth.admin.createUser({

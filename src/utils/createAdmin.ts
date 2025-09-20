@@ -7,7 +7,7 @@ export const createAdminAccount = async () => {
       body: {
         action: 'create',
         data: {
-          email: 'admin@epacific.com',
+          email: 'admin@myapp.com',
           role: 'admin',
           full_name: 'Admin User',
           mobile_number: '1234567890',
