@@ -115,7 +115,10 @@ export default function EnhancedUserManagement() {
 
     try {
       const { data, error } = await supabase.functions.invoke('user-invite', {
-        body: inviteForm
+        body: {
+          ...inviteForm,
+          admin_email: currentProfile?.email
+        }
       });
 
       if (error) throw error;

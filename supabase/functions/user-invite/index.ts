@@ -14,6 +14,7 @@ interface InviteUserRequest {
   mobile_number?: string;
   station_id?: string;
   center_address?: string;
+  admin_email?: string;
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -22,10 +23,57 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, role, full_name, mobile_number, station_id, center_address }: InviteUserRequest = await req.json();
+    console.log("🚀 User-invite function started");
+    const { email, role, full_name, mobile_number, station_id, center_address, admin_email }: InviteUserRequest = await req.json();
+    console.log(`📧 Inviting user: ${email} with role: ${role} by admin: ${admin_email}`);
 
     if (!email || !role || !full_name) {
+      console.error("❌ Missing required fields:", { email: !!email, role: !!role, full_name: !!full_name });
       throw new Error("Email, role, and full name are required");
+    }
+
+    // Validate admin permissions
+    if (admin_email) {
+      console.log("🔐 Validating admin permissions...");
+      
+      // Check demo credentials first
+      const demoCredentials = {
+        'admin@epacific.com': 'admin',
+        'manager@epacific.com': 'manager'
+      };
+      
+      let adminRole = null;
+      
+      if (demoCredentials[admin_email]) {
+        adminRole = demoCredentials[admin_email];
+        console.log(`✅ Demo admin detected: ${admin_email} with role: ${adminRole}`);
+      } else {
+        // Check database for admin profile
+        const { data: adminProfile, error: adminError } = await supabaseAdmin
+          .from('profiles')
+          .select('role')
+          .eq('email', admin_email)
+          .single();
+          
+        if (adminError || !adminProfile) {
+          console.error("❌ Admin profile not found:", adminError);
+          throw new Error("Unauthorized: Admin profile not found");
+        }
+        
+        adminRole = adminProfile.role;
+        console.log(`✅ Database admin found: ${admin_email} with role: ${adminRole}`);
+      }
+      
+      if (!['admin', 'manager'].includes(adminRole)) {
+        console.error("❌ Insufficient permissions:", adminRole);
+        throw new Error("Unauthorized: Insufficient permissions to invite users");
+      }
+      
+      // Manager role restrictions
+      if (adminRole === 'manager' && role === 'manager') {
+        console.error("❌ Manager cannot create other managers");
+        throw new Error("Managers cannot create other manager accounts");
+      }
     }
 
     const supabaseAdmin = createClient(
@@ -36,10 +84,13 @@ serve(async (req: Request): Promise<Response> => {
     const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
     // Check if user already exists
+    console.log("🔍 Checking for existing user...");
     const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
     const userExists = existingUser.users.find(u => u.email === email);
+    console.log(`👤 User exists: ${!!userExists}`);
 
     if (userExists) {
+      console.log("🔄 Processing existing user...");
       // Check if profile exists
       const { data: existingProfile } = await supabaseAdmin
         .from("profiles")
@@ -48,9 +99,12 @@ serve(async (req: Request): Promise<Response> => {
         .maybeSingle();
 
       if (existingProfile) {
+        console.log(`📋 Existing profile found - is_demo: ${existingProfile.is_demo}, password_set: ${existingProfile.password_set}`);
+        
         if (!existingProfile.is_demo) {
           // For non-demo users, check if password is already set
           if (existingProfile.password_set) {
+            console.error("❌ User already exists with password set");
             throw new Error("User already exists with password set. Cannot resend invitation.");
           }
           
@@ -240,7 +294,9 @@ serve(async (req: Request): Promise<Response> => {
       }
     );
   } catch (err: any) {
-    console.error("Error in user-invite function:", err);
+    console.error("❌ Error in user-invite function:", err);
+    console.error("❌ Error message:", err.message);
+    console.error("❌ Error stack:", err.stack);
     return new Response(
       JSON.stringify({ 
         success: false, 
