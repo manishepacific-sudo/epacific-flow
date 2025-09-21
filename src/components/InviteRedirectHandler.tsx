@@ -6,19 +6,19 @@ export function InviteRedirectHandler() {
   const location = useLocation();
 
   useEffect(() => {
-    // Only check for invite tokens on the root path
-    if (location.pathname === '/') {
+    if (location.pathname === '/' || location.pathname.startsWith('/handle-invite')) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
+      const queryParams = new URLSearchParams(window.location.search);
+
+      const accessToken = hashParams.get('access_token') || queryParams.get('access_token') || queryParams.get('token');
       const refreshToken = hashParams.get('refresh_token');
       const type = hashParams.get('type');
 
       console.log('Checking for invite tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
 
-      if (accessToken && refreshToken && type === 'invite') {
+      if (accessToken && type === 'invite') {
         console.log('Invite tokens detected, redirecting to /handle-invite');
-        // Preserve the hash and redirect to handle-invite
-        const newUrl = '/handle-invite' + window.location.hash;
+        const newUrl = `/handle-invite#access_token=${accessToken}&type=invite${refreshToken ? `&refresh_token=${refreshToken}` : ''}`;
         navigate(newUrl, { replace: true });
         return;
       }

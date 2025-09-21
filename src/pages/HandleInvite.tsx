@@ -12,22 +12,28 @@ export default function HandleInvite() {
   useEffect(() => {
     const handleInviteLink = async () => {
       try {
-        // Parse URL hash fragments (Supabase uses # not ? for invite tokens)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
+        const queryParams = new URLSearchParams(window.location.search);
+
+        const accessToken = hashParams.get('access_token') || queryParams.get('access_token') || queryParams.get('token');
         const refreshToken = hashParams.get('refresh_token');
         const type = hashParams.get('type');
 
-        if (!accessToken || !refreshToken || type !== 'invite') {
+        if (!accessToken || type !== 'invite') {
           setError('Invalid invite link');
           return;
         }
 
-        // Set the session with the tokens from the invite link
-        const { data, error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        });
+        // If refreshToken is missing (invite case), exchange token for session:
+        let sessionError, data;
+        if (refreshToken) {
+          ({ data, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          }));
+        } else {
+          ({ data, error: sessionError } = await supabase.auth.exchangeCodeForSession(accessToken));
+        }
 
         if (sessionError) {
           console.error('Session error:', sessionError);
