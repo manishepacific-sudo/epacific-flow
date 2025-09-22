@@ -12,39 +12,72 @@ export default function HandleInvite() {
   useEffect(() => {
     const handleInviteLink = async () => {
       try {
+        // Parse both hash and query params to handle different Supabase invite formats
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        const type = hashParams.get('type');
-
-        if (!accessToken || type !== 'invite') {
-          setError('Invalid invite link');
+        const queryParams = new URLSearchParams(window.location.search);
+        
+        // Check for error first (when invite link expired)
+        const error = hashParams.get('error') || queryParams.get('error');
+        const errorCode = hashParams.get('error_code') || queryParams.get('error_code');
+        const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
+        
+        if (error) {
+          console.error('Invite link error:', { error, errorCode, errorDescription });
+          if (errorCode === 'otp_expired') {
+            setError('This invite link has expired. Please request a new invitation.');
+          } else {
+            setError(decodeURIComponent(errorDescription || 'Invalid invite link'));
+          }
           return;
         }
 
-        // Always set session with tokens
-        const { data, error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || ''
-        });
+        // Get tokens from either source
+        const accessToken = hashParams.get('access_token') || queryParams.get('access_token') || queryParams.get('token');
+        const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token');
+        const type = hashParams.get('type') || queryParams.get('type');
+
+        if (!accessToken) {
+          setError('Invalid invite link - no access token found');
+          return;
+        }
+
+        console.log('Processing invite with token:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, type });
+
+        // Handle session setup - try different methods based on available tokens
+        let sessionResult;
+        if (refreshToken) {
+          // If we have both tokens, use setSession
+          sessionResult = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+        } else {
+          // If we only have access token, try to exchange it
+          sessionResult = await supabase.auth.exchangeCodeForSession(accessToken);
+        }
+
+        const { data, error: sessionError } = sessionResult;
 
         if (sessionError) {
           console.error('Session error:', sessionError);
-          setError('Failed to process invite link');
+          if (sessionError.message.includes('expired') || sessionError.message.includes('invalid')) {
+            setError('This invite link has expired. Please request a new invitation.');
+          } else {
+            setError('Failed to process invite link. Please try again or request a new invitation.');
+          }
           return;
         }
 
         if (data.user) {
-          // Redirect to set password page with tokens
-          navigate(
-            `/set-password#access_token=${accessToken}&refresh_token=${refreshToken || ''}&email=${encodeURIComponent(data.user.email)}`
-          );
+          console.log('User authenticated, redirecting to set password');
+          // Redirect to set password page
+          navigate('/set-password', { replace: true });
         } else {
           setError('No user found in invite');
         }
       } catch (err) {
         console.error('Error handling invite:', err);
-        setError('An unexpected error occurred');
+        setError('An unexpected error occurred. Please try again or request a new invitation.');
       } finally {
         setLoading(false);
       }
