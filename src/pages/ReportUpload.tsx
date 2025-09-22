@@ -6,14 +6,18 @@ import {
   Upload, 
   FileText, 
   Check, 
+  AlertCircle, 
+  Calendar as CalendarIcon,
   DollarSign,
-  ArrowRight,
-  Calendar as CalendarIcon
+  Eye,
+  ArrowRight
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,40 +29,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { parseReport } from "@/utils/reportParser";
 import { ParsedReportData } from "@/types";
-
-function ReportDatePicker({ reportDate, setReportDate }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            "inline-flex items-center gap-2 justify-start text-left font-normal",
-            !reportDate && "text-muted-foreground"
-          )}
-          style={{ alignSelf: "flex-start" }}
-        >
-          <CalendarIcon className="h-4 w-4" />
-          {reportDate ? format(reportDate, "PPP") : <span>Pick a date</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={reportDate}
-          onSelect={(date) => {
-            setReportDate(date);
-            if (date) setOpen(false); // autoclose on select
-          }}
-          initialFocus
-          className="p-3 pointer-events-auto"
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 export default function ReportUpload() {
   const [file, setFile] = useState<File | null>(null);
@@ -73,9 +43,11 @@ export default function ReportUpload() {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const selectedFile = acceptedFiles[0];
     if (!selectedFile) return;
+
     setFile(selectedFile);
     setParsing(true);
     setReportData(null);
+
     try {
       const parsedData = await parseReport(selectedFile);
       setReportData(parsedData);
@@ -114,15 +86,21 @@ export default function ReportUpload() {
       });
       return;
     }
+
     setUploading(true);
+    
     try {
+      // Upload file to storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-
+      
       const { error: uploadError } = await supabase.storage
         .from('report-attachments')
         .upload(fileName, file);
+
       if (uploadError) throw uploadError;
+
+      // Create report record with parsed amount
       const { data: report, error: reportError } = await supabase
         .from('reports')
         .insert({
@@ -133,12 +111,18 @@ export default function ReportUpload() {
         })
         .select()
         .single();
+
       if (reportError) throw reportError;
+
       toast({
         title: "Report sent for approval",
         description: "Proceed to payment. Redirecting to payment page...",
       });
+      
+      // Store parsed amount in sessionStorage for payment page
       sessionStorage.setItem('reportAmount', reportData.amount.toString());
+      
+      // Redirect to payment page
       navigate(`/payment/${report.id}`);
     } catch (error) {
       console.error('Error submitting report:', error);
@@ -168,6 +152,7 @@ export default function ReportUpload() {
             Upload your monthly report file for submission
           </p>
         </motion.div>
+
         {/* Upload Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -186,6 +171,7 @@ export default function ReportUpload() {
               }`}
             >
               <input {...getInputProps()} />
+              
               <motion.div
                 initial={{ scale: 1 }}
                 animate={{ scale: isDragActive ? 1.1 : 1 }}
@@ -203,6 +189,7 @@ export default function ReportUpload() {
                   <Upload className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
                 )}
               </motion.div>
+
               {parsing ? (
                 <div>
                   <p className="text-lg font-medium mb-2">Parsing file...</p>
@@ -234,6 +221,7 @@ export default function ReportUpload() {
             </div>
           </GlassCard>
         </motion.div>
+
         {/* Report Details */}
         {reportData && (
           <motion.div
@@ -248,6 +236,7 @@ export default function ReportUpload() {
                 <DollarSign className="h-5 w-5 text-success" />
                 <h3 className="text-lg font-semibold">Report Summary</h3>
               </div>
+              
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 glass-button rounded-lg">
                   <span className="text-muted-foreground">Total Amount</span>
@@ -255,19 +244,46 @@ export default function ReportUpload() {
                     ₹{reportData.amount.toLocaleString()}
                   </span>
                 </div>
+                
                 <div className="flex items-center justify-between p-4 glass-button rounded-lg">
                   <span className="text-muted-foreground">Records Count</span>
                   <span className="font-medium">
                     {reportData.preview.length}+ entries
                   </span>
                 </div>
+                
                 <div className="space-y-2">
-                  <Label className="pl-4 text-lg">Report Date *</Label>
-                  <ReportDatePicker reportDate={reportDate} setReportDate={setReportDate} />
+                  <Label className="pl-3 text-lg">Report Date *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !reportDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {reportDate ? format(reportDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={reportDate}
+                        onSelect={(date) => {
+                          setReportDate(date);
+                        }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
+                
                 <Button 
                   variant="hero" 
-                  className="w-full" 
+                  className="w-64" 
                   onClick={handleSubmit}
                   loading={uploading}
                   disabled={!file || !reportDate || !reportData}
@@ -277,6 +293,7 @@ export default function ReportUpload() {
                 </Button>
               </div>
             </GlassCard>
+
             {/* Data Preview */}
             <DataPreview 
               data={{
@@ -287,6 +304,7 @@ export default function ReportUpload() {
             />
           </motion.div>
         )}
+
         {/* Instructions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -298,6 +316,7 @@ export default function ReportUpload() {
               <FileText className="h-5 w-5 text-primary" />
               <h3 className="text-lg font-semibold">File Requirements</h3>
             </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h4 className="font-medium mb-2">Supported Files</h4>
@@ -307,6 +326,7 @@ export default function ReportUpload() {
                   <li>• Maximum file size: 10MB</li>
                 </ul>
               </div>
+              
               <div>
                 <h4 className="font-medium mb-2">Submission Process</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
