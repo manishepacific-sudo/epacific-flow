@@ -107,7 +107,7 @@ export default function ReportUpload() {
           user_id: user.id,
           attachment_url: fileName,
           amount: reportData.amount,
-          status: 'pending_approval'
+          status: 'pending'
         })
         .select()
         .single();

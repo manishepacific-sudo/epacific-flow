@@ -102,9 +102,9 @@ export default function Layout({ children, role }: LayoutProps) {
 
           {/* Navigation */}
           <nav className="space-y-2 flex-1 overflow-y-auto">
-            {currentMenuItems.map((item, index) => (
+            {currentMenuItems.map((item) => (
               <Button
-                key={item.path}
+                key={`${item.path}-${item.label}`}
                 variant={isActive(item.path) ? "default" : "ghost"}
                 className="w-full justify-start gap-3 h-12 text-base hover:bg-accent"
                 onClick={() => {
