@@ -1,67 +1,215 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
-  FileText, 
-  CreditCard, 
-  Camera,
+  BarChart3,
   Users,
-  Clock,
-  CheckCircle,
+  FileText,
+  CreditCard,
+  Settings,
+  CheckCircle2,
   XCircle,
-  AlertTriangle
+  Clock,
+  AlertTriangle,
+  TrendingUp,
+  Eye,
+  Download
 } from "lucide-react";
-import ManagerReportApproval from "@/components/ManagerReportApproval";
-import ManagerPaymentApproval from "@/components/ManagerPaymentApproval";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+
+interface DashboardStats {
+  totalUsers: number;
+  pendingReports: number;
+  pendingPayments: number;
+  approvedThisMonth: number;
+}
+
+interface User {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  created_at: string;
+  password_set: boolean;
+}
+
+interface Report {
+  id: string;
+  title: string;
+  description: string;
+  amount: number;
+  attachment_url: string;
+  status: string;
+  created_at: string;
+  user_id: string;
+  manager_notes?: string;
+  rejection_message?: string;
+  updated_at: string;
+  profiles?: {
+    full_name: string;
+    email: string;
+  } | null;
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+  method: string;
+  proof_url: string;
+  status: string;
+  created_at: string;
+  user_id: string;
+  report_id: string;
+  admin_notes?: string;
+  rejection_message?: string;
+  phonepe_transaction_id?: string;
+  updated_at: string;
+  profiles?: {
+    full_name: string;
+    email: string;
+  } | null;
+  reports?: {
+    title: string;
+  } | null;
+}
 
 export default function ManagerDashboard() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
-  const [reports, setReports] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
+  
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
+  
+  // Data states
+  const [stats, setStats] = useState<DashboardStats>({
+    totalUsers: 0,
+    pendingReports: 0,
+    pendingPayments: 0,
+    approvedThisMonth: 0
+  });
+  const [users, setUsers] = useState<User[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  
+  // Processing states
+  const [processingReports, setProcessingReports] = useState<Set<string>>(new Set());
+  const [processingPayments, setProcessingPayments] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (user) {
-      fetchManagerData();
+    if (user && profile?.role === 'manager') {
+      fetchDashboardData();
     }
-  }, [user]);
+  }, [user, profile]);
 
-  const fetchManagerData = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const [reportsRes, paymentsRes] = await Promise.all([
+      setLoading(true);
+      setError(null);
+
+      // Fetch all data in parallel
+      const [usersRes, reportsRes, paymentsRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false }),
         supabase
           .from('reports')
-          .select(`
-            *,
-            profiles!inner(full_name, email)
-          `)
+          .select('*')
           .order('created_at', { ascending: false }),
         supabase
           .from('payments')
-          .select(`
-            *,
-            profiles!inner(full_name, email)
-          `)
+          .select('*')
           .order('created_at', { ascending: false })
       ]);
 
-      if (reportsRes.error) throw reportsRes.error;
-      if (paymentsRes.error) throw paymentsRes.error;
+      if (usersRes.error) {
+        console.error('Users fetch error:', usersRes.error);
+        throw new Error(`Failed to fetch users: ${usersRes.error.message}`);
+      }
+      if (reportsRes.error) {
+        console.error('Reports fetch error:', reportsRes.error);
+        throw new Error(`Failed to fetch reports: ${reportsRes.error.message}`);
+      }
+      if (paymentsRes.error) {
+        console.error('Payments fetch error:', paymentsRes.error);
+        throw new Error(`Failed to fetch payments: ${paymentsRes.error.message}`);
+      }
 
-      setReports(reportsRes.data || []);
-      setPayments(paymentsRes.data || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+      const usersData = usersRes.data || [];
+      const reportsData = reportsRes.data || [];
+      const paymentsData = paymentsRes.data || [];
+
+      // Enhance reports with user profiles
+      const enhancedReports = await Promise.all(
+        reportsData.map(async (report) => {
+          const user = usersData.find(u => u.user_id === report.user_id);
+          return {
+            ...report,
+            profiles: user ? {
+              full_name: user.full_name,
+              email: user.email
+            } : null
+          };
+        })
+      );
+
+      // Enhance payments with user profiles and report titles
+      const enhancedPayments = await Promise.all(
+        paymentsData.map(async (payment) => {
+          const user = usersData.find(u => u.user_id === payment.user_id);
+          const report = reportsData.find(r => r.id === payment.report_id);
+          return {
+            ...payment,
+            profiles: user ? {
+              full_name: user.full_name,
+              email: user.email
+            } : null,
+            reports: report ? {
+              title: report.title
+            } : null
+          };
+        })
+      );
+
+      setUsers(usersData);
+      setReports(enhancedReports);
+      setPayments(enhancedPayments);
+
+      // Calculate stats
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
+      const approvedThisMonth = enhancedReports.filter(report => {
+        const reportDate = new Date(report.created_at);
+        return report.status === 'approved' && 
+               reportDate.getMonth() === currentMonth && 
+               reportDate.getFullYear() === currentYear;
+      }).length;
+
+      setStats({
+        totalUsers: usersData.length,
+        pendingReports: enhancedReports.filter(r => r.status === 'pending').length,
+        pendingPayments: enhancedPayments.filter(p => p.status === 'pending').length,
+        approvedThisMonth
+      });
+
+    } catch (error: any) {
+      console.error('Dashboard data fetch error:', error);
+      setError(error.message || 'Failed to load dashboard data');
       toast({
         title: "Error loading data",
-        description: "Failed to load dashboard data",
+        description: error.message || "Failed to load dashboard data. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -69,131 +217,231 @@ export default function ManagerDashboard() {
     }
   };
 
-  const pendingReports = reports.filter(r => r.status === 'pending');
-  const pendingPayments = payments.filter(p => p.status === 'pending');
+  const handleReportAction = async (reportId: string, action: 'approved' | 'rejected', notes?: string) => {
+    setProcessingReports(prev => new Set(prev).add(reportId));
+    
+    try {
+      const updateData: any = { status: action };
+      if (notes && action === 'rejected') {
+        updateData.manager_notes = notes;
+      }
 
-  const dashboardCards = [
+      const { error } = await supabase
+        .from('reports')
+        .update(updateData)
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      toast({
+        title: `Report ${action}`,
+        description: `Report has been ${action} successfully.`,
+        variant: action === 'approved' ? 'default' : 'destructive'
+      });
+
+      // Refresh data
+      fetchDashboardData();
+    } catch (error: any) {
+      console.error('Report action error:', error);
+      toast({
+        title: "Action failed",
+        description: error.message || `Failed to ${action} report`,
+        variant: "destructive"
+      });
+    } finally {
+      setProcessingReports(prev => {
+        const next = new Set(prev);
+        next.delete(reportId);
+        return next;
+      });
+    }
+  };
+
+  const handlePaymentAction = async (paymentId: string, action: 'approved' | 'rejected', notes?: string) => {
+    setProcessingPayments(prev => new Set(prev).add(paymentId));
+    
+    try {
+      const updateData: any = { status: action };
+      if (notes && action === 'rejected') {
+        updateData.admin_notes = notes;
+      }
+
+      const { error } = await supabase
+        .from('payments')
+        .update(updateData)
+        .eq('id', paymentId);
+
+      if (error) throw error;
+
+      toast({
+        title: `Payment ${action}`,
+        description: `Payment has been ${action} successfully.`,
+        variant: action === 'approved' ? 'default' : 'destructive'
+      });
+
+      // Refresh data
+      fetchDashboardData();
+    } catch (error: any) {
+      console.error('Payment action error:', error);
+      toast({
+        title: "Action failed",
+        description: error.message || `Failed to ${action} payment`,
+        variant: "destructive"
+      });
+    } finally {
+      setProcessingPayments(prev => {
+        const next = new Set(prev);
+        next.delete(paymentId);
+        return next;
+      });
+    }
+  };
+
+  const downloadFile = async (filePath: string, fileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('report-attachments')
+        .createSignedUrl(filePath, 60);
+
+      if (error) throw error;
+
+      const link = document.createElement('a');
+      link.href = data.signedUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: "Failed to download file",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const viewProof = async (proofPath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('payment-proofs')
+        .createSignedUrl(proofPath, 60);
+
+      if (error) throw error;
+
+      window.open(data.signedUrl, '_blank');
+    } catch (error: any) {
+      toast({
+        title: "View failed",
+        description: "Failed to view proof",
+        variant: "destructive"
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout role="manager">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-32" />
+            ))}
+          </div>
+          <Skeleton className="h-96" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout role="manager">
+        <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+          <AlertTriangle className="h-16 w-16 text-destructive" />
+          <div className="text-center space-y-2">
+            <h3 className="text-lg font-semibold">Failed to load data</h3>
+            <p className="text-muted-foreground max-w-md">{error}</p>
+            <Button onClick={fetchDashboardData} className="mt-4">
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const statsCards = [
+    {
+      title: "Total Users",
+      value: stats.totalUsers,
+      icon: Users,
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
+      trend: `${users.filter(u => u.password_set).length} active`
+    },
     {
       title: "Pending Reports",
-      value: pendingReports.length,
+      value: stats.pendingReports,
       icon: FileText,
-      trend: "Awaiting review",
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      color: "text-orange-500",
+      bgColor: "bg-orange-500/10",
+      trend: "Need review"
     },
     {
       title: "Pending Payments",
-      value: pendingPayments.length,
+      value: stats.pendingPayments,
       icon: CreditCard,
-      trend: "Need approval",
-      color: "text-warning",
-      bgColor: "bg-warning/10",
+      color: "text-yellow-500",
+      bgColor: "bg-yellow-500/10",
+      trend: "Need approval"
     },
     {
-      title: "Pending Attendance",
-      value: 0,
-      icon: Camera,
-      trend: "To be verified",
-      color: "text-secondary",
-      bgColor: "bg-secondary/10",
-    },
-    {
-      title: "Team Members",
-      value: reports.length > 0 ? new Set(reports.map(r => r.user_id)).size : 0,
-      icon: Users,
-      trend: "Active users",
-      color: "text-success",
-      bgColor: "bg-success/10",
-    },
+      title: "Approved This Month",
+      value: stats.approvedThisMonth,
+      icon: TrendingUp,
+      color: "text-green-500",
+      bgColor: "bg-green-500/10",
+      trend: "Reports approved"
+    }
   ];
-
-  const handleApprove = async (type: string, id: string) => {
-    try {
-      const table = type === 'report' ? 'reports' : 'payments';
-      const { error } = await supabase
-        .from(table)
-        .update({ status: 'approved' })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Approved successfully",
-        description: `${type} has been approved`,
-      });
-      
-      fetchManagerData();
-    } catch (error) {
-      console.error('Error approving:', error);
-      toast({
-        title: "Approval failed",
-        description: "Failed to approve item",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleReject = async (type: string, id: string) => {
-    try {
-      const table = type === 'report' ? 'reports' : 'payments';
-      const { error } = await supabase
-        .from(table)
-        .update({ status: 'rejected' })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Rejected successfully",
-        description: `${type} has been rejected`,
-      });
-      
-      fetchManagerData();
-    } catch (error) {
-      console.error('Error rejecting:', error);
-      toast({
-        title: "Rejection failed",
-        description: "Failed to reject item",
-        variant: "destructive"
-      });
-    }
-  };
 
   return (
     <Layout role="manager">
-      <div className="space-y-8">
-        {/* Welcome Section */}
+      <div className="space-y-6">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 sm:mb-8"
+          className="space-y-2"
         >
-          <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-2">
-            Manager Dashboard 👨‍💼
-          </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Review and approve pending reports, payments, and attendance records.
+          <h1 className="text-3xl font-bold gradient-text">Manager Dashboard</h1>
+          <p className="text-muted-foreground">
+            Manage users, review reports, and approve payments
           </p>
         </motion.div>
 
-        {/* Dashboard Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-          {dashboardCards.map((card, index) => (
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {statsCards.map((card, index) => (
             <motion.div
               key={card.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <GlassCard className="hover-glow p-3 sm:p-6">
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">{card.title}</p>
-                    <p className="text-lg sm:text-2xl font-bold">{card.value}</p>
-                    <p className="text-xs text-muted-foreground mt-1 truncate">{card.trend}</p>
+              <GlassCard className="p-6 hover-glow">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">{card.title}</p>
+                    <p className="text-2xl font-bold">{card.value}</p>
+                    <p className="text-xs text-muted-foreground">{card.trend}</p>
                   </div>
-                  <div className={`p-2 sm:p-3 rounded-xl ${card.bgColor} flex-shrink-0`}>
-                    <card.icon className={`h-4 w-4 sm:h-6 sm:w-6 ${card.color}`} />
+                  <div className={`p-3 rounded-full ${card.bgColor}`}>
+                    <card.icon className={`h-6 w-6 ${card.color}`} />
                   </div>
                 </div>
               </GlassCard>
@@ -201,234 +449,305 @@ export default function ManagerDashboard() {
           ))}
         </div>
 
-        {/* Approval Queue */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8">
-          {/* Pending Reports */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <GlassCard>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-semibold">Pending Reports</h3>
-                </div>
-                <Badge variant="secondary" className="bg-primary/20 text-primary">
-                  {pendingReports.length}
-                </Badge>
-              </div>
-              
-              <div className="space-y-3">
-                {loading ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        {/* Main Content Tabs */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4 lg:w-fit">
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="users" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Users
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Reports
+              </TabsTrigger>
+              <TabsTrigger value="payments" className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Payments
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Recent Reports */}
+                <GlassCard className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Recent Reports</h3>
+                    <Badge variant="secondary">{reports.length}</Badge>
                   </div>
-                ) : pendingReports.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No pending reports
-                  </div>
-                ) : (
-                  pendingReports.map((report) => (
-                    <div key={report.id} className="p-4 glass-button rounded-lg">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
+                  <div className="space-y-3">
+                    {reports.slice(0, 5).map((report) => (
+                      <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
+                        <div className="space-y-1">
                           <p className="font-medium text-sm">{report.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            By {report.profiles?.full_name} • {new Date(report.created_at).toLocaleDateString()}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {report.description}
+                            {report.profiles?.full_name} • {format(new Date(report.created_at), 'MMM dd')}
                           </p>
                         </div>
-                        <Badge variant="secondary" className="bg-warning/20 text-warning">
-                          Pending
+                        <Badge 
+                          variant={report.status === 'approved' ? 'default' : 
+                                  report.status === 'rejected' ? 'destructive' : 'secondary'}
+                        >
+                          {report.status}
                         </Badge>
                       </div>
-                      
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="success" 
-                          className="flex-1"
-                          onClick={() => handleApprove('report', report.id)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive" 
-                          className="flex-1"
-                          onClick={() => handleReject('report', report.id)}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </GlassCard>
-          </motion.div>
+                    ))}
+                  </div>
+                </GlassCard>
 
-          {/* Pending Payments */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <GlassCard>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-warning" />
-                  <h3 className="text-lg font-semibold">Pending Payments</h3>
-                </div>
-                <Badge variant="secondary" className="bg-warning/20 text-warning">
-                  {pendingPayments.length}
-                </Badge>
-              </div>
-              
-              <div className="space-y-3">
-                {loading ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                {/* Recent Payments */}
+                <GlassCard className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Recent Payments</h3>
+                    <Badge variant="secondary">{payments.length}</Badge>
                   </div>
-                ) : pendingPayments.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No pending payments
-                  </div>
-                ) : (
-                  pendingPayments.map((payment) => (
-                    <div key={payment.id} className="p-4 glass-button rounded-lg">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <p className="font-medium text-sm capitalize">{payment.method} Payment</p>
+                  <div className="space-y-3">
+                    {payments.slice(0, 5).map((payment) => (
+                      <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
+                        <div className="space-y-1">
+                          <p className="font-medium text-sm">₹{payment.amount.toLocaleString()}</p>
                           <p className="text-xs text-muted-foreground">
-                            By {payment.profiles?.full_name} • {new Date(payment.created_at).toLocaleDateString()}
-                          </p>
-                          <p className="text-sm font-medium text-warning mt-1">
-                            ₹{payment.amount.toLocaleString()}
+                            {payment.profiles?.full_name} • {format(new Date(payment.created_at), 'MMM dd')}
                           </p>
                         </div>
-                        <Badge variant="secondary" className="bg-warning/20 text-warning">
-                          Pending
+                        <Badge 
+                          variant={payment.status === 'approved' ? 'default' : 
+                                  payment.status === 'rejected' ? 'destructive' : 'secondary'}
+                        >
+                          {payment.status}
                         </Badge>
                       </div>
-                      
-                      {payment.proof_url && (
-                        <div className="mb-3">
-                          <Button variant="outline" size="sm" className="text-xs">
-                            View Proof
-                          </Button>
-                        </div>
-                      )}
-                      
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="success" 
-                          className="flex-1"
-                          onClick={() => handleApprove('payment', payment.id)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive" 
-                          className="flex-1"
-                          onClick={() => handleReject('payment', payment.id)}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
+                    ))}
+                  </div>
+                </GlassCard>
               </div>
-            </GlassCard>
-          </motion.div>
-        </div>
+            </TabsContent>
 
-        {/* Pending Attendance */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          <GlassCard>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Camera className="h-5 w-5 text-secondary" />
-                <h3 className="text-lg font-semibold">Pending Attendance</h3>
-              </div>
-              <Badge variant="secondary" className="bg-secondary/20 text-secondary">
-                0
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="text-center py-8 text-muted-foreground col-span-full">
-                <Camera className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No pending attendance records</p>
-                <p className="text-sm mt-1">Attendance feature coming soon</p>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        {/* Priority Alerts */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-        >
-          <GlassCard>
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="h-5 w-5 text-warning" />
-              <h3 className="text-lg font-semibold">Priority Alerts</h3>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 glass-button rounded-lg border border-warning/20">
-                <div className="flex items-center gap-3">
-                  <Clock className="h-4 w-4 text-warning" />
-                  <span className="text-sm">3 reports pending for more than 24 hours</span>
+            {/* Users Tab */}
+            <TabsContent value="users">
+              <GlassCard className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">User Management</h3>
+                  <Button variant="outline">
+                    <Users className="h-4 w-4 mr-2" />
+                    Invite User
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm">
-                  Review
-                </Button>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 glass-button rounded-lg border border-success/20">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm">All attendance records up to date</span>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Joined</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.full_name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {user.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={user.password_set ? 'default' : 'secondary'}>
+                              {user.password_set ? 'Active' : 'Invited'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{format(new Date(user.created_at), 'MMM dd, yyyy')}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
+              </GlassCard>
+            </TabsContent>
 
-        {/* Detailed Approval Sections */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
-          <ManagerReportApproval />
-        </motion.div>
+            {/* Reports Tab */}
+            <TabsContent value="reports">
+              <GlassCard className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">Reports Management</h3>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="bg-orange-500/20 text-orange-500">
+                      {stats.pendingReports} Pending
+                    </Badge>
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Report</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reports.map((report) => (
+                        <TableRow key={report.id}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-medium">{report.title}</p>
+                              <p className="text-sm text-muted-foreground">{report.description}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{report.profiles?.full_name}</TableCell>
+                          <TableCell>₹{report.amount?.toLocaleString()}</TableCell>
+                          <TableCell>{format(new Date(report.created_at), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={report.status === 'approved' ? 'default' : 
+                                      report.status === 'rejected' ? 'destructive' : 'secondary'}
+                            >
+                              {report.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {report.attachment_url && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => downloadFile(report.attachment_url, 'report.pdf')}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {report.status === 'pending' && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleReportAction(report.id, 'approved')}
+                                    disabled={processingReports.has(report.id)}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleReportAction(report.id, 'rejected')}
+                                    disabled={processingReports.has(report.id)}
+                                  >
+                                    <XCircle className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </GlassCard>
+            </TabsContent>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.9 }}
-        >
-          <ManagerPaymentApproval />
+            {/* Payments Tab */}
+            <TabsContent value="payments">
+              <GlassCard className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">Payments Management</h3>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-500">
+                      {stats.pendingPayments} Pending
+                    </Badge>
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Payment</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Proof</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-medium">Payment #{payment.id.slice(0, 8)}</p>
+                              <p className="text-sm text-muted-foreground">{payment.reports?.title}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{payment.profiles?.full_name}</TableCell>
+                          <TableCell>₹{payment.amount.toLocaleString()}</TableCell>
+                          <TableCell className="capitalize">{payment.method}</TableCell>
+                          <TableCell>{format(new Date(payment.created_at), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell>
+                            {payment.proof_url && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => viewProof(payment.proof_url)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={payment.status === 'approved' ? 'default' : 
+                                      payment.status === 'rejected' ? 'destructive' : 'secondary'}
+                            >
+                              {payment.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {payment.status === 'pending' && (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handlePaymentAction(payment.id, 'approved')}
+                                  disabled={processingPayments.has(payment.id)}
+                                >
+                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handlePaymentAction(payment.id, 'rejected')}
+                                  disabled={processingPayments.has(payment.id)}
+                                >
+                                  <XCircle className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </GlassCard>
+            </TabsContent>
+          </Tabs>
         </motion.div>
       </div>
     </Layout>
