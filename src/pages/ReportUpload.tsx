@@ -8,7 +8,7 @@ import {
   Check, 
   AlertCircle, 
   Calendar as CalendarIcon,
-  indian-rupee,
+  DollarSign,
   Eye,
   ArrowRight
 } from "lucide-react";
@@ -233,7 +233,7 @@ export default function ReportUpload() {
             {/* Report Summary */}
             <GlassCard>
               <div className="flex items-center gap-2 mb-4">
-                <indian-rupee className="h-5 w-5 text-success" />
+                <DollarSign className="h-5 w-5 text-success" />
                 <h3 className="text-lg font-semibold">Report Summary</h3>
               </div>
               
