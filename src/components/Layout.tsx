@@ -42,10 +42,10 @@ export default function Layout({ children, role }: LayoutProps) {
       { icon: Settings, label: "Settings", path: "/settings" },
     ],
     manager: [
-      { icon: Home, label: "Dashboard", path: "/dashboard/manager" },
-      { icon: FileText, label: "Approve Reports", path: "/approve/reports" },
-      { icon: CreditCard, label: "Approve Payments", path: "/approve/payments" },
-      { icon: Camera, label: "Approve Attendance", path: "/approve/attendance" },
+      { icon: Home, label: "Overview", path: "/dashboard/manager?tab=overview" },
+      { icon: Users, label: "Users", path: "/dashboard/manager?tab=users" },
+      { icon: FileText, label: "Reports", path: "/dashboard/manager?tab=reports" },
+      { icon: CreditCard, label: "Payments", path: "/dashboard/manager?tab=payments" },
     ],
     user: [
       { icon: Home, label: "Dashboard", path: "/dashboard/user" },
@@ -57,7 +57,10 @@ export default function Layout({ children, role }: LayoutProps) {
 
   const currentMenuItems = menuItems[role];
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    const currentPath = location.pathname + location.search;
+    return currentPath === path || location.pathname === path.split('?')[0];
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -180,9 +183,9 @@ export default function Layout({ children, role }: LayoutProps) {
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="w-full max-w-none">
+        {/* Page Content - Fixed overflow and scrolling */}
+        <main className="flex-1 p-6 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto">
             {children}
           </div>
         </main>

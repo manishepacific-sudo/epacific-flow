@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useLocation, useNavigate } from "react-router-dom";
 import { 
   BarChart3,
   Users,
@@ -15,6 +16,7 @@ import {
   Download
 } from "lucide-react";
 import Layout from "@/components/Layout";
+import UserManagement from "@/components/UserManagement";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
@@ -31,16 +33,6 @@ interface DashboardStats {
   pendingReports: number;
   pendingPayments: number;
   approvedThisMonth: number;
-}
-
-interface User {
-  id: string;
-  user_id: string;
-  full_name: string;
-  email: string;
-  role: string;
-  created_at: string;
-  password_set: boolean;
 }
 
 interface Report {
@@ -86,10 +78,16 @@ interface Payment {
 export default function ManagerDashboard() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Get initial tab from URL parameters
+  const urlParams = new URLSearchParams(location.search);
+  const initialTab = urlParams.get('tab') || 'overview';
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(initialTab);
   
   // Data states
   const [stats, setStats] = useState<DashboardStats>({
@@ -98,7 +96,6 @@ export default function ManagerDashboard() {
     pendingPayments: 0,
     approvedThisMonth: 0
   });
-  const [users, setUsers] = useState<User[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   
@@ -112,12 +109,19 @@ export default function ManagerDashboard() {
     }
   }, [user, profile]);
 
+  // Handle tab changes and update URL
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    const newUrl = `/dashboard/manager?tab=${newTab}`;
+    navigate(newUrl, { replace: true });
+  };
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all data in parallel
+      // Fetch data in parallel
       const [usersRes, reportsRes, paymentsRes] = await Promise.all([
         supabase
           .from('profiles')
@@ -182,7 +186,6 @@ export default function ManagerDashboard() {
         })
       );
 
-      setUsers(usersData);
       setReports(enhancedReports);
       setPayments(enhancedPayments);
 
@@ -381,7 +384,7 @@ export default function ManagerDashboard() {
       icon: Users,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
-      trend: `${users.filter(u => u.password_set).length} active`
+      trend: "Total registered users"
     },
     {
       title: "Pending Reports",
@@ -455,7 +458,7 @@ export default function ManagerDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
             <TabsList className="grid w-full grid-cols-4 lg:w-fit">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
@@ -534,47 +537,7 @@ export default function ManagerDashboard() {
 
             {/* Users Tab */}
             <TabsContent value="users">
-              <GlassCard className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold">User Management</h3>
-                  <Button variant="outline">
-                    <Users className="h-4 w-4 mr-2" />
-                    Invite User
-                  </Button>
-                </div>
-                <div className="rounded-lg border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Joined</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.full_name}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize">
-                              {user.role}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={user.password_set ? 'default' : 'secondary'}>
-                              {user.password_set ? 'Active' : 'Invited'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{format(new Date(user.created_at), 'MMM dd, yyyy')}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </GlassCard>
+              <UserManagement />
             </TabsContent>
 
             {/* Reports Tab */}
