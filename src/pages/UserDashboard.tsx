@@ -102,11 +102,11 @@ export default function UserDashboard() {
       color: "text-primary",
     },
     {
-      title: "Pending Payments",
-      value: pendingPayments,
-      icon: Clock,
-      trend: "Awaiting approval",
-      color: "text-warning",
+      title: "Total Payments",
+      value: `₹0`,
+      icon: TrendingUp,
+      trend: "No earnings yet",
+      color: "text-success",
     },
     {
       title: "Monthly Attendance",
@@ -116,12 +116,14 @@ export default function UserDashboard() {
       color: "text-secondary",
     },
     {
-      title: "Total Earnings",
-      value: `₹0`,
-      icon: TrendingUp,
-      trend: "No earnings yet",
-      color: "text-success",
-    },
+      title: "Pending Payments",
+      value: pendingPayments,
+      icon: Clock,
+      trend: "Awaiting approval",
+      color: "text-warning",
+    }
+    
+    
   ];
 
   return (
