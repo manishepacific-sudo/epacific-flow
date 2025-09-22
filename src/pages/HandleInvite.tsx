@@ -96,7 +96,7 @@ export default function HandleInvite() {
           if (!profile.password_set) {
             console.log('🔐 Password not set, redirecting to set password page');
             // Navigate to set password page with user email
-            navigate(`/set-password#email=${encodeURIComponent(data.user.email || profile.email)}`);
+            navigate(`/set-password#email=${encodeURIComponent(data.user.email || profile.email)}&access_token=${accessToken}`);
           } else {
             console.log('✅ Password already set, redirecting to dashboard');
             // User already has password set, redirect to appropriate dashboard

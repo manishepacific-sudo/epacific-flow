@@ -30,13 +30,14 @@ export default function SetPasswordPage() {
         // Fallback to checking URL params if no session
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const email = hashParams.get('email');
+        const accessToken = hashParams.get('access_token');
         
         if (!email) {
           setError('Invalid invitation link - please use the link from your email');
           return;
         }
         
-        setInviteData({ email });
+        setInviteData({ email, accessToken });
         return;
       }
       
@@ -87,6 +88,10 @@ export default function SetPasswordPage() {
         }
       } else {
         // Fallback to using edge function if no session
+        if (!inviteData.accessToken) {
+          throw new Error('Invalid invitation link - missing access token');
+        }
+        
         const { data, error } = await supabase.functions.invoke('setup-password', {
           body: {
             token: inviteData.accessToken,

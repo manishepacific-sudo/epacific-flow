@@ -118,11 +118,8 @@ serve(async (req: Request): Promise<Response> => {
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
     console.log(`⏰ Invitation expires at: ${expiresAt.toISOString()}`);
 
-    // ✅ Hardcode base URL for production/dev
-    const baseUrl =
-      Deno.env.get("ENV") === "production"
-        ? "https://epacific-flow.lovable.app"
-        : "http://localhost:3000";
+    // ✅ Use correct base URL for Lovable project
+    const baseUrl = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com";
 
     const inviteUrl = `${baseUrl}/handle-invite`;
     console.log(`🔗 Invite URL: ${inviteUrl}`);

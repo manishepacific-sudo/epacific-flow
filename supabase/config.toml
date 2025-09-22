@@ -37,7 +37,7 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "http://127.0.0.1:3000"
+site_url = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com"
 additional_redirect_urls = ["https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
