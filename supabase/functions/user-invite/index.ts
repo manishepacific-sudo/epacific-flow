@@ -1,61 +1,196 @@
-// supabase/functions/invite-user.ts
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
-import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-serve(async (req) => {
+interface InviteUserRequest {
+  email: string;
+  role: "manager" | "user";
+  full_name: string;
+  mobile_number?: string;
+  station_id?: string;
+  center_address?: string;
+  admin_email?: string;
+}
+
+serve(async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
-    const { email, full_name, role, mobile_number, station_id, center_address } = await req.json();
+    console.log("🚀 User-invite function started");
+    const { email, role, full_name, mobile_number, station_id, center_address, admin_email }: InviteUserRequest = await req.json();
+    console.log(`📧 Inviting user: ${email} with role: ${role} by admin: ${admin_email}`);
 
-    if (!email) {
-      return new Response(JSON.stringify({ error: "Email is required" }), { status: 400 });
+    if (!email || !role || !full_name) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Email, role, and full name are required" 
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
 
-    // Set expiration for invite link (2 hours from now)
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); 
+    // ✅ Validate admin permissions
+    if (admin_email) {
+      console.log("🔐 Validating admin permissions...");
+      const demoCredentials = {
+        'admin@epacific.com': 'admin',
+        'manager@epacific.com': 'manager'
+      };
+
+      let adminRole = null;
+
+      if (demoCredentials[admin_email]) {
+        adminRole = demoCredentials[admin_email];
+        console.log(`✅ Demo admin detected: ${admin_email} with role: ${adminRole}`);
+      } else {
+        const { data: adminProfile, error: adminError } = await supabaseAdmin
+          .from('profiles')
+          .select('role')
+          .eq('email', admin_email)
+          .single();
+
+        if (adminError || !adminProfile) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Unauthorized: Admin profile not found" }),
+            { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        adminRole = adminProfile.role;
+        console.log(`✅ Database admin found: ${admin_email} with role: ${adminRole}`);
+      }
+
+      if (!['admin', 'manager'].includes(adminRole)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized: Insufficient permissions" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      if (adminRole === 'manager' && !['manager', 'user'].includes(role)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Managers cannot create admin accounts" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+    }
+
+    // ✅ Check if user already exists
+    console.log("🔍 Checking for existing user...");
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const userExists = existingUsers.users.find(u => u.email === email);
+
+    if (userExists) {
+      const { data: existingProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (existingProfile) {
+        if (existingProfile.password_set && !existingProfile.is_demo) {
+          return new Response(
+            JSON.stringify({ success: false, error: "User already exists with password set", userExists: true }),
+            { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        await supabaseAdmin.from("profiles").delete().eq("user_id", userExists.id);
+        await supabaseAdmin.auth.admin.deleteUser(userExists.id);
+      } else {
+        await supabaseAdmin.auth.admin.deleteUser(userExists.id);
+      }
+    }
+
+    // ✅ Generate invitation token with 2-hour expiry
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
     console.log(`⏰ Invitation expires at: ${expiresAt.toISOString()}`);
 
-    // ✅ Use localhost only for dev, otherwise use your live domain
+    // ✅ Hardcode base URL for production/dev
     const baseUrl =
-      Deno.env.get("ENVIRONMENT") === "development"
-        ? "http://localhost:3000"
-        : "https://epacific-flow.lovable.app";
+      Deno.env.get("ENV") === "production"
+        ? "https://epacific-flow.lovable.app"
+        : "http://localhost:3000";
 
     const inviteUrl = `${baseUrl}/handle-invite`;
-
     console.log(`🔗 Invite URL: ${inviteUrl}`);
-    console.log(`📧 Attempting to send invitation via Supabase to: ${email}`);
 
-    // Send the invitation email
-    const { data: inviteData, error: inviteError } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: inviteUrl,
-        data: {
-          full_name,
-          role,
-          mobile_number: mobile_number || "",
-          station_id: station_id || "",
-          center_address: center_address || "",
-          invite_expires_at: expiresAt.toISOString(),
-        },
-      });
-
-    if (inviteError) {
-      console.error("❌ Invite error:", inviteError);
-      return new Response(JSON.stringify({ error: inviteError.message }), { status: 500 });
-    }
-
-    console.log("✅ Invite sent:", inviteData);
-    return new Response(JSON.stringify({ message: "Invitation sent successfully", inviteData }), {
-      status: 200,
+    // ✅ Send invitation
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: inviteUrl,
+      data: {
+        full_name,
+        role,
+        mobile_number: mobile_number || "",
+        station_id: station_id || "",
+        center_address: center_address || "",
+        invite_expires_at: expiresAt.toISOString()
+      }
     });
 
-  } catch (err) {
-    console.error("❌ Unexpected error:", err);
-    return new Response(JSON.stringify({ error: "Unexpected error occurred" }), { status: 500 });
+    if (inviteError) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Failed to send invitation: ${inviteError.message}` }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("✅ Invitation sent successfully via Supabase");
+
+    // ✅ Get the created user
+    const { data: newUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const newUser = newUsers.users.find(u => u.email === email);
+
+    if (!newUser) {
+      return new Response(
+        JSON.stringify({ success: false, error: "User invitation sent but could not retrieve user details" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // ✅ Update user profile
+    const { error: profileError } = await supabaseAdmin.from("profiles").update({
+      full_name,
+      role,
+      mobile_number: mobile_number || "",
+      station_id: station_id || "",
+      center_address: center_address || "",
+      is_demo: false,
+      password_set: false,
+    }).eq('user_id', newUser.id);
+
+    if (profileError) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Failed to update user profile: ${profileError.message}` }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        user: { id: newUser.id, email, full_name, role, expires_at: expiresAt.toISOString() },
+        message: "User invited successfully. Check email for setup instructions.",
+      }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({ success: false, error: err.message || "Unexpected error" }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
   }
 });
