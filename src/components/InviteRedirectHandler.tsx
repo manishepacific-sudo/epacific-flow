@@ -6,24 +6,21 @@ export function InviteRedirectHandler() {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname === '/' || location.pathname.startsWith('/handle-invite')) {
+    if (location.hash.includes('access_token')) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const queryParams = new URLSearchParams(window.location.search);
-
-      const accessToken = hashParams.get('access_token') || queryParams.get('access_token') || queryParams.get('token');
+      const accessToken = hashParams.get('access_token');
       const refreshToken = hashParams.get('refresh_token');
       const type = hashParams.get('type');
 
-      console.log('Checking for invite tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
-
       if (accessToken && type === 'invite') {
-        console.log('Invite tokens detected, redirecting to /handle-invite');
-        const newUrl = `/handle-invite#access_token=${accessToken}&type=invite${refreshToken ? `&refresh_token=${refreshToken}` : ''}`;
-        navigate(newUrl, { replace: true });
-        return;
+        console.log('🔗 Invite detected, redirecting to /handle-invite');
+        navigate(
+          `/handle-invite#access_token=${accessToken}&refresh_token=${refreshToken || ''}&type=invite`,
+          { replace: true }
+        );
       }
     }
-  }, [location.pathname, navigate]);
+  }, [location.hash, navigate]);
 
   return null;
 }
