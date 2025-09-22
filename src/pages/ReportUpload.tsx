@@ -283,13 +283,13 @@ export default function ReportUpload() {
                 
                 <Button 
                   variant="hero" 
-                  className="w-48 " 
+                  className="w-64 flex items-center gap-2 justify-center mx-auto" 
                   onClick={handleSubmit}
                   loading={uploading}
                   disabled={!file || !reportDate || !reportData}
                 >
                   {uploading ? 'Submitting...' : 'Submit for Approval'}
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>
             </GlassCard>
