@@ -252,8 +252,8 @@ export default function ReportUpload() {
                   </span>
                 </div>
                 
-                <div className="space-y-2 pl-2">
-                  <Label className="text-lg">Report Date *</Label>
+                <div className="space-y-2">
+                  <Label className="pl-3 text-lg">Report Date *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
