@@ -92,15 +92,27 @@ export default function Login() {
   };
 
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    (e.currentTarget as HTMLElement).style.setProperty('--mouse-x', `${x}%`);
+    (e.currentTarget as HTMLElement).style.setProperty('--mouse-y', `${y}%`);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-background relative overflow-hidden">
-      {/* Animated background elements */}
+    <div 
+      className="min-h-screen flex items-center justify-center bg-gradient-background relative overflow-hidden cursor-gradient"
+      onMouseMove={handleMouseMove}
+    >
+      {/* Enhanced animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
-          className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl"
+          className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/20 rounded-full blur-3xl animate-float"
           animate={{
             scale: [1, 1.2, 1],
-            opacity: [0.3, 0.6, 0.3],
+            opacity: [0.3, 0.7, 0.3],
+            rotate: [0, 180, 360],
           }}
           transition={{
             duration: 8,
@@ -109,13 +121,26 @@ export default function Login() {
           }}
         />
         <motion.div
-          className="absolute top-3/4 right-1/4 w-96 h-96 bg-secondary/10 rounded-full blur-3xl"
+          className="absolute top-3/4 right-1/4 w-96 h-96 bg-success/15 rounded-full blur-3xl"
           animate={{
             scale: [1.2, 1, 1.2],
-            opacity: [0.2, 0.4, 0.2],
+            opacity: [0.2, 0.5, 0.2],
+            rotate: [360, 180, 0],
           }}
           transition={{
             duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        <motion.div
+          className="absolute top-1/2 left-1/2 w-72 h-72 bg-secondary/10 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2"
+          animate={{
+            scale: [0.8, 1.1, 0.8],
+            opacity: [0.1, 0.3, 0.1],
+          }}
+          transition={{
+            duration: 6,
             repeat: Infinity,
             ease: "easeInOut",
           }}
