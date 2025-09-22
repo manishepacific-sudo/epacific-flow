@@ -267,7 +267,7 @@ export default function ReportUpload() {
                         {reportDate ? format(reportDate, "PPP") : <span>Pick a date</span>}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-4" align="start">
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={reportDate}
@@ -283,13 +283,13 @@ export default function ReportUpload() {
                 
                 <Button 
                   variant="hero" 
-                  className="w-full" 
+                  className="w-64 items-center gap-2 justify-center mx-auto" 
                   onClick={handleSubmit}
                   loading={uploading}
                   disabled={!file || !reportDate || !reportData}
                 >
                   {uploading ? 'Submitting...' : 'Submit for Approval'}
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>
             </GlassCard>
