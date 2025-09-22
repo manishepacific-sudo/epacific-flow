@@ -12,9 +12,14 @@ export default function HandleInvite() {
   useEffect(() => {
     const handleInviteLink = async () => {
       try {
+        console.log('🔍 Current URL:', window.location.href);
+        
         // Parse both hash and query params to handle different Supabase invite formats
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
+        
+        console.log('📊 Hash params:', Object.fromEntries(hashParams.entries()));
+        console.log('📊 Query params:', Object.fromEntries(queryParams.entries()));
         
         // Check for error first (when invite link expired)
         const error = hashParams.get('error') || queryParams.get('error');
@@ -46,12 +51,14 @@ export default function HandleInvite() {
         // Handle session setup - try different methods based on available tokens
         let sessionResult;
         if (refreshToken) {
+          console.log('🔑 Using setSession with both tokens');
           // If we have both tokens, use setSession
           sessionResult = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken
           });
         } else {
+          console.log('🔑 Using exchangeCodeForSession with access token only');
           // If we only have access token, try to exchange it
           sessionResult = await supabase.auth.exchangeCodeForSession(accessToken);
         }
@@ -69,9 +76,38 @@ export default function HandleInvite() {
         }
 
         if (data.user) {
-          console.log('User authenticated, redirecting to set password');
-          // Redirect to set password page
-          navigate('/set-password', { replace: true });
+          console.log('✅ User authenticated successfully, checking profile...');
+          
+          // Check if user needs to set password
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('password_set, email, role')
+            .eq('user_id', data.user.id)
+            .single();
+            
+          if (profileError) {
+            console.error('Profile error:', profileError);
+            setError('Failed to load user profile');
+            return;
+          }
+          
+          console.log('👤 User profile:', profile);
+          
+          if (!profile.password_set) {
+            console.log('🔐 Password not set, redirecting to set password page');
+            // Navigate to set password page with user email
+            navigate(`/set-password#email=${encodeURIComponent(data.user.email || profile.email)}`);
+          } else {
+            console.log('✅ Password already set, redirecting to dashboard');
+            // User already has password set, redirect to appropriate dashboard
+            const role = data.user.user_metadata?.role || profile.role;
+            const dashboardMap = {
+              admin: '/dashboard/admin',
+              manager: '/dashboard/manager',
+              user: '/dashboard/user'
+            };
+            navigate(dashboardMap[role] || '/dashboard/user');
+          }
         } else {
           setError('No user found in invite');
         }

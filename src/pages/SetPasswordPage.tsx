@@ -21,16 +21,33 @@ export default function SetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    const email = hashParams.get('email');
-
-    if (!accessToken || !email) {
-      setError('Invalid invitation link');
-      return;
-    }
-
-    setInviteData({ accessToken, email });
+    const checkAuth = async () => {
+      // First check if user is authenticated
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log('❌ No session found, checking URL params');
+        // Fallback to checking URL params if no session
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const email = hashParams.get('email');
+        
+        if (!email) {
+          setError('Invalid invitation link - please use the link from your email');
+          return;
+        }
+        
+        setInviteData({ email });
+        return;
+      }
+      
+      console.log('✅ Session found, user:', session.user.email);
+      setInviteData({ 
+        email: session.user.email,
+        userId: session.user.id 
+      });
+    };
+    
+    checkAuth();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,16 +68,36 @@ export default function SetPasswordPage() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('setup-password', {
-        body: {
-          token: inviteData.accessToken,
-          email: inviteData.email,
+      // If user has session, update password directly
+      if (inviteData.userId) {
+        const { error } = await supabase.auth.updateUser({
           password: formData.password
+        });
+        
+        if (error) throw error;
+        
+        // Update profile to mark password as set
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ password_set: true })
+          .eq('user_id', inviteData.userId);
+          
+        if (profileError) {
+          console.warn('Failed to update profile password_set flag:', profileError);
         }
-      });
+      } else {
+        // Fallback to using edge function if no session
+        const { data, error } = await supabase.functions.invoke('setup-password', {
+          body: {
+            token: inviteData.accessToken,
+            email: inviteData.email,
+            password: formData.password
+          }
+        });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+        if (error) throw error;
+        if (!data.success) throw new Error(data.error);
+      }
 
       toast({ title: "Password set successfully!" });
       navigate('/login', { replace: true });
