@@ -105,7 +105,7 @@ export default function UserDashboard() {
       title: "Total Payments",
       value: `₹0`,
       icon: TrendingUp,
-      trend: "No earnings yet",
+      trend: "No Payments yet",
       color: "text-success",
     },
     {
