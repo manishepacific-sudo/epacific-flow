@@ -4,7 +4,7 @@ import {
   FileText, 
   CreditCard, 
   Camera, 
-  TrendingUp,
+  DollarSign,
   Clock,
   CheckCircle,
   Upload,
@@ -83,8 +83,8 @@ export default function UserDashboard() {
     },
     {
       icon: CreditCard,
-      title: "View Payments",
-      description: "Check payment status",
+      title: "Payments",
+      description: "Manage payments and view history",
       action: () => navigate("/payments"),
       color: "bg-warning",
     },
@@ -92,6 +92,10 @@ export default function UserDashboard() {
 
   const pendingPayments = payments.filter(p => p.status === 'pending').length;
   const approvedReports = reports.filter(r => r.status === 'approved').length;
+  const approvedReportsWithoutPayment = reports.filter(r => 
+    r.status === 'approved' && !payments.some(p => p.report_id === r.id && p.status === 'approved')
+  ).length;
+  const totalPendingAmount = approvedReportsWithoutPayment * 25000;
   
   const dashboardCards = [
     {
@@ -102,11 +106,11 @@ export default function UserDashboard() {
       color: "text-primary",
     },
     {
-      title: "Total Payments",
-      value: `₹0`,
-      icon: TrendingUp,
-      trend: "No Payments yet",
-      color: "text-success",
+      title: "Pending Amount",
+      value: `₹${totalPendingAmount.toLocaleString()}`,
+      icon: DollarSign,
+      trend: `${approvedReportsWithoutPayment} reports awaiting payment`,
+      color: "text-warning",
     },
     {
       title: "Monthly Attendance",
@@ -116,11 +120,11 @@ export default function UserDashboard() {
       color: "text-secondary",
     },
     {
-      title: "Pending Payments",
+      title: "Pending Reviews",
       value: pendingPayments,
       icon: Clock,
-      trend: "Awaiting approval",
-      color: "text-warning",
+      trend: "Awaiting manager approval",
+      color: "text-secondary",
     }
     
     

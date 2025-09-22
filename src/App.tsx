@@ -21,8 +21,8 @@ const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
 const ReportUpload = lazy(() => import("./pages/ReportUpload"));
-const PaymentPage = lazy(() => import("./pages/PaymentPage"));
-const PendingPayments = lazy(() => import("./pages/PendingPayments"));
+const EnhancedPaymentPage = lazy(() => import("./pages/EnhancedPaymentPage"));
+const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
 const AttendancePage = lazy(() => import("./pages/AttendancePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const UserProfilePage = lazy(() => import("./pages/UserProfilePage").then(module => ({ default: module.UserProfilePage })));
@@ -62,12 +62,12 @@ const App = () => (
                 <Route path="/upload/report" element={<GuardedReportUpload />} />
                 <Route path="/payment/:id" element={
                   <ProtectedRoute>
-                    <PaymentPage />
+                    <EnhancedPaymentPage />
                   </ProtectedRoute>
                 } />
                 <Route path="/payments" element={
                   <ProtectedRoute>
-                    <PendingPayments />
+                    <PaymentsPage />
                   </ProtectedRoute>
                 } />
                 <Route path="/attendance" element={
