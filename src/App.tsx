@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,16 +16,16 @@ import SetPassword from "./pages/SetPassword";
 import SetPasswordPage from "./pages/SetPasswordPage";
 import ResetPassword from "./pages/ResetPassword";
 
-import UserDashboard from "./pages/UserDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
-import ManagerDashboard from "./pages/ManagerDashboard";
-
-import ReportUpload from "./pages/ReportUpload";
-import PaymentPage from "./pages/PaymentPage";
-import PendingPayments from "./pages/PendingPayments";
-import AttendancePage from "./pages/AttendancePage";
-import NotFound from "./pages/NotFound";
-import { UserProfilePage } from "./pages/UserProfilePage";
+// Lazy load dashboard and secondary pages to reduce initial bundle size
+const UserDashboard = lazy(() => import("./pages/UserDashboard"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
+const ReportUpload = lazy(() => import("./pages/ReportUpload"));
+const PaymentPage = lazy(() => import("./pages/PaymentPage"));
+const PendingPayments = lazy(() => import("./pages/PendingPayments"));
+const AttendancePage = lazy(() => import("./pages/AttendancePage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const UserProfilePage = lazy(() => import("./pages/UserProfilePage").then(module => ({ default: module.UserProfilePage })));
 
 // Create role-guarded components
 const GuardedUserDashboard = withRoleGuard(UserDashboard, 'user');
@@ -44,34 +45,40 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <InviteRedirectHandler />
-            <Routes>
-              <Route path="/" element={<AuthRedirect />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/handle-invite" element={<HandleInvite />} />
-              <Route path="/set-password" element={<SetPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/dashboard/user" element={<GuardedUserDashboard />} />
-              <Route path="/dashboard/admin" element={<GuardedAdminDashboard />} />
-              <Route path="/dashboard/manager" element={<GuardedManagerDashboard />} />
-              <Route path="/upload/report" element={<GuardedReportUpload />} />
-              <Route path="/payment/:id" element={
-                <ProtectedRoute>
-                  <PaymentPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/payments" element={
-                <ProtectedRoute>
-                  <PendingPayments />
-                </ProtectedRoute>
-              } />
-              <Route path="/attendance" element={
-                <ProtectedRoute>
-                  <AttendancePage />
-                </ProtectedRoute>
-              } />
-              <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={
+              <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            }>
+              <Routes>
+                <Route path="/" element={<AuthRedirect />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/handle-invite" element={<HandleInvite />} />
+                <Route path="/set-password" element={<SetPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/dashboard/user" element={<GuardedUserDashboard />} />
+                <Route path="/dashboard/admin" element={<GuardedAdminDashboard />} />
+                <Route path="/dashboard/manager" element={<GuardedManagerDashboard />} />
+                <Route path="/upload/report" element={<GuardedReportUpload />} />
+                <Route path="/payment/:id" element={
+                  <ProtectedRoute>
+                    <PaymentPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/payments" element={
+                  <ProtectedRoute>
+                    <PendingPayments />
+                  </ProtectedRoute>
+                } />
+                <Route path="/attendance" element={
+                  <ProtectedRoute>
+                    <AttendancePage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
