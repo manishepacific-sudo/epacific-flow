@@ -124,19 +124,35 @@ export default function ManagerReportApproval() {
 
       if (error) throw error;
 
-      // Create download link
+      // Get the file extension to determine the proper filename
+      const fileName = filePath.split('/').pop() || 'report';
+      const fileExtension = fileName.split('.').pop()?.toLowerCase();
+      
+      // Create download link with proper content-disposition
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = filePath.split('/').pop() || 'report';
+      a.download = fileName;
+      
+      // Force download by setting the download attribute
+      a.setAttribute('download', fileName);
+      
+      // Ensure the link is hidden and temporarily added to DOM
+      a.style.display = 'none';
       document.body.appendChild(a);
+      
+      // Trigger download
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
 
       toast({
         title: "Download started",
-        description: "The report file is being downloaded",
+        description: `The report file "${fileName}" is being downloaded`,
       });
     } catch (error) {
       console.error('Error downloading file:', error);

@@ -127,19 +127,59 @@ export default function ManagerPaymentApproval() {
 
   const viewProofFile = async (filePath: string) => {
     try {
-      const { data, error } = await supabase.storage
+      // First, try to get a signed URL for viewing
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('payment-proofs')
         .createSignedUrl(filePath, 3600); // 1 hour expiry
 
-      if (error) throw error;
+      if (signedUrlError) {
+        console.error('Signed URL error:', signedUrlError);
+        throw signedUrlError;
+      }
+
+      if (!signedUrlData?.signedUrl) {
+        throw new Error('No signed URL received');
+      }
+
+      // Get file extension to determine how to handle it
+      const fileExtension = filePath.split('.').pop()?.toLowerCase();
       
-      // Open in new window
-      window.open(data.signedUrl, '_blank');
+      if (fileExtension === 'pdf' || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
+        // For PDFs and images, open in new tab for viewing
+        const newWindow = window.open(signedUrlData.signedUrl, '_blank');
+        
+        if (!newWindow) {
+          toast({
+            title: "Popup blocked",
+            description: "Please allow popups to view the payment proof",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        // Set proper title for the window
+        newWindow.document.title = `Payment Proof - ${filePath.split('/').pop()}`;
+      } else {
+        // For other file types, force download
+        const link = document.createElement('a');
+        link.href = signedUrlData.signedUrl;
+        link.download = filePath.split('/').pop() || 'payment-proof';
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: "Download started",
+          description: "The payment proof is being downloaded",
+        });
+      }
     } catch (error) {
       console.error('Error viewing proof file:', error);
       toast({
         title: "Failed to load proof",
-        description: "Could not load the payment proof file",
+        description: `Could not load the payment proof file: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     }
