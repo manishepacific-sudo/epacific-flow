@@ -457,26 +457,32 @@ export default function ManagerDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
+          className="w-full overflow-hidden"
         >
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 lg:w-fit">
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="users" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Users
-              </TabsTrigger>
-              <TabsTrigger value="reports" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Reports
-              </TabsTrigger>
-              <TabsTrigger value="payments" className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Payments
-              </TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto">
+              <TabsList className="grid grid-cols-4 w-full min-w-[500px] lg:w-fit lg:min-w-0">
+                <TabsTrigger value="overview" className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm">
+                  <BarChart3 className="h-3 w-3 lg:h-4 lg:w-4" />
+                  <span className="hidden sm:inline">Overview</span>
+                  <span className="sm:hidden">Over</span>
+                </TabsTrigger>
+                <TabsTrigger value="users" className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm">
+                  <Users className="h-3 w-3 lg:h-4 lg:w-4" />
+                  <span>Users</span>
+                </TabsTrigger>
+                <TabsTrigger value="reports" className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm">
+                  <FileText className="h-3 w-3 lg:h-4 lg:w-4" />
+                  <span className="hidden sm:inline">Reports</span>
+                  <span className="sm:hidden">Rep</span>
+                </TabsTrigger>
+                <TabsTrigger value="payments" className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm">
+                  <CreditCard className="h-3 w-3 lg:h-4 lg:w-4" />
+                  <span className="hidden sm:inline">Payments</span>
+                  <span className="sm:hidden">Pay</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6">
