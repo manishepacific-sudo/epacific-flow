@@ -126,16 +126,17 @@ export default function ManagerReportApproval() {
 
       // Get the file extension to determine the proper filename
       const fileName = filePath.split('/').pop() || 'report';
-      const fileExtension = fileName.split('.').pop()?.toLowerCase();
+      
+      // Create blob with correct MIME type to force download
+      const blob = new Blob([data], { 
+        type: 'application/octet-stream' // Force download by using generic binary type
+      });
       
       // Create download link with proper content-disposition
-      const url = URL.createObjectURL(data);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
-      
-      // Force download by setting the download attribute
-      a.setAttribute('download', fileName);
       
       // Ensure the link is hidden and temporarily added to DOM
       a.style.display = 'none';
@@ -144,11 +145,9 @@ export default function ManagerReportApproval() {
       // Trigger download
       a.click();
       
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 100);
+      // Clean up immediately
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Download started",

@@ -127,6 +127,8 @@ export default function ManagerPaymentApproval() {
 
   const viewProofFile = async (filePath: string) => {
     try {
+      console.log('Attempting to view proof file:', filePath);
+      
       // First, try to get a signed URL for viewing
       const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('payment-proofs')
@@ -134,7 +136,40 @@ export default function ManagerPaymentApproval() {
 
       if (signedUrlError) {
         console.error('Signed URL error:', signedUrlError);
-        throw signedUrlError;
+        
+        // If signed URL fails, try to download the file directly
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('payment-proofs')
+          .download(filePath);
+
+        if (downloadError) {
+          throw new Error(`Could not access file: ${downloadError.message}`);
+        }
+
+        // Create object URL and open it
+        const objectUrl = URL.createObjectURL(fileData);
+        const newWindow = window.open(objectUrl, '_blank');
+        
+        if (!newWindow) {
+          // If popup blocked, force download instead
+          const link = document.createElement('a');
+          link.href = objectUrl;
+          link.download = filePath.split('/').pop() || 'payment-proof';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          toast({
+            title: "File downloaded",
+            description: "The payment proof has been downloaded",
+          });
+        } else {
+          newWindow.document.title = `Payment Proof - ${filePath.split('/').pop()}`;
+        }
+        
+        // Clean up object URL after a delay
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+        return;
       }
 
       if (!signedUrlData?.signedUrl) {
