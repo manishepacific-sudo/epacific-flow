@@ -28,7 +28,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailResponse = await resend.emails.send({
       from: "ePacific <onboarding@resend.dev>",
-      to: [email],
+      to: ["manish.epacific@gmail.com"], // Temporary: sending to verified email for testing
       subject: "Welcome to ePacific - Set Your Password",
       html: `
         <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; padding: 20px;">
