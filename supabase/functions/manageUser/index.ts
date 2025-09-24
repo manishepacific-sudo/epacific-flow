@@ -226,6 +226,11 @@ serve(async (req: Request): Promise<Response> => {
         throw new Error(`Invalid action: ${action}`);
     }
   } catch (err: any) {
+    console.log('💥 CRITICAL ERROR in manageUser:', err);
+    console.log('💥 Error message:', err.message);
+    console.log('💥 Error stack:', err.stack);
+    console.log('💥 Error details:', JSON.stringify(err, null, 2));
+    
     return new Response(JSON.stringify({ success: false, error: err.message }), {
       status: 400,
       headers: { "Content-Type": "application/json", ...corsHeaders },
