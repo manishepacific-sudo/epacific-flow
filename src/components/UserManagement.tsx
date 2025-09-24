@@ -107,17 +107,16 @@ export default function UserManagement() {
     setCreating(true);
 
     try {
-      const { data: result, error: createError } = await supabase.functions.invoke('manageUser', {
+      // Use the working user-invite function instead of manageUser
+      const { data: result, error: createError } = await supabase.functions.invoke('user-invite', {
         body: {
-          action: 'create',
-          data: {
-            email: formData.email,
-            role: formData.role,
-            full_name: formData.full_name,
-            mobile_number: formData.mobile_number,
-            station_id: formData.station_id,
-            center_address: formData.center_address
-          }
+          email: formData.email,
+          role: formData.role,
+          full_name: formData.full_name,
+          mobile_number: formData.mobile_number,
+          station_id: formData.station_id,
+          center_address: formData.center_address,
+          admin_email: profile?.email
         }
       });
 
