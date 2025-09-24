@@ -59,7 +59,7 @@ export default function Layout({ children, role }: LayoutProps) {
 
   const isActive = (path: string) => {
     const currentPath = location.pathname + location.search;
-    return currentPath === path || location.pathname === path.split('?')[0];
+    return currentPath === path;
   };
 
   const handleLogout = async () => {
