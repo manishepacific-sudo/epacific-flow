@@ -82,29 +82,42 @@ serve(async (req: Request): Promise<Response> => {
 
     switch (action) {
       case "create": {
+        console.log('🔧 Starting user creation process...');
         const { email, role, full_name, mobile_number, station_id, center_address } = data;
 
         if (!email || !role) {
+          console.log('❌ Missing email or role');
           throw new Error("Email and role are required");
         }
 
+        console.log('📧 Creating user with email:', email, 'role:', role);
+
         // Check if user already exists and delete if found
-        const { data: existingProfiles } = await supabaseAdmin
+        console.log('🔍 Checking for existing user...');
+        const { data: existingProfiles, error: checkError } = await supabaseAdmin
           .from("profiles")
           .select("user_id")
           .eq("email", email);
 
+        if (checkError) {
+          console.log('❌ Error checking existing profiles:', checkError);
+          throw checkError;
+        }
+
         if (existingProfiles && existingProfiles.length > 0) {
+          console.log('🗑️ Deleting existing user...');
           const userId = existingProfiles[0].user_id;
           // Delete profile first
           await supabaseAdmin.from("profiles").delete().eq("user_id", userId);
           // Delete auth user
           await supabaseAdmin.auth.admin.deleteUser(userId);
+          console.log('✅ Existing user deleted');
         }
 
         // Create user directly with password (for admin accounts)
         const defaultPassword = email === 'admin@myapp.com' ? 'SecurePassword123!' : 'tempPassword123';
         
+        console.log('👤 Creating auth user...');
         const { data: userData, error: createError } =
           await supabaseAdmin.auth.admin.createUser({
             email,
@@ -119,9 +132,15 @@ serve(async (req: Request): Promise<Response> => {
             },
           });
 
-        if (createError) throw createError;
+        if (createError) {
+          console.log('❌ Auth user creation failed:', createError);
+          throw createError;
+        }
+        
+        console.log('✅ Auth user created successfully, ID:', userData.user.id);
 
         // Create profile
+        console.log('📝 Creating profile...');
         const { error: profileError } = await supabaseAdmin.from("profiles").insert({
           user_id: userData.user.id,
           email,
@@ -134,7 +153,12 @@ serve(async (req: Request): Promise<Response> => {
           password_set: true, // Password is already set
         });
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.log('❌ Profile creation failed:', profileError);
+          throw profileError;
+        }
+        
+        console.log('✅ Profile created successfully');
 
         return new Response(
           JSON.stringify({
