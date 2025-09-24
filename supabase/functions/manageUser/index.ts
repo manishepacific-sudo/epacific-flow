@@ -313,6 +313,27 @@ serve(async (req: Request): Promise<Response> => {
 
           console.log("✅ Profile created successfully");
 
+          // Send invitation email
+          try {
+            console.log("📧 Sending invitation email...");
+            const emailResponse = await supabaseAdmin.functions.invoke('send-invitation', {
+              body: {
+                email: email!,
+                name: full_name || email?.split("@")[0] || "User",
+                tempPassword: defaultPassword,
+                role: role!
+              }
+            });
+
+            if (emailResponse.error) {
+              console.log("⚠️ Email sending failed but user was created:", emailResponse.error);
+            } else {
+              console.log("✅ Invitation email sent successfully");
+            }
+          } catch (emailError: any) {
+            console.log("⚠️ Email sending error but user was created:", emailError.message);
+          }
+
           return new Response(JSON.stringify({ 
             success: true, 
             user: { id: userId, email, role }, 
