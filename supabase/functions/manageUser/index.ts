@@ -28,11 +28,15 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log("🚀 ManageUser function started");
     const body = await req.json().catch(() => ({}));
     const { action, data }: ManageUserRequest = body;
 
+    console.log("📥 Action:", action, "Data keys:", Object.keys(data || {}));
+
     if (!action) {
-      return new Response(JSON.stringify({ success: false, error: "Missing 'action'" }), {
+      console.log("❌ Missing action parameter");
+      return new Response(JSON.stringify({ success: false, error: "Missing 'action' parameter" }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -41,11 +45,20 @@ serve(async (req: Request): Promise<Response> => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
     const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      console.log("❌ Missing Supabase environment variables");
+      return new Response(JSON.stringify({ success: false, error: "Server configuration error" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
     // 🔑 Verify JWT token and get user role
     const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");
     if (!authHeader) {
+      console.log("❌ Missing Authorization header");
       return new Response(JSON.stringify({ success: false, error: "Unauthorized: missing token" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -65,21 +78,55 @@ serve(async (req: Request): Promise<Response> => {
     const requesterId = authData.user.id;
     console.log("🔍 Verifying role for user:", requesterId);
     
+    // Get requester's profile and role
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("user_id", requesterId)
-      .single();
+      .maybeSingle();
 
-    if (profileErr || !profile?.role) {
-      console.log("❌ Profile/role lookup failed:", profileErr?.message);
-      return new Response(JSON.stringify({ success: false, error: "Role not found" }), {
+    let requesterRole: "admin" | "manager" | "user";
+
+    if (profileErr) {
+      console.log("❌ Profile lookup failed:", profileErr.message);
+      return new Response(JSON.stringify({ success: false, error: "Failed to verify user permissions" }), {
         status: 403,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
-    const requesterRole = profile.role as "admin" | "manager" | "user";
+    if (!profile?.role) {
+      console.log("🔍 No profile found, checking if this should be bootstrapped as admin");
+      
+      // Check if there are any admin users in the system
+      const { data: existingAdmins, error: adminCheckErr } = await supabaseAdmin
+        .from("profiles")
+        .select("user_id")
+        .eq("role", "admin")
+        .limit(1);
+
+      if (adminCheckErr) {
+        console.log("❌ Admin check failed:", adminCheckErr.message);
+        return new Response(JSON.stringify({ success: false, error: "Failed to verify system state" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+
+      if (!existingAdmins || existingAdmins.length === 0) {
+        console.log("🛠️ Bootstrapping first user as admin");
+        requesterRole = "admin";
+      } else {
+        console.log("❌ User has no role and system already has admins");
+        return new Response(JSON.stringify({ success: false, error: "User has no permissions in system" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+    } else {
+      requesterRole = profile.role as "admin" | "manager" | "user";
+    }
+
     console.log("✅ Requester role verified:", requesterRole);
 
     // 🔒 Permission check
@@ -157,9 +204,19 @@ serve(async (req: Request): Promise<Response> => {
     // 🛠 Handle actions
     switch (action) {
       case "create": {
+        console.log("👤 Creating new user");
         const { email, role, full_name, mobile_number, station_id, center_address } = data;
 
+        if (!email || !role) {
+          console.log("❌ Missing required fields for user creation");
+          return new Response(JSON.stringify({ success: false, error: "Email and role are required" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+
         const defaultPassword = "TempPass123!";
+        console.log("🔐 Creating user with email:", email, "role:", role);
 
         const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
           email,
@@ -174,9 +231,20 @@ serve(async (req: Request): Promise<Response> => {
           },
         });
 
-        if (createErr) throw createErr;
+        if (createErr) {
+          console.log("❌ User creation failed:", createErr.message);
+          throw createErr;
+        }
 
-        const userId = newUser?.user?.id;
+        if (!newUser?.user?.id) {
+          console.log("❌ No user ID returned from creation");
+          throw new Error("User creation returned no ID");
+        }
+
+        const userId = newUser.user.id;
+        console.log("✅ Auth user created with ID:", userId);
+
+        // Create profile entry
         const { error: profileErr } = await supabaseAdmin.from("profiles").insert({
           user_id: userId,
           email,
@@ -190,11 +258,40 @@ serve(async (req: Request): Promise<Response> => {
         });
 
         if (profileErr) {
+          console.log("❌ Profile creation failed:", profileErr.message);
+          // Clean up auth user if profile creation fails
           await supabaseAdmin.auth.admin.deleteUser(userId);
           throw profileErr;
         }
 
-        return new Response(JSON.stringify({ success: true, user: { id: userId, email, role }, password: defaultPassword }), {
+        console.log("✅ Profile created successfully");
+
+        // If this is the first user and we bootstrapped them as admin, update their profile
+        if (requesterRole === "admin" && !profile?.role) {
+          console.log("🛠️ Updating bootstrap admin profile");
+          const { error: bootstrapErr } = await supabaseAdmin.from("profiles").upsert({
+            user_id: requesterId,
+            email: authData.user.email,
+            full_name: authData.user.user_metadata?.full_name || authData.user.email?.split("@")[0] || "Admin",
+            role: "admin",
+            mobile_number: "",
+            station_id: "",
+            center_address: "",
+            password_set: true,
+            is_demo: false,
+          });
+
+          if (bootstrapErr) {
+            console.log("⚠️ Bootstrap profile update failed:", bootstrapErr.message);
+            // Don't fail the entire operation for this
+          }
+        }
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          user: { id: userId, email, role }, 
+          password: defaultPassword 
+        }), {
           status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
@@ -239,14 +336,26 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       default:
-        return new Response(JSON.stringify({ success: false, error: "Invalid action" }), {
+        console.log("❌ Invalid action:", action);
+        return new Response(JSON.stringify({ success: false, error: "Invalid action. Supported actions: create, setPassword, delete" }), {
           status: 400,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
     }
   } catch (err: any) {
-    console.error("❌ Function error:", err);
-    return new Response(JSON.stringify({ success: false, error: err?.message || "Unexpected error" }), {
+    console.error("❌ ManageUser function error:", err);
+    console.error("❌ Error details:", {
+      message: err?.message,
+      code: err?.code,
+      details: err?.details,
+      hint: err?.hint
+    });
+    
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: err?.message || "Unexpected error occurred",
+      details: err?.code ? `Code: ${err.code}` : undefined
+    }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
