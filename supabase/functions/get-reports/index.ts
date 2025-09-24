@@ -26,8 +26,29 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { admin_email } = await req.json();
 
+    if (!admin_email) {
+      return new Response(
+        JSON.stringify({ error: "Email required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Check user role from database instead of email pattern
+    const { data: userProfile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('email', admin_email)
+      .single();
+
+    if (profileError || !userProfile) {
+      return new Response(
+        JSON.stringify({ error: "User not found" }),
+        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     // Allow both admin and manager users
-    if (!admin_email || (!admin_email.includes('admin') && !admin_email.includes('manager'))) {
+    if (!['admin', 'manager'].includes(userProfile.role)) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
