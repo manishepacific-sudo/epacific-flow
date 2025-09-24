@@ -107,10 +107,22 @@ serve(async (req: Request): Promise<Response> => {
         if (existingProfiles && existingProfiles.length > 0) {
           console.log('🗑️ Deleting existing user...');
           const userId = existingProfiles[0].user_id;
-          // Delete profile first
-          await supabaseAdmin.from("profiles").delete().eq("user_id", userId);
-          // Delete auth user
-          await supabaseAdmin.auth.admin.deleteUser(userId);
+          
+          // Delete auth user first (this will cascade delete the profile due to foreign key)
+          const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+          if (deleteAuthError) {
+            console.log('❌ Error deleting auth user:', deleteAuthError);
+          }
+          
+          // Ensure profile is deleted
+          const { error: deleteProfileError } = await supabaseAdmin
+            .from("profiles")
+            .delete()
+            .eq("user_id", userId);
+          if (deleteProfileError) {
+            console.log('❌ Error deleting profile:', deleteProfileError);
+          }
+          
           console.log('✅ Existing user deleted');
         }
 
