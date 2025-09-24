@@ -313,22 +313,28 @@ serve(async (req: Request): Promise<Response> => {
 
           console.log("✅ Profile created successfully");
 
-          // Send invitation email
+          // Send invitation email using Supabase's built-in email system
           try {
-            console.log("📧 Sending invitation email...");
-            const emailResponse = await supabaseAdmin.functions.invoke('send-invitation', {
-              body: {
-                email: email!,
-                name: full_name || email?.split("@")[0] || "User",
-                tempPassword: defaultPassword,
-                role: role!
+            console.log("📧 Sending invitation email via Supabase...");
+            const baseUrl = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com";
+            const inviteUrl = `${baseUrl}/handle-invite`;
+            
+            const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email!, {
+              redirectTo: inviteUrl,
+              data: {
+                full_name: full_name || email?.split("@")[0] || "User",
+                role: role!,
+                mobile_number: mobile_number || "",
+                station_id: station_id || "",
+                center_address: center_address || "",
+                temp_password: defaultPassword
               }
             });
 
-            if (emailResponse.error) {
-              console.log("⚠️ Email sending failed but user was created:", emailResponse.error);
+            if (inviteError) {
+              console.log("⚠️ Email invitation failed but user was created:", inviteError.message);
             } else {
-              console.log("✅ Invitation email sent successfully");
+              console.log("✅ Invitation email sent successfully via Supabase");
             }
           } catch (emailError: any) {
             console.log("⚠️ Email sending error but user was created:", emailError.message);
