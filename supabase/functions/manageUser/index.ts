@@ -43,13 +43,18 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       // Check user role from database
+      console.log('🔍 Checking role for user:', admin_email);
       const { data: userProfile, error: profileError } = await supabaseAdmin
         .from('profiles')
         .select('role')
         .eq('email', admin_email)
         .single();
 
+      console.log('👤 Profile query result:', userProfile);
+      console.log('🔍 Profile error (if any):', profileError);
+
       if (profileError || !userProfile) {
+        console.log('❌ User profile not found or error occurred');
         return new Response(
           JSON.stringify({ success: false, error: "Unauthorized: User not found" }),
           { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -60,12 +65,20 @@ serve(async (req: Request): Promise<Response> => {
       const requestingUserRole = userProfile.role;
       const { role: targetRole } = data;
       
+      console.log('🎭 Requesting user role:', requestingUserRole);
+      console.log('🎯 Target role to create:', targetRole);
+      
       if (requestingUserRole === 'admin') {
         // Admins can create any role
         console.log('✅ Admin creating user with role:', targetRole);
       } else if (requestingUserRole === 'manager') {
         // Managers can only create users and managers
+        console.log('🔍 Manager role validation - checking if target role is allowed');
+        console.log('🔍 Target role:', targetRole);
+        console.log('🔍 Allowed roles for managers: [user, manager]');
+        
         if (!['user', 'manager'].includes(targetRole || '')) {
+          console.log('❌ Manager cannot create role:', targetRole);
           return new Response(
             JSON.stringify({ success: false, error: "Unauthorized: Managers can only create users and managers" }),
             { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -73,6 +86,7 @@ serve(async (req: Request): Promise<Response> => {
         }
         console.log('✅ Manager creating user with role:', targetRole);
       } else {
+        console.log('❌ User role not authorized:', requestingUserRole);
         return new Response(
           JSON.stringify({ success: false, error: "Unauthorized: Only admins and managers can create users" }),
           { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
