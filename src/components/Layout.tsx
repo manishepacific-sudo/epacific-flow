@@ -83,21 +83,21 @@ export default function Layout({ children, role }: LayoutProps) {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:relative lg:flex-shrink-0
       `}>
-        <GlassCard hover={false} className="h-full rounded-none lg:rounded-r-2xl p-6 flex flex-col">
+        <div className="h-full rounded-none lg:rounded-r-2xl p-6 flex flex-col bg-sidebar border-r border-sidebar-border backdrop-blur-md shadow-glass transition-colors duration-300">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <img src={epacificLogo} alt="Epacific" className="w-10 h-10 rounded-lg dark:bg-white dark:p-1" />
               <div className="min-w-0">
-                <h1 className="font-bold text-lg gradient-text truncate">Epacific</h1>
-                <p className="text-xs text-muted-foreground capitalize truncate">{role} Panel</p>
+                <h1 className="font-bold text-lg text-sidebar-foreground truncate">Epacific</h1>
+                <p className="text-xs text-sidebar-foreground/70 capitalize truncate">{role} Panel</p>
               </div>
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden"
+              className="lg:hidden text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -108,8 +108,12 @@ export default function Layout({ children, role }: LayoutProps) {
             {currentMenuItems.map((item) => (
               <Button
                 key={`${item.path}-${item.label}`}
-                variant={isActive(item.path) ? "default" : "ghost"}
-                className="w-full justify-start gap-3 h-12 text-base hover:bg-accent"
+                variant="ghost"
+                className={`w-full justify-start gap-3 h-12 text-base transition-colors duration-200 ${
+                  isActive(item.path) 
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90' 
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                }`}
                 onClick={() => {
                   navigate(item.path);
                   setSidebarOpen(false);
@@ -122,29 +126,29 @@ export default function Layout({ children, role }: LayoutProps) {
           </nav>
 
           {/* User Profile */}
-          <div className="pt-6 border-t border-border">
+          <div className="pt-6 border-t border-sidebar-border">
             <div className="flex items-center gap-3 mb-4">
               <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm">
                   {profile?.full_name?.split(' ').map(n => n[0]).join('') || 'U'}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{profile?.full_name || 'User'}</p>
-                <p className="text-xs text-muted-foreground truncate">{profile?.email || ''}</p>
+                <p className="font-medium text-sm text-sidebar-foreground truncate">{profile?.full_name || 'User'}</p>
+                <p className="text-xs text-sidebar-foreground/70 truncate">{profile?.email || ''}</p>
               </div>
             </div>
             
             <Button
-              variant="outline"
-              className="w-full justify-start gap-2 h-10 text-sm"
+              variant="ghost"
+              className="w-full justify-start gap-2 h-10 text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border border-sidebar-border"
               onClick={handleLogout}
             >
               <LogOut className="h-4 w-4" />
               Sign Out
             </Button>
           </div>
-        </GlassCard>
+        </div>
       </aside>
 
       {/* Main Content - Flex container for proper alignment */}
