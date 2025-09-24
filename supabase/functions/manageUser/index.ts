@@ -86,12 +86,13 @@ serve(async (req: Request): Promise<Response> => {
     if (action === "create") {
       const targetRole = data.role;
       if (!data.email || !targetRole) {
-        return new Response(JSON.stringify({ success: false, error: "Email + role required" }), {
+        return new Response(JSON.stringify({ success: false, error: "Email and role are required" }), {
           status: 400,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
 
+      // Check permissions based on requester role
       if (requesterRole === "user") {
         return new Response(JSON.stringify({ success: false, error: "Users cannot create accounts" }), {
           status: 403,
@@ -100,11 +101,57 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       if (requesterRole === "manager" && targetRole === "admin") {
-        return new Response(JSON.stringify({ success: false, error: "Managers cannot create admins" }), {
+        return new Response(JSON.stringify({ success: false, error: "Managers cannot create admin accounts" }), {
           status: 403,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
+
+      console.log(`✅ Permission granted: ${requesterRole} can create ${targetRole}`);
+    }
+
+    if (action === "delete") {
+      const { userId } = data;
+      if (!userId) {
+        return new Response(JSON.stringify({ success: false, error: "User ID is required" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+
+      // Check permissions for deletion
+      if (requesterRole === "user") {
+        return new Response(JSON.stringify({ success: false, error: "Users cannot delete accounts" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+
+      // Check if manager is trying to delete an admin
+      if (requesterRole === "manager") {
+        const { data: targetProfile, error: targetProfileErr } = await supabaseAdmin
+          .from("profiles")
+          .select("role")
+          .eq("user_id", userId)
+          .single();
+
+        if (targetProfileErr) {
+          console.log("❌ Could not verify target user role:", targetProfileErr.message);
+          return new Response(JSON.stringify({ success: false, error: "Could not verify target user permissions" }), {
+            status: 403,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+
+        if (targetProfile?.role === "admin") {
+          return new Response(JSON.stringify({ success: false, error: "Managers cannot delete admin accounts" }), {
+            status: 403,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+      }
+
+      console.log(`✅ Permission granted: ${requesterRole} can delete user ${userId}`);
     }
 
     // 🛠 Handle actions
