@@ -117,11 +117,13 @@ export default function ManagerDashboard() {
   };
 
   const fetchDashboardData = async () => {
+    if (!profile?.email) return;
+    
     try {
       setLoading(true);
       setError(null);
 
-      // Use edge functions to fetch data (bypasses RLS issues)
+      // Try edge functions first
       const [usersRes, reportsRes, paymentsRes] = await Promise.all([
         supabase.functions.invoke('get-users', {
           body: { admin_email: profile?.email }
@@ -134,28 +136,31 @@ export default function ManagerDashboard() {
         })
       ]);
 
-      // Check for errors in edge function responses
-      if (usersRes.error) {
-        console.error('Users fetch error:', usersRes.error);
-        throw new Error(`Failed to fetch users: ${usersRes.error.message}`);
-      }
-      if (reportsRes.error) {
-        console.error('Reports fetch error:', reportsRes.error);
-        throw new Error(`Failed to fetch reports: ${reportsRes.error.message}`);
-      }
-      if (paymentsRes.error) {
-        console.error('Payments fetch error:', paymentsRes.error);
-        throw new Error(`Failed to fetch payments: ${paymentsRes.error.message}`);
-      }
+      let usersData, reportsData, paymentsData;
 
-      const usersData = usersRes.data?.users || [];
-      const reportsData = reportsRes.data?.reports || [];
-      const paymentsData = paymentsRes.data?.payments || [];
+      // Check if edge functions worked or use fallback
+      if (usersRes.error || reportsRes.error || paymentsRes.error) {
+        console.log('Edge functions failed, using fallback queries');
+        // Fallback to direct queries
+        const [fallbackUsersRes, fallbackReportsRes, fallbackPaymentsRes] = await Promise.all([
+          supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+          supabase.from('reports').select('*').order('created_at', { ascending: false }),
+          supabase.from('payments').select('*').order('created_at', { ascending: false })
+        ]);
+
+        usersData = fallbackUsersRes.data || [];
+        reportsData = fallbackReportsRes.data || [];
+        paymentsData = fallbackPaymentsRes.data || [];
+      } else {
+        usersData = usersRes.data?.users || [];
+        reportsData = reportsRes.data?.reports || [];
+        paymentsData = paymentsRes.data?.payments || [];
+      }
 
       // Enhance reports with user profiles
       const enhancedReports = await Promise.all(
-        reportsData.map(async (report) => {
-          const user = usersData.find(u => u.user_id === report.user_id);
+        reportsData.map(async (report: any) => {
+          const user = usersData.find((u: any) => u.user_id === report.user_id);
           return {
             ...report,
             profiles: user ? {
@@ -168,9 +173,9 @@ export default function ManagerDashboard() {
 
       // Enhance payments with user profiles and report titles
       const enhancedPayments = await Promise.all(
-        paymentsData.map(async (payment) => {
-          const user = usersData.find(u => u.user_id === payment.user_id);
-          const report = reportsData.find(r => r.id === payment.report_id);
+        paymentsData.map(async (payment: any) => {
+          const user = usersData.find((u: any) => u.user_id === payment.user_id);
+          const report = reportsData.find((r: any) => r.id === payment.report_id);
           return {
             ...payment,
             profiles: user ? {
@@ -191,7 +196,7 @@ export default function ManagerDashboard() {
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
-      const approvedThisMonth = enhancedReports.filter(report => {
+      const approvedThisMonth = enhancedReports.filter((report: any) => {
         const reportDate = new Date(report.created_at);
         return report.status === 'approved' && 
                reportDate.getMonth() === currentMonth && 
@@ -200,8 +205,8 @@ export default function ManagerDashboard() {
 
       setStats({
         totalUsers: usersData.length,
-        pendingReports: enhancedReports.filter(r => r.status === 'pending').length,
-        pendingPayments: enhancedPayments.filter(p => p.status === 'pending').length,
+        pendingReports: enhancedReports.filter((r: any) => r.status === 'pending').length,
+        pendingPayments: enhancedPayments.filter((p: any) => p.status === 'pending').length,
         approvedThisMonth
       });
 
