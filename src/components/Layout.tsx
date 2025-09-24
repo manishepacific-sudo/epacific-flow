@@ -114,7 +114,10 @@ export default function Layout({ children, role }: LayoutProps) {
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90' 
                     : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                 }`}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Sidebar button clicked:', item.path);
                   navigate(item.path);
                   setSidebarOpen(false);
                 }}
