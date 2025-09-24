@@ -127,18 +127,14 @@ export default function ManagerReportApproval() {
       // Get the file extension to determine the proper filename
       const fileName = filePath.split('/').pop() || 'report';
       
-      // Create blob with correct MIME type to force download
-      const blob = new Blob([data], { 
-        type: 'application/octet-stream' // Force download by using generic binary type
-      });
-      
-      // Create download link with proper content-disposition
-      const url = URL.createObjectURL(blob);
+      // Force download by creating a temporary URL and triggering download
+      const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
       
-      // Ensure the link is hidden and temporarily added to DOM
+      // Force the download attribute to ensure it downloads instead of opening
+      a.setAttribute('download', fileName);
       a.style.display = 'none';
       document.body.appendChild(a);
       

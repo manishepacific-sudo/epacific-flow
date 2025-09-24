@@ -127,61 +127,25 @@ export default function ManagerPaymentApproval() {
 
   const viewProofFile = async (filePath: string) => {
     try {
-      console.log('Attempting to view proof file:', filePath);
-      
-      // First, try to get a signed URL for viewing
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      // Try to download the file directly and create object URL
+      const { data: fileData, error: downloadError } = await supabase.storage
         .from('payment-proofs')
-        .createSignedUrl(filePath, 3600); // 1 hour expiry
+        .download(filePath);
 
-      if (signedUrlError) {
-        console.error('Signed URL error:', signedUrlError);
-        
-        // If signed URL fails, try to download the file directly
-        const { data: fileData, error: downloadError } = await supabase.storage
-          .from('payment-proofs')
-          .download(filePath);
-
-        if (downloadError) {
-          throw new Error(`Could not access file: ${downloadError.message}`);
-        }
-
-        // Create object URL and open it
-        const objectUrl = URL.createObjectURL(fileData);
-        const newWindow = window.open(objectUrl, '_blank');
-        
-        if (!newWindow) {
-          // If popup blocked, force download instead
-          const link = document.createElement('a');
-          link.href = objectUrl;
-          link.download = filePath.split('/').pop() || 'payment-proof';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          toast({
-            title: "File downloaded",
-            description: "The payment proof has been downloaded",
-          });
-        } else {
-          newWindow.document.title = `Payment Proof - ${filePath.split('/').pop()}`;
-        }
-        
-        // Clean up object URL after a delay
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
-        return;
-      }
-
-      if (!signedUrlData?.signedUrl) {
-        throw new Error('No signed URL received');
+      if (downloadError) {
+        throw new Error(`Could not access file: ${downloadError.message}`);
       }
 
       // Get file extension to determine how to handle it
       const fileExtension = filePath.split('.').pop()?.toLowerCase();
+      const fileName = filePath.split('/').pop() || 'payment-proof';
+      
+      // Create object URL for viewing
+      const objectUrl = URL.createObjectURL(fileData);
       
       if (fileExtension === 'pdf' || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
         // For PDFs and images, open in new tab for viewing
-        const newWindow = window.open(signedUrlData.signedUrl, '_blank');
+        const newWindow = window.open(objectUrl, '_blank');
         
         if (!newWindow) {
           toast({
@@ -189,21 +153,33 @@ export default function ManagerPaymentApproval() {
             description: "Please allow popups to view the payment proof",
             variant: "destructive"
           });
+          // Clean up if popup was blocked
+          URL.revokeObjectURL(objectUrl);
           return;
         }
         
         // Set proper title for the window
-        newWindow.document.title = `Payment Proof - ${filePath.split('/').pop()}`;
+        setTimeout(() => {
+          if (newWindow.document) {
+            newWindow.document.title = `Payment Proof - ${fileName}`;
+          }
+        }, 100);
+        
+        // Clean up object URL after a delay to allow viewing
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 300000); // 5 minutes
       } else {
         // For other file types, force download
         const link = document.createElement('a');
-        link.href = signedUrlData.signedUrl;
-        link.download = filePath.split('/').pop() || 'payment-proof';
+        link.href = objectUrl;
+        link.download = fileName;
         link.style.display = 'none';
         
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        
+        // Clean up object URL immediately for downloads
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
         
         toast({
           title: "Download started",
@@ -213,8 +189,8 @@ export default function ManagerPaymentApproval() {
     } catch (error) {
       console.error('Error viewing proof file:', error);
       toast({
-        title: "Failed to load proof",
-        description: `Could not load the payment proof file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        title: "View failed",
+        description: `Failed to view proof: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     }
