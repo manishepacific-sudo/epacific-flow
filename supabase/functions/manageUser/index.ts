@@ -285,8 +285,8 @@ serve(async (req: Request): Promise<Response> => {
           const userId = newUser.user.id;
           console.log("✅ Auth user created with ID:", userId);
 
-          // Create profile entry
-          const { error: profileErr } = await supabaseAdmin.from("profiles").insert({
+          // Create profile entry with upsert to handle duplicates
+          const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
             user_id: userId,
             email: email!,
             full_name: full_name || email?.split("@")[0] || "",
@@ -296,6 +296,8 @@ serve(async (req: Request): Promise<Response> => {
             center_address: center_address || "",
             password_set: false,
             is_demo: false,
+          }, {
+            onConflict: 'user_id'
           });
 
           if (profileErr) {
