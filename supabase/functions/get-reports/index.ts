@@ -26,7 +26,8 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { admin_email } = await req.json();
 
-    if (!admin_email || !admin_email.includes('admin')) {
+    // Allow both admin and manager users
+    if (!admin_email || (!admin_email.includes('admin') && !admin_email.includes('manager'))) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }

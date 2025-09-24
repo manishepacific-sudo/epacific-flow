@@ -121,22 +121,20 @@ export default function ManagerDashboard() {
       setLoading(true);
       setError(null);
 
-      // Fetch data in parallel
+      // Use edge functions to fetch data (bypasses RLS issues)
       const [usersRes, reportsRes, paymentsRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('reports')
-          .select('*')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('payments')
-          .select('*')
-          .order('created_at', { ascending: false })
+        supabase.functions.invoke('get-users', {
+          body: { admin_email: profile?.email }
+        }),
+        supabase.functions.invoke('get-reports', {
+          body: { admin_email: profile?.email }
+        }),
+        supabase.functions.invoke('get-payments', {
+          body: { admin_email: profile?.email }
+        })
       ]);
 
+      // Check for errors in edge function responses
       if (usersRes.error) {
         console.error('Users fetch error:', usersRes.error);
         throw new Error(`Failed to fetch users: ${usersRes.error.message}`);
@@ -150,9 +148,9 @@ export default function ManagerDashboard() {
         throw new Error(`Failed to fetch payments: ${paymentsRes.error.message}`);
       }
 
-      const usersData = usersRes.data || [];
-      const reportsData = reportsRes.data || [];
-      const paymentsData = paymentsRes.data || [];
+      const usersData = usersRes.data?.users || [];
+      const reportsData = reportsRes.data?.reports || [];
+      const paymentsData = paymentsRes.data?.payments || [];
 
       // Enhance reports with user profiles
       const enhancedReports = await Promise.all(
