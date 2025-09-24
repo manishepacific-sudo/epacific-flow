@@ -31,13 +31,43 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('📥 Reading request body...');
     const { admin_email } = await req.json();
     
-    console.log('👤 Admin requesting users:', admin_email);
+    console.log('👤 User requesting users:', admin_email);
 
-    // Basic validation for demo mode
-    if (!admin_email || !admin_email.includes('admin')) {
-      console.log('❌ Unauthorized user list request');
+    // Validate that the requesting user has appropriate role
+    if (!admin_email) {
+      console.log('❌ No email provided');
       return new Response(
-        JSON.stringify({ error: "Unauthorized: Only admins can view users" }),
+        JSON.stringify({ error: "Unauthorized: Email required" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Check user role from database
+    const { data: userProfile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('email', admin_email)
+      .single();
+
+    if (profileError || !userProfile) {
+      console.log('❌ User not found:', admin_email);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: User not found" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Only managers and admins can view users
+    if (!['admin', 'manager'].includes(userProfile.role)) {
+      console.log('❌ Unauthorized user list request - role:', userProfile.role);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Only admins and managers can view users" }),
         {
           status: 403,
           headers: { "Content-Type": "application/json", ...corsHeaders },
