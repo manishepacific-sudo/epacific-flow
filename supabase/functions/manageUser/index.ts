@@ -1,9 +1,11 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
 interface ManageUserRequest {
@@ -26,227 +28,174 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { action, data, admin_email }: ManageUserRequest & { admin_email?: string } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { action, data }: ManageUserRequest = body;
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "" // Service role required
-    );
+    if (!action) {
+      return new Response(JSON.stringify({ success: false, error: "Missing 'action'" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
-    // For create action, validate authorization
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+    const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    // 🔑 Verify JWT
+    const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized: missing token" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const userClient = createClient(SUPABASE_URL, authHeader);
+    const { data: authData, error: authErr } = await userClient.auth.getUser();
+    if (authErr || !authData?.user) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized: invalid token" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const requesterId = authData.user.id;
+    const { data: profile, error: profileErr } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("user_id", requesterId)
+      .maybeSingle();
+
+    if (profileErr || !profile?.role) {
+      return new Response(JSON.stringify({ success: false, error: "Role not found" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const requesterRole = profile.role as "admin" | "manager" | "user";
+
+    // 🔒 Permission check
     if (action === "create") {
-      if (!admin_email) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Unauthorized: Email required" }),
-          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
+      const targetRole = data.role;
+      if (!data.email || !targetRole) {
+        return new Response(JSON.stringify({ success: false, error: "Email + role required" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
       }
 
-      // Check user role from database
-      console.log('🔍 Checking role for user:', admin_email);
-      const { data: userProfile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .select('role')
-        .eq('email', admin_email)
-        .single();
-
-      console.log('👤 Profile query result:', userProfile);
-      console.log('🔍 Profile error (if any):', profileError);
-
-      if (profileError || !userProfile) {
-        console.log('❌ User profile not found or error occurred');
-        return new Response(
-          JSON.stringify({ success: false, error: "Unauthorized: User not found" }),
-          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
+      if (requesterRole === "user") {
+        return new Response(JSON.stringify({ success: false, error: "Users cannot create accounts" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
       }
 
-      // Validate role permissions
-      const requestingUserRole = userProfile.role;
-      const { role: targetRole } = data;
-      
-      console.log('🎭 Requesting user role:', requestingUserRole);
-      console.log('🎯 Target role to create:', targetRole);
-      
-      if (requestingUserRole === 'admin') {
-        // Admins can create any role
-        console.log('✅ Admin creating user with role:', targetRole);
-      } else if (requestingUserRole === 'manager') {
-        // Managers can only create users and managers
-        console.log('🔍 Manager role validation - checking if target role is allowed');
-        console.log('🔍 Target role:', targetRole);
-        console.log('🔍 Allowed roles for managers: [user, manager]');
-        
-        if (!['user', 'manager'].includes(targetRole || '')) {
-          console.log('❌ Manager cannot create role:', targetRole);
-          return new Response(
-            JSON.stringify({ success: false, error: "Unauthorized: Managers can only create users and managers" }),
-            { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
-          );
-        }
-        console.log('✅ Manager creating user with role:', targetRole);
-      } else {
-        console.log('❌ User role not authorized:', requestingUserRole);
-        return new Response(
-          JSON.stringify({ success: false, error: "Unauthorized: Only admins and managers can create users" }),
-          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
+      if (requesterRole === "manager" && targetRole === "admin") {
+        return new Response(JSON.stringify({ success: false, error: "Managers cannot create admins" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
       }
     }
 
+    // 🛠 Handle actions
     switch (action) {
       case "create": {
-        console.log('🔧 Starting user creation process...');
         const { email, role, full_name, mobile_number, station_id, center_address } = data;
 
-        if (!email || !role) {
-          console.log('❌ Missing email or role');
-          throw new Error("Email and role are required");
-        }
+        const defaultPassword = "TempPass123!";
 
-        console.log('📧 Creating user with email:', email, 'role:', role);
-
-        // Check if user already exists and delete if found
-        console.log('🔍 Checking for existing user...');
-        const { data: existingProfiles, error: checkError } = await supabaseAdmin
-          .from("profiles")
-          .select("user_id")
-          .eq("email", email);
-
-        if (checkError) {
-          console.log('❌ Error checking existing profiles:', checkError);
-          throw checkError;
-        }
-
-        if (existingProfiles && existingProfiles.length > 0) {
-          console.log('🗑️ Deleting existing user...');
-          const userId = existingProfiles[0].user_id;
-          
-          // Delete auth user first (this will cascade delete the profile due to foreign key)
-          const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-          if (deleteAuthError) {
-            console.log('❌ Error deleting auth user:', deleteAuthError);
-          }
-          
-          // Ensure profile is deleted
-          const { error: deleteProfileError } = await supabaseAdmin
-            .from("profiles")
-            .delete()
-            .eq("user_id", userId);
-          if (deleteProfileError) {
-            console.log('❌ Error deleting profile:', deleteProfileError);
-          }
-          
-          console.log('✅ Existing user deleted');
-        }
-
-        // Create user directly with password (for admin accounts)
-        const defaultPassword = email === 'admin@myapp.com' ? 'SecurePassword123!' : 'tempPassword123';
-        
-        console.log('👤 Creating auth user...');
-        const { data: userData, error: createError } =
-          await supabaseAdmin.auth.admin.createUser({
-            email,
-            password: defaultPassword,
-            email_confirm: true, // Skip email confirmation
-            user_metadata: {
-              full_name: full_name || email.split("@")[0],
-              role,
-              mobile_number: mobile_number || "",
-              station_id: station_id || "",
-              center_address: center_address || "",
-            },
-          });
-
-        if (createError) {
-          console.log('❌ Auth user creation failed:', createError);
-          throw createError;
-        }
-        
-        console.log('✅ Auth user created successfully, ID:', userData.user.id);
-
-        // Create profile
-        console.log('📝 Creating profile...');
-        const { error: profileError } = await supabaseAdmin.from("profiles").insert({
-          user_id: userData.user.id,
+        const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
           email,
-          full_name: full_name || email.split("@")[0],
+          password: defaultPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: full_name || email?.split("@")[0],
+            role,
+            mobile_number: mobile_number || "",
+            station_id: station_id || "",
+            center_address: center_address || "",
+          },
+        });
+
+        if (createErr) throw createErr;
+
+        const userId = newUser?.user?.id;
+        const { error: profileErr } = await supabaseAdmin.from("profiles").insert({
+          user_id: userId,
+          email,
+          full_name: full_name || email?.split("@")[0],
           role,
           mobile_number: mobile_number || "",
           station_id: station_id || "",
           center_address: center_address || "",
+          password_set: false,
           is_demo: false,
-          password_set: true, // Password is already set
         });
 
-        if (profileError) {
-          console.log('❌ Profile creation failed:', profileError);
-          throw profileError;
+        if (profileErr) {
+          await supabaseAdmin.auth.admin.deleteUser(userId);
+          throw profileErr;
         }
-        
-        console.log('✅ Profile created successfully');
 
-        return new Response(
-          JSON.stringify({
-            success: true,
-            user: {
-              id: userData.user.id,
-              email,
-              role,
-            },
-            password: defaultPassword, // Return the password for convenience
-          }),
-          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
+        return new Response(JSON.stringify({ success: true, user: { id: userId, email, role }, password: defaultPassword }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
       }
 
       case "setPassword": {
         const { userId, password } = data;
         if (!userId || !password) {
-          throw new Error("User ID and password are required");
+          return new Response(JSON.stringify({ success: false, error: "User ID + password required" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
         }
 
-        const { data: updatedUser, error: updateError } =
-          await supabaseAdmin.auth.admin.updateUserById(userId, { password });
-
-        if (updateError) throw updateError;
+        const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+        if (updateErr) throw updateErr;
 
         await supabaseAdmin.from("profiles").update({ password_set: true }).eq("user_id", userId);
 
-        return new Response(
-          JSON.stringify({ success: true, user: updatedUser }),
-          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
+        return new Response(JSON.stringify({ success: true, message: "Password updated" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
       }
 
       case "delete": {
         const { userId } = data;
         if (!userId) {
-          throw new Error("User ID required");
+          return new Response(JSON.stringify({ success: false, error: "User ID required" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
         }
 
         await supabaseAdmin.from("profiles").delete().eq("user_id", userId);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
 
-        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-        if (deleteError) throw deleteError;
-
-        return new Response(
-          JSON.stringify({ success: true, message: "User deleted successfully" }),
-          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
+        return new Response(JSON.stringify({ success: true, message: "User deleted" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
       }
 
       default:
-        throw new Error(`Invalid action: ${action}`);
+        return new Response(JSON.stringify({ success: false, error: "Invalid action" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
     }
   } catch (err: any) {
-    console.log('💥 CRITICAL ERROR in manageUser:', err);
-    console.log('💥 Error message:', err.message);
-    console.log('💥 Error stack:', err.stack);
-    console.log('💥 Error details:', JSON.stringify(err, null, 2));
-    
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 400,
+    console.error("❌ Function error:", err);
+    return new Response(JSON.stringify({ success: false, error: err?.message || "Unexpected error" }), {
+      status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
