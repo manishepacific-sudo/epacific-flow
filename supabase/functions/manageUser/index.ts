@@ -26,12 +26,59 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { action, data }: ManageUserRequest = await req.json();
+    const { action, data, admin_email }: ManageUserRequest & { admin_email?: string } = await req.json();
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "" // Service role required
     );
+
+    // For create action, validate authorization
+    if (action === "create") {
+      if (!admin_email) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized: Email required" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Check user role from database
+      const { data: userProfile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('email', admin_email)
+        .single();
+
+      if (profileError || !userProfile) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized: User not found" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Validate role permissions
+      const requestingUserRole = userProfile.role;
+      const { role: targetRole } = data;
+      
+      if (requestingUserRole === 'admin') {
+        // Admins can create any role
+        console.log('✅ Admin creating user with role:', targetRole);
+      } else if (requestingUserRole === 'manager') {
+        // Managers can only create users and managers
+        if (!['user', 'manager'].includes(targetRole || '')) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Unauthorized: Managers can only create users and managers" }),
+            { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+        console.log('✅ Manager creating user with role:', targetRole);
+      } else {
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized: Only admins and managers can create users" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+    }
 
     switch (action) {
       case "create": {

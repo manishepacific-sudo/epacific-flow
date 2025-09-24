@@ -110,6 +110,7 @@ export default function UserManagement() {
       const { data: result, error: createError } = await supabase.functions.invoke('manageUser', {
         body: {
           action: 'create',
+          admin_email: profile?.email,
           data: {
             email: formData.email,
             role: formData.role,
