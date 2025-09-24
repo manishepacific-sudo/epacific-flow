@@ -43,7 +43,7 @@ serve(async (req: Request): Promise<Response> => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // 🔑 Verify JWT
+    // 🔑 Verify JWT token and get user role
     const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");
     if (!authHeader) {
       return new Response(JSON.stringify({ success: false, error: "Unauthorized: missing token" }), {
@@ -52,9 +52,10 @@ serve(async (req: Request): Promise<Response> => {
       });
     }
 
-    const userClient = createClient(SUPABASE_URL, authHeader);
-    const { data: authData, error: authErr } = await userClient.auth.getUser();
+    // Verify JWT token with service role client
+    const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(authHeader);
     if (authErr || !authData?.user) {
+      console.log("❌ JWT verification failed:", authErr?.message);
       return new Response(JSON.stringify({ success: false, error: "Unauthorized: invalid token" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -62,13 +63,16 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const requesterId = authData.user.id;
+    console.log("🔍 Verifying role for user:", requesterId);
+    
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("user_id", requesterId)
-      .maybeSingle();
+      .single();
 
     if (profileErr || !profile?.role) {
+      console.log("❌ Profile/role lookup failed:", profileErr?.message);
       return new Response(JSON.stringify({ success: false, error: "Role not found" }), {
         status: 403,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -76,6 +80,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const requesterRole = profile.role as "admin" | "manager" | "user";
+    console.log("✅ Requester role verified:", requesterRole);
 
     // 🔒 Permission check
     if (action === "create") {
