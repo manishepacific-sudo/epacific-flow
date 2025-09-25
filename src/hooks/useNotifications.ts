@@ -127,11 +127,30 @@ export function useNotifications() {
     }
   };
 
+  const clearRead = async () => {
+    if (!profile?.role) return;
+
+    try {
+      // Use rpc to clear read notifications
+      const { error } = await supabase.rpc('clear_read_notifications', {
+        target_role_param: profile.role
+      });
+
+      if (error) throw error;
+
+      // Update local state - remove read notifications
+      setNotifications(prev => prev.filter(n => !n.read));
+    } catch (error) {
+      console.error('Error clearing read notifications:', error);
+    }
+  };
+
   return {
     notifications,
     unreadCount,
     markAsRead,
     markAllAsRead,
+    clearRead,
     refetch: fetchNotifications
   };
 }

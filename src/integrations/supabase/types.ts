@@ -195,6 +195,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clear_read_notifications: {
+        Args: { target_role_param: string }
+        Returns: undefined
+      }
       create_notification: {
         Args: {
           notification_message: string

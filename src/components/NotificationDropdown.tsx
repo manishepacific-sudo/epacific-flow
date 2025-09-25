@@ -18,7 +18,7 @@ import { formatDistanceToNow } from "date-fns";
 
 export function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearRead } = useNotifications();
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -98,17 +98,28 @@ export function NotificationDropdown() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {notifications.length > 0 && (
+                    {notifications.length > 0 && unreadCount > 0 && (
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
                           markAllAsRead();
-                          setIsOpen(false);
                         }}
                         className="text-xs"
                       >
                         Mark all read
+                      </Button>
+                    )}
+                    {notifications.some(n => n.read) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          clearRead();
+                        }}
+                        className="text-xs text-destructive hover:text-destructive/80"
+                      >
+                        Clear read
                       </Button>
                     )}
                     <Button
