@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { GlassCard } from '@/components/ui/glass-card';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import logo from '@/src/assets/epacific-logo.png'
+import logo from '@/assets/epacific-logo.png'
 
 
 export default function Login() {
