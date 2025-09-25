@@ -44,15 +44,15 @@ serve(async (req: Request): Promise<Response> => {
     // ✅ Validate admin permissions
     if (admin_email) {
       console.log("🔐 Validating admin permissions...");
-      const demoCredentials = {
+      const demoCredentials: Record<string, string> = {
         'admin@epacific.com': 'admin',
         'manager@epacific.com': 'manager'
       };
 
       let adminRole = null;
 
-      if (demoCredentials[admin_email]) {
-        adminRole = demoCredentials[admin_email];
+      if (demoCredentials[admin_email as keyof typeof demoCredentials]) {
+        adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
         console.log(`✅ Demo admin detected: ${admin_email} with role: ${adminRole}`);
       } else {
         const { data: adminProfile, error: adminError } = await supabaseAdmin

@@ -50,14 +50,14 @@ serve(async (req) => {
     let adminUserId = null;
 
     // Demo credentials check
-    const demoCredentials = {
+    const demoCredentials: Record<string, string> = {
       'admin@epacific.com': 'admin',
       'manager@epacific.com': 'manager'
     };
 
-    if (demoCredentials[admin_email]) {
+    if (demoCredentials[admin_email as keyof typeof demoCredentials]) {
       console.log('✅ Demo admin credentials detected');
-      adminRole = demoCredentials[admin_email];
+      adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
       // For demo accounts, we don't need a specific user_id for permission checks
       adminUserId = 'demo-admin';
     } else {

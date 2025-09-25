@@ -307,20 +307,31 @@ export default function ManagerDashboard() {
     try {
       const { data, error } = await supabase.storage
         .from('report-attachments')
-        .createSignedUrl(filePath, 60);
+        .download(filePath);
 
       if (error) throw error;
 
-      const link = document.createElement('a');
-      link.href = data.signedUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error: any) {
+      // Force download instead of opening in browser
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.setAttribute('download', fileName);
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download started",
+        description: `The file "${fileName}" is being downloaded`,
+      });
+    } catch (error) {
+      console.error('Error downloading file:', error);
       toast({
         title: "Download failed",
-        description: "Failed to download file",
+        description: "Failed to download the report file",
         variant: "destructive"
       });
     }

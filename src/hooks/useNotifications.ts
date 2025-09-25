@@ -57,13 +57,16 @@ export function useNotifications() {
         target_role_param: profile.role
       });
 
-      if (error) throw error;
+      if (error) {
+        console.log('Error fetching notifications (expected if table is new):', error);
+        return;
+      }
 
       const typedData = (data || []) as NotificationData[];
       setNotifications(typedData);
       setUnreadCount(typedData.filter(n => !n.read).length);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.log('Error fetching notifications (expected if table is new):', error);
       // Fallback: set empty state instead of failing
       setNotifications([]);
       setUnreadCount(0);

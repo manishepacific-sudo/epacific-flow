@@ -195,9 +195,41 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_notification: {
+        Args: {
+          notification_message: string
+          notification_target_role: string
+          notification_title: string
+          notification_type: string
+          notification_user_id: string
+        }
+        Returns: undefined
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_notifications_for_role: {
+        Args: { target_role_param: string }
+        Returns: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean
+          target_role: string
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      mark_all_notifications_read: {
+        Args: { target_role_param: string }
+        Returns: undefined
+      }
+      mark_notification_read: {
+        Args: { notification_id: string }
+        Returns: undefined
       }
     }
     Enums: {
