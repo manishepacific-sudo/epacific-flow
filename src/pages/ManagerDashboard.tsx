@@ -122,24 +122,25 @@ export default function ManagerDashboard() {
   const handleTestNotifications = async () => {
     setTestingNotifications(true);
     try {
-      const result = await createTestNotifications();
-      if (result.success) {
-        toast({
-          title: "Test Notifications Created",
-          description: "Test notifications have been created for existing approved items. Check the notification bell.",
-        });
-      } else {
-        toast({
-          title: "Failed to create test notifications",
-          description: result.error || "Unknown error",
-          variant: "destructive"
-        });
-      }
+      // Create test notifications directly using the notification functions
+      const { notifyReportApproved, notifyPaymentApproved } = await import("@/utils/notifications");
+      
+      // Get the user ID from existing approved reports/payments
+      const userId = '1c601c4f-056f-4328-b1ca-153c10abfb03'; // John Doe's ID
+      
+      // Create test notifications for approved items
+      await notifyReportApproved(userId, 'Monthly Report');
+      await notifyPaymentApproved(userId, 1750);
+      
+      toast({
+        title: "Test Notifications Created",
+        description: "Test notifications have been created. Check the notification bell or switch to user view to see them.",
+      });
     } catch (error) {
       console.error('Error creating test notifications:', error);
       toast({
         title: "Error",
-        description: "Failed to create test notifications",
+        description: "Failed to create test notifications: " + (error instanceof Error ? error.message : 'Unknown error'),
         variant: "destructive"
       });
     } finally {

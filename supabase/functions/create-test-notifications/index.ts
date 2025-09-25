@@ -19,31 +19,27 @@ serve(async (req) => {
   try {
     console.log('Creating test notifications for existing approved items...');
 
-    // Get approved reports that don't have notifications yet
+    // Get approved reports
     const { data: approvedReports, error: reportsError } = await supabase
       .from('reports')
-      .select(`
-        *,
-        profiles:user_id (
-          full_name
-        )
-      `)
+      .select('*')
       .eq('status', 'approved');
 
-    if (reportsError) throw reportsError;
+    if (reportsError) {
+      console.error('Error fetching reports:', reportsError);
+      throw reportsError;
+    }
 
-    // Get approved payments that don't have notifications yet  
+    // Get approved payments  
     const { data: approvedPayments, error: paymentsError } = await supabase
       .from('payments')
-      .select(`
-        *,
-        profiles:user_id (
-          full_name
-        )
-      `)
+      .select('*')
       .eq('status', 'approved');
 
-    if (paymentsError) throw paymentsError;
+    if (paymentsError) {
+      console.error('Error fetching payments:', paymentsError);
+      throw paymentsError;
+    }
 
     console.log(`Found ${approvedReports?.length || 0} approved reports and ${approvedPayments?.length || 0} approved payments`);
 
@@ -65,6 +61,7 @@ serve(async (req) => {
             console.error('Error creating report notification:', error);
           } else {
             notificationsCreated.push(`Report approval notification for ${report.title}`);
+            console.log(`Created notification for report: ${report.title}`);
           }
         } catch (err) {
           console.error('Error creating report notification:', err);
@@ -88,6 +85,7 @@ serve(async (req) => {
             console.error('Error creating payment notification:', error);
           } else {
             notificationsCreated.push(`Payment approval notification for ₹${payment.amount}`);
+            console.log(`Created notification for payment: ₹${payment.amount}`);
           }
         } catch (err) {
           console.error('Error creating payment notification:', err);
