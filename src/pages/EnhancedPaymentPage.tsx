@@ -177,6 +177,10 @@ export default function EnhancedPaymentPage() {
 
       if (paymentError) throw paymentError;
 
+      // Send notification to managers
+      const { notifyPaymentSubmitted } = await import("@/utils/notifications");
+      await notifyPaymentSubmitted(user?.id || '', reportAmount);
+
       toast({
         title: "Payment Submitted",
         description: "Your payment proof has been submitted for review",

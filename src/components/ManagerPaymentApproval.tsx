@@ -114,14 +114,20 @@ export default function ManagerPaymentApproval() {
 
       console.log('Payment updated successfully:', data);
 
-      // Send notification if payment is rejected
-      if (action === 'rejected' && adminNotes[paymentId]) {
-        const payment = payments.find(p => p.id === paymentId);
-        if (payment) {
+      // Send notification to user
+      const payment = payments.find(p => p.id === paymentId);
+      if (payment) {
+        if (action === 'rejected' && adminNotes[paymentId]) {
           await notifyPaymentRejected(
             payment.user_id,
             payment.amount,
             adminNotes[paymentId]
+          );
+        } else if (action === 'approved') {
+          const { notifyPaymentApproved } = await import("@/utils/notifications");
+          await notifyPaymentApproved(
+            payment.user_id,
+            payment.amount
           );
         }
       }

@@ -90,14 +90,20 @@ export default function ManagerReportApproval() {
 
       if (error) throw error;
 
-      // Send notification if report is rejected
-      if (action === 'rejected' && rejectionNotes[reportId]) {
-        const report = reports.find(r => r.id === reportId);
-        if (report) {
+      // Send notification to user
+      const report = reports.find(r => r.id === reportId);
+      if (report) {
+        if (action === 'rejected' && rejectionNotes[reportId]) {
           await notifyReportRejected(
             report.user_id,
             report.title || 'Monthly Report',
             rejectionNotes[reportId]
+          );
+        } else if (action === 'approved') {
+          const { notifyReportApproved } = await import("@/utils/notifications");
+          await notifyReportApproved(
+            report.user_id,
+            report.title || 'Monthly Report'
           );
         }
       }

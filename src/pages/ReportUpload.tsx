@@ -115,6 +115,9 @@ export default function ReportUpload() {
 
       if (reportError) throw reportError;
 
+      // Send notification to managers
+      await notifyReportUploaded(user.id, report.title || 'Monthly Report');
+
       toast({
         title: "Report sent for approval",
         description: "Proceed to payment. Redirecting to payment page...",
