@@ -169,7 +169,7 @@ export default function Login() {
             transition={{ delay: 0.2, duration: 0.6 }}
             className="text-center mb-8"
           >
-            <div className="w-32 h-16  mx-auto mb-4 flex items-center justify-center shadow-glow">
+            <div className="w-32 h-16  mx-auto mb-4 flex items-center justify-center ">
               <img
                   src={logo}
                   alt="epacific Logo"
