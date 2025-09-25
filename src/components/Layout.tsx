@@ -19,6 +19,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { useNotifications } from "@/hooks/useNotifications";
+import { NotificationDropdown } from "@/components/NotificationDropdown";
 import epacificLogo from "@/assets/epacific-logo.png";
 
 interface LayoutProps {
@@ -175,17 +176,7 @@ export default function Layout({ children, role }: LayoutProps) {
 
             <div className="flex items-center gap-4">
               <ThemeToggle />
-              <Button variant="ghost" size="icon" className="relative h-10 w-10">
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <Badge 
-                    variant="destructive" 
-                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                  >
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </Badge>
-                )}
-              </Button>
+              <NotificationDropdown unreadCount={unreadCount} />
             </div>
           </div>
         </header>

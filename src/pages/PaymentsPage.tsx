@@ -60,6 +60,27 @@ export default function PaymentsPage() {
   useEffect(() => {
     if (user) {
       fetchPaymentsData();
+      
+      // Set up real-time subscription for payment updates
+      const channel = supabase
+        .channel('payment-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchPaymentsData(); // Refresh data when payments change
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 
@@ -134,14 +155,23 @@ export default function PaymentsPage() {
 
   const handleViewProof = async (proofUrl: string) => {
     try {
-      const { data } = await supabase.storage.from('payment-proofs').createSignedUrl(proofUrl, 300);
+      // Handle both full URLs and storage paths
+      if (proofUrl.startsWith('http')) {
+        window.open(proofUrl, '_blank');
+        return;
+      }
+      
+      const { data, error } = await supabase.storage.from('payment-proofs').createSignedUrl(proofUrl, 300);
+      if (error) throw error;
+      
       if (data?.signedUrl) {
         window.open(data.signedUrl, '_blank');
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error loading proof:', error);
       toast({
         title: "Error",
-        description: "Failed to load payment proof",
+        description: "Failed to load payment proof. Please try again.",
         variant: "destructive"
       });
     }

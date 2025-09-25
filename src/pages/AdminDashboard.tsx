@@ -161,11 +161,18 @@ export default function AdminDashboard() {
       
       if (error) throw error;
       
-      const blob = new Blob([data], { type: data.type });
+      // Determine content type - force download for HTML files
+      let contentType = data.type;
+      if (filename?.toLowerCase().endsWith('.html') || url.toLowerCase().includes('.html')) {
+        contentType = 'application/octet-stream'; // Force download instead of display
+      }
+      
+      const blob = new Blob([data], { type: contentType });
       const downloadUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = filename || 'download';
+      link.setAttribute('download', filename || 'download'); // Ensure download attribute
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

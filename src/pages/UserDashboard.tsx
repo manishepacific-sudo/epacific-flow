@@ -31,6 +31,44 @@ export default function UserDashboard() {
   useEffect(() => {
     if (user) {
       fetchUserData();
+
+      // Set up real-time subscriptions for reports and payments
+      const reportsChannel = supabase
+        .channel('user-reports')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'reports',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchUserData(); // Refresh data when reports change
+          }
+        )
+        .subscribe();
+
+      const paymentsChannel = supabase
+        .channel('user-payments')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchUserData(); // Refresh data when payments change
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(reportsChannel);
+        supabase.removeChannel(paymentsChannel);
+      };
     }
   }, [user]);
 
