@@ -22,34 +22,54 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // First check if user is authenticated
+      // Always check URL params first (for invitation flows)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const urlEmail = hashParams.get('email');
+      const urlAccessToken = hashParams.get('access_token');
+      
+      // Then check if user is authenticated
       const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (!session) {
-        console.log('❌ No session found, checking URL params');
-        // Fallback to checking URL params if no session
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const email = hashParams.get('email');
-        const accessToken = hashParams.get('access_token');
-        
-        if (!email) {
-          setError('Invalid invitation link - please use the link from your email');
+      if (session) {
+        console.log('✅ Session found, user:', session.user.email);
+        // Check if user profile exists and password status
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('password_set, role')
+          .eq('user_id', session.user.id)
+          .single();
+          
+        if (profile && profile.password_set) {
+          console.log('✅ Password already set, redirecting to dashboard');
+          // User already has password set, redirect to appropriate dashboard
+          const dashboardMap = {
+            admin: '/dashboard/admin',
+            manager: '/dashboard/manager',
+            user: '/dashboard/user'
+          };
+          navigate(dashboardMap[profile.role] || '/dashboard/user', { replace: true });
           return;
         }
         
-        setInviteData({ email, accessToken });
+        setInviteData({ 
+          email: session.user.email,
+          userId: session.user.id 
+        });
         return;
       }
       
-      console.log('✅ Session found, user:', session.user.email);
-      setInviteData({ 
-        email: session.user.email,
-        userId: session.user.id 
-      });
+      if (!urlEmail) {
+        console.log('❌ No session and no email in URL');
+        setError('Invalid invitation link - please use the link from your email');
+        return;
+      }
+      
+      console.log('❌ No session found, using URL params for invitation');
+      setInviteData({ email: urlEmail, accessToken: urlAccessToken });
     };
     
     checkAuth();
-  }, []);
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
