@@ -176,7 +176,7 @@ export default function Layout({ children, role }: LayoutProps) {
 
             <div className="flex items-center gap-4">
               <ThemeToggle />
-              <NotificationDropdown unreadCount={unreadCount} />
+              <NotificationDropdown />
             </div>
           </div>
         </header>

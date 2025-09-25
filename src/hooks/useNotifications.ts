@@ -18,6 +18,12 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const { profile } = useAuth();
 
+  // Recalculate unread count whenever notifications change
+  useEffect(() => {
+    const count = notifications.filter(n => !n.read).length;
+    setUnreadCount(count);
+  }, [notifications]);
+
   useEffect(() => {
     if (!profile?.role) return;
 
@@ -36,9 +42,25 @@ export function useNotifications() {
           filter: `target_role=eq.${profile.role}`,
         },
         (payload) => {
+          console.log('New notification received:', payload.new);
           const newNotification = payload.new as NotificationData;
           setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `target_role=eq.${profile.role}`,
+        },
+        (payload) => {
+          console.log('Notification updated:', payload.new);
+          const updatedNotification = payload.new as NotificationData;
+          setNotifications(prev => 
+            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
+          );
         }
       )
       .subscribe();
@@ -64,12 +86,10 @@ export function useNotifications() {
 
       const typedData = (data || []) as NotificationData[];
       setNotifications(typedData);
-      setUnreadCount(typedData.filter(n => !n.read).length);
     } catch (error) {
       console.log('Error fetching notifications (expected if table is new):', error);
       // Fallback: set empty state instead of failing
       setNotifications([]);
-      setUnreadCount(0);
     }
   };
 
@@ -85,7 +105,6 @@ export function useNotifications() {
       setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -103,7 +122,6 @@ export function useNotifications() {
       if (error) throw error;
 
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }

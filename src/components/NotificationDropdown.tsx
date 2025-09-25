@@ -16,13 +16,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNotifications } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 
-interface NotificationDropdownProps {
-  unreadCount: number;
-}
-
-export function NotificationDropdown({ unreadCount }: NotificationDropdownProps) {
+export function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
