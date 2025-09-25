@@ -6,6 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { GlassCard } from '@/components/ui/glass-card';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import logo from '@/src/assets/epacific-logo.png'
+
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -168,7 +170,11 @@ export default function Login() {
             className="text-center mb-8"
           >
             <div className="w-16 h-16 bg-gradient-primary rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-glow">
-              <LogIn className="h-8 w-8 text-primary-foreground" />
+              <img
+                  src={logo}
+                  alt="epacific Logo"
+                  className="w-24 h-24 rounded-full border border-gray-300"
+                  />
             </div>
             <h1 className="text-2xl font-bold gradient-text mb-2">Welcome Back</h1>
             <p className="text-muted-foreground">Sign in to access your dashboard</p>
