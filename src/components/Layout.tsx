@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
+import { useNotifications } from "@/hooks/useNotifications";
 import epacificLogo from "@/assets/epacific-logo.png";
 
 interface LayoutProps {
@@ -30,8 +31,7 @@ export default function Layout({ children, role }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, signOut } = useAuth();
-  
-  const unreadNotifications = 0; // TODO: Implement real notifications
+  const { unreadCount } = useNotifications();
 
   const menuItems = {
     admin: [
@@ -177,12 +177,12 @@ export default function Layout({ children, role }: LayoutProps) {
               <ThemeToggle />
               <Button variant="ghost" size="icon" className="relative h-10 w-10">
                 <Bell className="h-5 w-5" />
-                {unreadNotifications > 0 && (
+                {unreadCount > 0 && (
                   <Badge 
                     variant="destructive" 
                     className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
                   >
-                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                    {unreadCount > 9 ? '9+' : unreadCount}
                   </Badge>
                 )}
               </Button>

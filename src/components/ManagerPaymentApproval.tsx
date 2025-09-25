@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { notifyPaymentRejected } from "@/utils/notifications";
 
 interface Payment {
   id: string;
@@ -97,6 +98,18 @@ export default function ManagerPaymentApproval() {
         .eq('id', paymentId);
 
       if (error) throw error;
+
+      // Send notification if payment is rejected
+      if (action === 'rejected' && adminNotes[paymentId]) {
+        const payment = payments.find(p => p.id === paymentId);
+        if (payment) {
+          await notifyPaymentRejected(
+            payment.user_id,
+            payment.amount,
+            adminNotes[paymentId]
+          );
+        }
+      }
 
       toast({
         title: `Payment ${action}`,

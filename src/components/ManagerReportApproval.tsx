@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { notifyReportRejected } from "@/utils/notifications";
 
 interface Report {
   id: string;
@@ -88,6 +89,18 @@ export default function ManagerReportApproval() {
         .eq('id', reportId);
 
       if (error) throw error;
+
+      // Send notification if report is rejected
+      if (action === 'rejected' && rejectionNotes[reportId]) {
+        const report = reports.find(r => r.id === reportId);
+        if (report) {
+          await notifyReportRejected(
+            report.user_id,
+            report.title || 'Monthly Report',
+            rejectionNotes[reportId]
+          );
+        }
+      }
 
       toast({
         title: `Report ${action}`,
