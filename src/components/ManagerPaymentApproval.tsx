@@ -87,20 +87,32 @@ export default function ManagerPaymentApproval() {
     setProcessing(paymentId);
     
     try {
+      console.log('Starting approval process for payment:', paymentId, 'action:', action);
+      
       const updateData: any = {
         status: action,
         admin_notes: adminNotes[paymentId] || null
       };
 
-      const { error } = await supabase
+      console.log('Update data:', updateData);
+
+      const { data, error } = await supabase
         .from('payments')
         .update({
           ...updateData,
           updated_at: new Date().toISOString()
         })
-        .eq('id', paymentId);
+        .eq('id', paymentId)
+        .select();
 
-      if (error) throw error;
+      console.log('Update result:', { data, error });
+
+      if (error) {
+        console.error('Update error:', error);
+        throw error;
+      }
+
+      console.log('Payment updated successfully:', data);
 
       // Send notification if payment is rejected
       if (action === 'rejected' && adminNotes[paymentId]) {
@@ -120,7 +132,7 @@ export default function ManagerPaymentApproval() {
       });
 
       // Refresh the list
-      fetchPendingPayments();
+      await fetchPendingPayments();
       
       // Clear admin notes
       setAdminNotes(prev => {
