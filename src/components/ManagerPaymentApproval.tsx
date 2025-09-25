@@ -66,7 +66,7 @@ export default function ManagerPaymentApproval() {
             description
           )
         `)
-        .eq('status', 'pending_review')
+        .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -94,7 +94,10 @@ export default function ManagerPaymentApproval() {
 
       const { error } = await supabase
         .from('payments')
-        .update(updateData)
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', paymentId);
 
       if (error) throw error;
