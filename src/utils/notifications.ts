@@ -10,17 +10,14 @@ interface CreateNotificationParams {
 
 export async function createNotification(params: CreateNotificationParams): Promise<void> {
   try {
-    const { error } = await supabase
-      .from('notifications')
-      .insert({
-        type: params.type,
-        title: params.title,
-        message: params.message,
-        user_id: params.user_id,
-        target_role: params.target_role,
-        read: false,
-        created_at: new Date().toISOString()
-      });
+    // Use rpc to bypass TypeScript typing issues with new table
+    const { error } = await supabase.rpc('create_notification', {
+      notification_type: params.type,
+      notification_title: params.title,
+      notification_message: params.message,
+      notification_user_id: params.user_id,
+      notification_target_role: params.target_role
+    });
 
     if (error) {
       console.error('Error creating notification:', error);
