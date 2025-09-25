@@ -13,7 +13,8 @@ import {
   AlertTriangle,
   TrendingUp,
   Eye,
-  Download
+  Download,
+  Bell
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import UserManagement from "@/components/UserManagement";
@@ -27,6 +28,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { createTestNotifications } from "@/utils/testNotifications";
 
 interface DashboardStats {
   totalUsers: number;
@@ -102,6 +104,7 @@ export default function ManagerDashboard() {
   // Processing states
   const [processingReports, setProcessingReports] = useState<Set<string>>(new Set());
   const [processingPayments, setProcessingPayments] = useState<Set<string>>(new Set());
+  const [testingNotifications, setTestingNotifications] = useState(false);
 
   useEffect(() => {
     if (user && profile?.role === 'manager') {
@@ -114,6 +117,34 @@ export default function ManagerDashboard() {
     setActiveTab(newTab);
     const newUrl = `/dashboard/manager?tab=${newTab}`;
     navigate(newUrl, { replace: true });
+  };
+
+  const handleTestNotifications = async () => {
+    setTestingNotifications(true);
+    try {
+      const result = await createTestNotifications();
+      if (result.success) {
+        toast({
+          title: "Test Notifications Created",
+          description: "Test notifications have been created for existing approved items. Check the notification bell.",
+        });
+      } else {
+        toast({
+          title: "Failed to create test notifications",
+          description: result.error || "Unknown error",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error creating test notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create test notifications",
+        variant: "destructive"
+      });
+    } finally {
+      setTestingNotifications(false);
+    }
   };
 
   const fetchDashboardData = async () => {
@@ -435,10 +466,23 @@ export default function ManagerDashboard() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-2"
         >
-          <h1 className="text-3xl font-bold gradient-text">Manager Dashboard</h1>
-          <p className="text-muted-foreground">
-            Manage users, review reports, and approve payments
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold gradient-text">Manager Dashboard</h1>
+              <p className="text-muted-foreground">
+                Manage users, review reports, and approve payments
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleTestNotifications}
+              loading={testingNotifications}
+              className="flex items-center gap-2"
+            >
+              <Bell className="h-4 w-4" />
+              Test Notifications
+            </Button>
+          </div>
         </motion.div>
 
         {/* Stats Cards */}
