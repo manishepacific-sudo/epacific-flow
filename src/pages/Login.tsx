@@ -173,7 +173,7 @@ export default function Login() {
               <img
                   src={logo}
                   alt="epacific Logo"
-                  className="w-24 h-24 rounded-full border border-gray-300"
+                  className="w-48 h-24"
                   />
             </div>
             <h1 className="text-2xl font-bold gradient-text mb-2">Welcome Back</h1>
