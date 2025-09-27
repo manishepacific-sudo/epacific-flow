@@ -9,7 +9,7 @@ interface WithRoleGuardProps {
 
 export function withRoleGuard<P extends WithRoleGuardProps>(
   WrappedComponent: ComponentType<P>,
-  requiredRole: 'admin' | 'manager' | 'user'
+  requiredRole: 'admin' | 'manager' | 'user' | ('admin' | 'manager' | 'user')[]
 ) {
   return function GuardedComponent(props: P) {
     const { user, profile, loading } = useAuth();
@@ -22,7 +22,8 @@ export function withRoleGuard<P extends WithRoleGuardProps>(
           return;
         }
 
-        if (profile && profile.role !== requiredRole) {
+        const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+        if (profile && !allowedRoles.includes(profile.role)) {
           // Redirect to appropriate dashboard based on actual user role
           switch (profile.role) {
             case 'admin':
@@ -53,7 +54,8 @@ export function withRoleGuard<P extends WithRoleGuardProps>(
       return null;
     }
 
-    if (profile && profile.role !== requiredRole) {
+    const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    if (profile && !allowedRoles.includes(profile.role)) {
       return null;
     }
 
