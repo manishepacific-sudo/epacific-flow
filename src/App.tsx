@@ -20,6 +20,9 @@ import ResetPassword from "./pages/ResetPassword";
 const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
+const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
+const ReportsManagementPage = lazy(() => import("./pages/ReportsManagementPage"));
+const PaymentsManagementPage = lazy(() => import("./pages/PaymentsManagementPage"));
 const ReportUpload = lazy(() => import("./pages/ReportUpload"));
 const EnhancedPaymentPage = lazy(() => import("./pages/EnhancedPaymentPage"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
@@ -31,6 +34,9 @@ const UserProfilePage = lazy(() => import("./pages/UserProfilePage").then(module
 const GuardedUserDashboard = withRoleGuard(UserDashboard, 'user');
 const GuardedAdminDashboard = withRoleGuard(AdminDashboard, 'admin');
 const GuardedManagerDashboard = withRoleGuard(ManagerDashboard, 'manager');
+const GuardedUserManagement = withRoleGuard(UserManagementPage, ['admin', 'manager']);
+const GuardedReportsManagement = withRoleGuard(ReportsManagementPage, ['admin', 'manager']);
+const GuardedPaymentsManagement = withRoleGuard(PaymentsManagementPage, ['admin', 'manager']);
 const GuardedReportUpload = withRoleGuard(ReportUpload, 'user');
 const GuardedUserProfile = withRoleGuard(UserProfilePage, 'admin');
 
@@ -59,6 +65,9 @@ const App = () => (
                 <Route path="/dashboard/user" element={<GuardedUserDashboard />} />
                 <Route path="/dashboard/admin" element={<GuardedAdminDashboard />} />
                 <Route path="/dashboard/manager" element={<GuardedManagerDashboard />} />
+                <Route path="/user-management" element={<GuardedUserManagement />} />
+                <Route path="/reports-management" element={<GuardedReportsManagement />} />
+                <Route path="/payments-management" element={<GuardedPaymentsManagement />} />
                 <Route path="/upload/report" element={<GuardedReportUpload />} />
                 <Route path="/payment/:id" element={
                   <ProtectedRoute>

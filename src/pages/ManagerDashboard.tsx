@@ -1,34 +1,26 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useLocation, useNavigate } from "react-router-dom";
 import { 
   BarChart3,
   Users,
   FileText,
   CreditCard,
-  Settings,
   CheckCircle2,
   XCircle,
   Clock,
   AlertTriangle,
   TrendingUp,
-  Eye,
-  Download,
   Bell
 } from "lucide-react";
 import Layout from "@/components/Layout";
-import EnhancedUserManagement from "@/components/EnhancedUserManagement";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { createTestNotifications } from "@/utils/testNotifications";
 
 interface DashboardStats {
   totalUsers: number;
@@ -40,56 +32,29 @@ interface DashboardStats {
 interface Report {
   id: string;
   title: string;
-  description: string;
-  amount: number;
-  attachment_url: string;
   status: string;
   created_at: string;
-  user_id: string;
-  manager_notes?: string;
-  rejection_message?: string;
-  updated_at: string;
   profiles?: {
     full_name: string;
-    email: string;
   } | null;
 }
 
 interface Payment {
   id: string;
   amount: number;
-  method: string;
-  proof_url: string;
   status: string;
   created_at: string;
-  user_id: string;
-  report_id: string;
-  admin_notes?: string;
-  rejection_message?: string;
-  phonepe_transaction_id?: string;
-  updated_at: string;
   profiles?: {
     full_name: string;
-    email: string;
-  } | null;
-  reports?: {
-    title: string;
   } | null;
 }
 
 export default function ManagerDashboard() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
-  const location = useLocation();
-  const navigate = useNavigate();
-  
-  // Get initial tab from URL parameters
-  const urlParams = new URLSearchParams(location.search);
-  const initialTab = urlParams.get('tab') || 'overview';
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState(initialTab);
   
   // Data states
   const [stats, setStats] = useState<DashboardStats>({
@@ -100,10 +65,6 @@ export default function ManagerDashboard() {
   });
   const [reports, setReports] = useState<Report[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  
-  // Processing states
-  const [processingReports, setProcessingReports] = useState<Set<string>>(new Set());
-  const [processingPayments, setProcessingPayments] = useState<Set<string>>(new Set());
   const [testingNotifications, setTestingNotifications] = useState(false);
 
   useEffect(() => {
@@ -112,23 +73,12 @@ export default function ManagerDashboard() {
     }
   }, [user, profile]);
 
-  // Handle tab changes and update URL
-  const handleTabChange = (newTab: string) => {
-    setActiveTab(newTab);
-    const newUrl = `/dashboard/manager?tab=${newTab}`;
-    navigate(newUrl, { replace: true });
-  };
-
   const handleTestNotifications = async () => {
     setTestingNotifications(true);
     try {
-      // Create test notifications directly using the notification functions
       const { notifyReportApproved, notifyPaymentApproved } = await import("@/utils/notifications");
+      const userId = '1c601c4f-056f-4328-b1ca-153c10abfb03';
       
-      // Get the user ID from existing approved reports/payments
-      const userId = '1c601c4f-056f-4328-b1ca-153c10abfb03'; // John Doe's ID
-      
-      // Create test notifications for approved items
       await notifyReportApproved(userId, 'Monthly Report');
       await notifyPaymentApproved(userId, 1750);
       
@@ -155,7 +105,6 @@ export default function ManagerDashboard() {
       setLoading(true);
       setError(null);
 
-      // Try edge functions first
       const [usersRes, reportsRes, paymentsRes] = await Promise.all([
         supabase.functions.invoke('get-users', {
           body: { admin_email: profile?.email }
@@ -170,14 +119,12 @@ export default function ManagerDashboard() {
 
       let usersData, reportsData, paymentsData;
 
-      // Check if edge functions worked or use fallback
       if (usersRes.error || reportsRes.error || paymentsRes.error) {
         console.log('Edge functions failed, using fallback queries');
-        // Fallback to direct queries
         const [fallbackUsersRes, fallbackReportsRes, fallbackPaymentsRes] = await Promise.all([
           supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-          supabase.from('reports').select('*').order('created_at', { ascending: false }),
-          supabase.from('payments').select('*').order('created_at', { ascending: false })
+          supabase.from('reports').select('*, profiles(full_name)').order('created_at', { ascending: false }),
+          supabase.from('payments').select('*, profiles(full_name)').order('created_at', { ascending: false })
         ]);
 
         usersData = fallbackUsersRes.data || [];
@@ -189,46 +136,13 @@ export default function ManagerDashboard() {
         paymentsData = paymentsRes.data?.payments || [];
       }
 
-      // Enhance reports with user profiles
-      const enhancedReports = await Promise.all(
-        reportsData.map(async (report: any) => {
-          const user = usersData.find((u: any) => u.user_id === report.user_id);
-          return {
-            ...report,
-            profiles: user ? {
-              full_name: user.full_name,
-              email: user.email
-            } : null
-          };
-        })
-      );
+      setReports(reportsData.slice(0, 5));
+      setPayments(paymentsData.slice(0, 5));
 
-      // Enhance payments with user profiles and report titles
-      const enhancedPayments = await Promise.all(
-        paymentsData.map(async (payment: any) => {
-          const user = usersData.find((u: any) => u.user_id === payment.user_id);
-          const report = reportsData.find((r: any) => r.id === payment.report_id);
-          return {
-            ...payment,
-            profiles: user ? {
-              full_name: user.full_name,
-              email: user.email
-            } : null,
-            reports: report ? {
-              title: report.title
-            } : null
-          };
-        })
-      );
-
-      setReports(enhancedReports);
-      setPayments(enhancedPayments);
-
-      // Calculate stats
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
-      const approvedThisMonth = enhancedReports.filter((report: any) => {
+      const approvedThisMonth = reportsData.filter((report: any) => {
         const reportDate = new Date(report.created_at);
         return report.status === 'approved' && 
                reportDate.getMonth() === currentMonth && 
@@ -237,8 +151,8 @@ export default function ManagerDashboard() {
 
       setStats({
         totalUsers: usersData.length,
-        pendingReports: enhancedReports.filter((r: any) => r.status === 'pending').length,
-        pendingPayments: enhancedPayments.filter((p: any) => p.status === 'pending').length,
+        pendingReports: reportsData.filter((r: any) => r.status === 'pending').length,
+        pendingPayments: paymentsData.filter((p: any) => p.status === 'pending').length,
         approvedThisMonth
       });
 
@@ -252,138 +166,6 @@ export default function ManagerDashboard() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleReportAction = async (reportId: string, action: 'approved' | 'rejected', notes?: string) => {
-    setProcessingReports(prev => new Set(prev).add(reportId));
-    
-    try {
-      const updateData: any = { status: action };
-      if (notes && action === 'rejected') {
-        updateData.manager_notes = notes;
-      }
-
-      const { error } = await supabase
-        .from('reports')
-        .update(updateData)
-        .eq('id', reportId);
-
-      if (error) throw error;
-
-      toast({
-        title: `Report ${action}`,
-        description: `Report has been ${action} successfully.`,
-        variant: action === 'approved' ? 'default' : 'destructive'
-      });
-
-      // Refresh data
-      fetchDashboardData();
-    } catch (error: any) {
-      console.error('Report action error:', error);
-      toast({
-        title: "Action failed",
-        description: error.message || `Failed to ${action} report`,
-        variant: "destructive"
-      });
-    } finally {
-      setProcessingReports(prev => {
-        const next = new Set(prev);
-        next.delete(reportId);
-        return next;
-      });
-    }
-  };
-
-  const handlePaymentAction = async (paymentId: string, action: 'approved' | 'rejected', notes?: string) => {
-    setProcessingPayments(prev => new Set(prev).add(paymentId));
-    
-    try {
-      const updateData: any = { status: action };
-      if (notes && action === 'rejected') {
-        updateData.admin_notes = notes;
-      }
-
-      const { error } = await supabase
-        .from('payments')
-        .update(updateData)
-        .eq('id', paymentId);
-
-      if (error) throw error;
-
-      toast({
-        title: `Payment ${action}`,
-        description: `Payment has been ${action} successfully.`,
-        variant: action === 'approved' ? 'default' : 'destructive'
-      });
-
-      // Refresh data
-      fetchDashboardData();
-    } catch (error: any) {
-      console.error('Payment action error:', error);
-      toast({
-        title: "Action failed",
-        description: error.message || `Failed to ${action} payment`,
-        variant: "destructive"
-      });
-    } finally {
-      setProcessingPayments(prev => {
-        const next = new Set(prev);
-        next.delete(paymentId);
-        return next;
-      });
-    }
-  };
-
-  const downloadFile = async (filePath: string, fileName: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('report-attachments')
-        .download(filePath);
-
-      if (error) throw error;
-
-      // Force download instead of opening in browser
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.setAttribute('download', fileName);
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Download started",
-        description: `The file "${fileName}" is being downloaded`,
-      });
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      toast({
-        title: "Download failed",
-        description: "Failed to download the report file",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const viewProof = async (proofPath: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('payment-proofs')
-        .createSignedUrl(proofPath, 60);
-
-      if (error) throw error;
-
-      window.open(data.signedUrl, '_blank');
-    } catch (error: any) {
-      toast({
-        title: "View failed",
-        description: "Failed to view proof",
-        variant: "destructive"
-      });
     }
   };
 
@@ -471,7 +253,7 @@ export default function ManagerDashboard() {
             <div>
               <h1 className="text-3xl font-bold gradient-text">Manager Dashboard</h1>
               <p className="text-muted-foreground">
-                Manage users, review reports, and approve payments
+                Overview of system activity and pending tasks
               </p>
             </div>
             <Button 
@@ -498,8 +280,8 @@ export default function ManagerDashboard() {
               <GlassCard className="p-6 hover-glow">
                 <div className="flex items-center justify-between">
                   <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">{card.title}</p>
-                    <p className="text-2xl font-bold">{card.value}</p>
+                    <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
+                    <p className="text-3xl font-bold">{card.value}</p>
                     <p className="text-xs text-muted-foreground">{card.trend}</p>
                   </div>
                   <div className={`p-3 rounded-full ${card.bgColor}`}>
@@ -511,272 +293,66 @@ export default function ManagerDashboard() {
           ))}
         </div>
 
-        {/* Main Content Tabs */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="w-full overflow-hidden"
-        >
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-            <div className="w-full overflow-x-auto">
-              <TabsList className="grid grid-cols-4 w-full min-w-[500px] lg:w-fit lg:min-w-0">
-                <TabsTrigger value="overview" className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm">
-                  <BarChart3 className="h-3 w-3 lg:h-4 lg:w-4" />
-                  <span className="hidden sm:inline">Overview</span>
-                  <span className="sm:hidden">Over</span>
-                </TabsTrigger>
-                <TabsTrigger value="users" className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm">
-                  <Users className="h-3 w-3 lg:h-4 lg:w-4" />
-                  <span>Users</span>
-                </TabsTrigger>
-                <TabsTrigger value="reports" className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm">
-                  <FileText className="h-3 w-3 lg:h-4 lg:w-4" />
-                  <span className="hidden sm:inline">Reports</span>
-                  <span className="sm:hidden">Rep</span>
-                </TabsTrigger>
-                <TabsTrigger value="payments" className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm">
-                  <CreditCard className="h-3 w-3 lg:h-4 lg:w-4" />
-                  <span className="hidden sm:inline">Payments</span>
-                  <span className="sm:hidden">Pay</span>
-                </TabsTrigger>
-              </TabsList>
+        {/* Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Reports */}
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Recent Reports</h3>
+              <Badge variant="secondary">{reports.length}</Badge>
             </div>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Recent Reports */}
-                <GlassCard className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Recent Reports</h3>
-                    <Badge variant="secondary">{reports.length}</Badge>
+            <div className="space-y-3">
+              {reports.slice(0, 5).map((report) => (
+                <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
+                  <div className="space-y-1">
+                    <p className="font-medium text-sm">{report.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {report.profiles?.full_name} • {format(new Date(report.created_at), 'MMM dd')}
+                    </p>
                   </div>
-                  <div className="space-y-3">
-                    {reports.slice(0, 5).map((report) => (
-                      <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                        <div className="space-y-1">
-                          <p className="font-medium text-sm">{report.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {report.profiles?.full_name} • {format(new Date(report.created_at), 'MMM dd')}
-                          </p>
-                        </div>
-                        <Badge 
-                          variant={report.status === 'approved' ? 'default' : 
-                                  report.status === 'rejected' ? 'destructive' : 'secondary'}
-                        >
-                          {report.status}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </GlassCard>
-
-                {/* Recent Payments */}
-                <GlassCard className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Recent Payments</h3>
-                    <Badge variant="secondary">{payments.length}</Badge>
-                  </div>
-                  <div className="space-y-3">
-                    {payments.slice(0, 5).map((payment) => (
-                      <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                        <div className="space-y-1">
-                          <p className="font-medium text-sm">₹{payment.amount.toLocaleString()}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {payment.profiles?.full_name} • {format(new Date(payment.created_at), 'MMM dd')}
-                          </p>
-                        </div>
-                        <Badge 
-                          variant={payment.status === 'approved' ? 'default' : 
-                                  payment.status === 'rejected' ? 'destructive' : 'secondary'}
-                        >
-                          {payment.status}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </GlassCard>
-              </div>
-            </TabsContent>
-
-            {/* Users Tab */}
-            <TabsContent value="users">
-              <EnhancedUserManagement />
-            </TabsContent>
-
-            {/* Reports Tab */}
-            <TabsContent value="reports">
-              <GlassCard className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold">Reports Management</h3>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-orange-500/20 text-orange-500">
-                      {stats.pendingReports} Pending
-                    </Badge>
-                  </div>
+                  <Badge 
+                    variant={report.status === 'approved' ? 'default' : 
+                            report.status === 'rejected' ? 'destructive' : 'secondary'}
+                  >
+                    {report.status}
+                  </Badge>
                 </div>
-                <div className="rounded-lg border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Report</TableHead>
-                        <TableHead>User</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {reports.map((report) => (
-                        <TableRow key={report.id}>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <p className="font-medium">{report.title}</p>
-                              <p className="text-sm text-muted-foreground">{report.description}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>{report.profiles?.full_name}</TableCell>
-                          <TableCell>₹{report.amount?.toLocaleString()}</TableCell>
-                          <TableCell>{format(new Date(report.created_at), 'MMM dd, yyyy')}</TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={report.status === 'approved' ? 'default' : 
-                                      report.status === 'rejected' ? 'destructive' : 'secondary'}
-                            >
-                              {report.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {report.attachment_url && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => downloadFile(report.attachment_url, 'report.pdf')}
-                                >
-                                  <Download className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {report.status === 'pending' && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleReportAction(report.id, 'approved')}
-                                    disabled={processingReports.has(report.id)}
-                                  >
-                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleReportAction(report.id, 'rejected')}
-                                    disabled={processingReports.has(report.id)}
-                                  >
-                                    <XCircle className="h-4 w-4 text-red-500" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </GlassCard>
-            </TabsContent>
+              ))}
+              {reports.length === 0 && (
+                <p className="text-center text-muted-foreground py-4">No recent reports</p>
+              )}
+            </div>
+          </GlassCard>
 
-            {/* Payments Tab */}
-            <TabsContent value="payments">
-              <GlassCard className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold">Payments Management</h3>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-500">
-                      {stats.pendingPayments} Pending
-                    </Badge>
+          {/* Recent Payments */}
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Recent Payments</h3>
+              <Badge variant="secondary">{payments.length}</Badge>
+            </div>
+            <div className="space-y-3">
+              {payments.slice(0, 5).map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
+                  <div className="space-y-1">
+                    <p className="font-medium text-sm">₹{payment.amount.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {payment.profiles?.full_name} • {format(new Date(payment.created_at), 'MMM dd')}
+                    </p>
                   </div>
+                  <Badge 
+                    variant={payment.status === 'approved' ? 'default' : 
+                            payment.status === 'rejected' ? 'destructive' : 'secondary'}
+                  >
+                    {payment.status}
+                  </Badge>
                 </div>
-                <div className="rounded-lg border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Payment</TableHead>
-                        <TableHead>User</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Method</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Proof</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {payments.map((payment) => (
-                        <TableRow key={payment.id}>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <p className="font-medium">Payment #{payment.id.slice(0, 8)}</p>
-                              <p className="text-sm text-muted-foreground">{payment.reports?.title}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>{payment.profiles?.full_name}</TableCell>
-                          <TableCell>₹{payment.amount.toLocaleString()}</TableCell>
-                          <TableCell className="capitalize">{payment.method}</TableCell>
-                          <TableCell>{format(new Date(payment.created_at), 'MMM dd, yyyy')}</TableCell>
-                          <TableCell>
-                            {payment.proof_url && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => viewProof(payment.proof_url)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={payment.status === 'approved' ? 'default' : 
-                                      payment.status === 'rejected' ? 'destructive' : 'secondary'}
-                            >
-                              {payment.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {payment.status === 'pending' && (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handlePaymentAction(payment.id, 'approved')}
-                                  disabled={processingPayments.has(payment.id)}
-                                >
-                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handlePaymentAction(payment.id, 'rejected')}
-                                  disabled={processingPayments.has(payment.id)}
-                                >
-                                  <XCircle className="h-4 w-4 text-red-500" />
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </GlassCard>
-            </TabsContent>
-          </Tabs>
-        </motion.div>
+              ))}
+              {payments.length === 0 && (
+                <p className="text-center text-muted-foreground py-4">No recent payments</p>
+              )}
+            </div>
+          </GlassCard>
+        </div>
       </div>
     </Layout>
   );

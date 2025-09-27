@@ -37,16 +37,16 @@ export default function Layout({ children, role }: LayoutProps) {
   const menuItems = {
     admin: [
       { icon: Home, label: "Dashboard", path: "/dashboard/admin" },
-      { icon: Users, label: "User Management", path: "/dashboard/admin" }, // Tab within dashboard
-      { icon: FileText, label: "All Reports", path: "/reports" },
-      { icon: CreditCard, label: "Payment Reviews", path: "/payments" },
+      { icon: Users, label: "User Management", path: "/user-management" },
+      { icon: FileText, label: "Reports Management", path: "/reports-management" },
+      { icon: CreditCard, label: "Payments Management", path: "/payments-management" },
       { icon: Settings, label: "Settings", path: "/settings" },
     ],
     manager: [
-      { icon: Home, label: "Overview", path: "/dashboard/manager?tab=overview" },
-      { icon: Users, label: "Users", path: "/dashboard/manager?tab=users" },
-      { icon: FileText, label: "Reports", path: "/dashboard/manager?tab=reports" },
-      { icon: CreditCard, label: "Payments", path: "/dashboard/manager?tab=payments" },
+      { icon: Home, label: "Overview", path: "/dashboard/manager" },
+      { icon: Users, label: "User Management", path: "/user-management" },
+      { icon: FileText, label: "Reports Management", path: "/reports-management" },
+      { icon: CreditCard, label: "Payments Management", path: "/payments-management" },
     ],
     user: [
       { icon: Home, label: "Dashboard", path: "/dashboard/user" },
