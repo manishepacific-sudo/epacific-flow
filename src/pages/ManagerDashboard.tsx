@@ -17,7 +17,7 @@ import {
   Bell
 } from "lucide-react";
 import Layout from "@/components/Layout";
-import UserManagement from "@/components/UserManagement";
+import EnhancedUserManagement from "@/components/EnhancedUserManagement";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
@@ -602,7 +602,7 @@ export default function ManagerDashboard() {
 
             {/* Users Tab */}
             <TabsContent value="users">
-              <UserManagement />
+              <EnhancedUserManagement />
             </TabsContent>
 
             {/* Reports Tab */}
