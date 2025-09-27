@@ -150,10 +150,10 @@ export default function ReportUpload() {
           className="text-center"
         >
           <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-2">
-            Upload Monthly Report
+            Upload Daily Report
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Upload your monthly report file for submission
+            Upload your daily report file for submission
           </p>
         </motion.div>
 
@@ -334,7 +334,7 @@ export default function ReportUpload() {
               <div>
                 <h4 className="font-medium mb-2">Submission Process</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Upload your monthly report file</li>
+                  <li>• Upload your daily report file</li>
                   <li>• Select the report date</li>
                   <li>• Submit for approval and payment</li>
                   <li>• Complete payment after submission</li>
