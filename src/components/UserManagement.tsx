@@ -30,6 +30,7 @@ interface UserFormData {
   mobile_number: string;
   station_id: string;
   center_address: string;
+  registrar: string;
   role: string;
 }
 
@@ -59,7 +60,13 @@ export default function UserManagement() {
     mobile_number: "",
     station_id: "",
     center_address: "",
+    registrar: "",
     role: "user"
+  });
+
+  const [formErrors, setFormErrors] = useState({
+    mobile_number: '',
+    station_id: ''
   });
 
   useEffect(() => {
@@ -98,12 +105,54 @@ export default function UserManagement() {
     }
   };
 
+  const validateMobileNumber = (value: string) => {
+    if (!value) return '';
+    if (!/^\d+$/.test(value)) return 'Mobile number must contain only digits';
+    if (value.length !== 10) return 'Mobile number must be exactly 10 digits';
+    return '';
+  };
+
+  const validateStationId = (value: string) => {
+    if (!value) return '';
+    if (!/^\d+$/.test(value)) return 'Station ID must contain only digits';
+    if (value.length !== 5) return 'Station ID must be exactly 5 digits';
+    return '';
+  };
+
   const handleInputChange = (field: keyof UserFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Real-time validation
+    if (field === 'mobile_number') {
+      setFormErrors(prev => ({ ...prev, mobile_number: validateMobileNumber(value) }));
+    } else if (field === 'station_id') {
+      setFormErrors(prev => ({ ...prev, station_id: validateStationId(value) }));
+    }
   };
 
   const createUser = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate mobile number if provided
+    if (formData.mobile_number && !/^\d{10}$/.test(formData.mobile_number)) {
+      toast({
+        title: "Invalid mobile number",
+        description: "Mobile number must be exactly 10 digits",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate station ID if provided
+    if (formData.station_id && !/^\d{5}$/.test(formData.station_id)) {
+      toast({
+        title: "Invalid station ID",
+        description: "Station ID must be exactly 5 digits",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setCreating(true);
 
     try {
@@ -116,6 +165,7 @@ export default function UserManagement() {
           mobile_number: formData.mobile_number,
           station_id: formData.station_id,
           center_address: formData.center_address,
+          registrar: formData.registrar,
           admin_email: profile?.email
         }
       });
@@ -138,7 +188,12 @@ export default function UserManagement() {
         mobile_number: "",
         station_id: "",
         center_address: "",
+        registrar: "",
         role: "user"
+      });
+      setFormErrors({
+        mobile_number: '',
+        station_id: ''
       });
       setIsDialogOpen(false);
       fetchUsers();
@@ -287,13 +342,16 @@ export default function UserManagement() {
                   <Input
                     id="mobile_number"
                     type="tel"
-                    placeholder="+91 9876543210"
+                    placeholder="1234567890"
                     value={formData.mobile_number}
                     onChange={(e) => handleInputChange('mobile_number', e.target.value)}
-                    className="pl-10"
+                    className={`pl-10 ${formErrors.mobile_number ? 'border-destructive' : ''}`}
                     required
                   />
                 </div>
+                {formErrors.mobile_number && (
+                  <p className="text-sm text-destructive">{formErrors.mobile_number}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -303,13 +361,16 @@ export default function UserManagement() {
                   <Input
                     id="station_id"
                     type="text"
-                    placeholder="STN001"
+                    placeholder="12345"
                     value={formData.station_id}
                     onChange={(e) => handleInputChange('station_id', e.target.value)}
-                    className="pl-10"
+                    className={`pl-10 ${formErrors.station_id ? 'border-destructive' : ''}`}
                     required
                   />
                 </div>
+                {formErrors.station_id && (
+                  <p className="text-sm text-destructive">{formErrors.station_id}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -324,6 +385,21 @@ export default function UserManagement() {
                     onChange={(e) => handleInputChange('center_address', e.target.value)}
                     className="pl-10"
                     required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="registrar">Registrar</Label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    id="registrar"
+                    type="text"
+                    placeholder="Registrar Name"
+                    value={formData.registrar}
+                    onChange={(e) => handleInputChange('registrar', e.target.value)}
+                    className="pl-10"
                   />
                 </div>
               </div>
