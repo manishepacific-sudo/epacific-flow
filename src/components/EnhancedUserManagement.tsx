@@ -71,6 +71,11 @@ export default function EnhancedUserManagement() {
     registrar: ''
   });
 
+  const [formErrors, setFormErrors] = useState({
+    mobile_number: '',
+    station_id: ''
+  });
+
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -84,6 +89,31 @@ export default function EnhancedUserManagement() {
 
   const canManageUsers = currentProfile?.role === 'admin' || currentProfile?.role === 'manager';
   const canCreateManagers = currentProfile?.role === 'admin';
+
+  const validateMobileNumber = (value: string) => {
+    if (!value) return '';
+    if (!/^\d+$/.test(value)) return 'Mobile number must contain only digits';
+    if (value.length !== 10) return 'Mobile number must be exactly 10 digits';
+    return '';
+  };
+
+  const validateStationId = (value: string) => {
+    if (!value) return '';
+    if (!/^\d+$/.test(value)) return 'Station ID must contain only digits';
+    if (value.length !== 5) return 'Station ID must be exactly 5 digits';
+    return '';
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setInviteForm({ ...inviteForm, [field]: value });
+    
+    // Real-time validation
+    if (field === 'mobile_number') {
+      setFormErrors(prev => ({ ...prev, mobile_number: validateMobileNumber(value) }));
+    } else if (field === 'station_id') {
+      setFormErrors(prev => ({ ...prev, station_id: validateStationId(value) }));
+    }
+  };
 
   useEffect(() => {
     if (canManageUsers) {
@@ -121,6 +151,26 @@ export default function EnhancedUserManagement() {
       toast({
         title: "Missing required fields",
         description: "Please fill in email, full name, and role",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate mobile number if provided
+    if (inviteForm.mobile_number && !/^\d{10}$/.test(inviteForm.mobile_number)) {
+      toast({
+        title: "Invalid mobile number",
+        description: "Mobile number must be exactly 10 digits",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate station ID if provided
+    if (inviteForm.station_id && !/^\d{5}$/.test(inviteForm.station_id)) {
+      toast({
+        title: "Invalid station ID",
+        description: "Station ID must be exactly 5 digits",
         variant: "destructive"
       });
       return;
@@ -177,6 +227,10 @@ export default function EnhancedUserManagement() {
         station_id: '',
         center_address: '',
         registrar: ''
+      });
+      setFormErrors({
+        mobile_number: '',
+        station_id: ''
       });
       setInviteDialogOpen(false);
       fetchUsers();
@@ -493,18 +547,26 @@ export default function EnhancedUserManagement() {
                     <Input
                       id="mobile_number"
                       value={inviteForm.mobile_number}
-                      onChange={(e) => setInviteForm({ ...inviteForm, mobile_number: e.target.value })}
-                      placeholder="+1234567890"
+                      onChange={(e) => handleInputChange('mobile_number', e.target.value)}
+                      placeholder="1234567890"
+                      className={formErrors.mobile_number ? 'border-destructive' : ''}
                     />
+                    {formErrors.mobile_number && (
+                      <p className="text-sm text-destructive">{formErrors.mobile_number}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="station_id">Station ID</Label>
                     <Input
                       id="station_id"
                       value={inviteForm.station_id}
-                      onChange={(e) => setInviteForm({ ...inviteForm, station_id: e.target.value })}
-                      placeholder="ST001"
+                      onChange={(e) => handleInputChange('station_id', e.target.value)}
+                      placeholder="12345"
+                      className={formErrors.station_id ? 'border-destructive' : ''}
                     />
+                    {formErrors.station_id && (
+                      <p className="text-sm text-destructive">{formErrors.station_id}</p>
+                    )}
                   </div>
                 </div>
 
