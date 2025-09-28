@@ -20,12 +20,8 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
-import EnhancedUserManagement from "@/components/EnhancedUserManagement";
-import ReportManagement from "@/pages/ReportManagement";
-import PaymentManagement from "@/pages/PaymentManagement";
 import { useToast } from "@/hooks/use-toast";
 import { 
   ResponsiveContainer, 
@@ -310,29 +306,6 @@ export default function AdminDashboard() {
           </div>
         </motion.div>
 
-        {/* Tabs for different sections */}
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview" className="gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="h-4 w-4" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Reports
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="gap-2">
-              <CreditCard className="h-4 w-4" />
-              Payments
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-8 mt-6">
-
         {/* Analytics Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 analytics-charts">
           <motion.div
@@ -537,24 +510,6 @@ export default function AdminDashboard() {
             </div>
           </div>
         </motion.div>
-          </TabsContent>
-
-          <TabsContent value="users" className="mt-6">
-            <EnhancedUserManagement />
-          </TabsContent>
-
-          <TabsContent value="reports" className="mt-6">
-            <div className="space-y-6">
-              <ReportManagement />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="payments" className="mt-6">
-            <div className="space-y-6">
-              <PaymentManagement />
-            </div>
-          </TabsContent>
-        </Tabs>
       </div>
     </Layout>
   );
