@@ -57,7 +57,16 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { data: payments, error } = await supabaseAdmin
       .from('payments')
-      .select('*')
+      .select(`
+        *,
+        profiles (
+          full_name,
+          email,
+          mobile_number,
+          center_address,
+          registrar
+        )
+      `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
