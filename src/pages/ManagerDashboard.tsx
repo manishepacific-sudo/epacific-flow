@@ -21,6 +21,10 @@ import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import EnhancedUserManagement from "@/components/EnhancedUserManagement";
+import ReportManagement from "@/pages/ReportManagement";
+import PaymentManagement from "@/pages/PaymentManagement";
 
 interface DashboardStats {
   totalUsers: number;
@@ -259,100 +263,140 @@ export default function ManagerDashboard() {
             <Button 
               variant="outline" 
               onClick={handleTestNotifications}
-              loading={testingNotifications}
+              disabled={testingNotifications}
               className="flex items-center gap-2"
             >
               <Bell className="h-4 w-4" />
-              Test Notifications
+              {testingNotifications ? 'Creating...' : 'Test Notifications'}
             </Button>
           </div>
         </motion.div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statsCards.map((card, index) => (
-            <motion.div
-              key={card.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <GlassCard className="p-6 hover-glow">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
-                    <p className="text-3xl font-bold">{card.value}</p>
-                    <p className="text-xs text-muted-foreground">{card.trend}</p>
-                  </div>
-                  <div className={`p-3 rounded-full ${card.bgColor}`}>
-                    <card.icon className={`h-6 w-6 ${card.color}`} />
-                  </div>
+        {/* Tabs for different sections */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="users" className="gap-2">
+              <Users className="h-4 w-4" />
+              Users
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Reports
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="gap-2">
+              <CreditCard className="h-4 w-4" />
+              Payments
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6 mt-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {statsCards.map((card, index) => (
+                <motion.div
+                  key={card.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <GlassCard className="p-6 hover-glow">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
+                        <p className="text-3xl font-bold">{card.value}</p>
+                        <p className="text-xs text-muted-foreground">{card.trend}</p>
+                      </div>
+                      <div className={`p-3 rounded-full ${card.bgColor}`}>
+                        <card.icon className={`h-6 w-6 ${card.color}`} />
+                      </div>
+                    </div>
+                  </GlassCard>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Recent Activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recent Reports */}
+              <GlassCard className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Recent Reports</h3>
+                  <Badge variant="secondary">{reports.length}</Badge>
+                </div>
+                <div className="space-y-3">
+                  {reports.slice(0, 5).map((report) => (
+                    <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
+                      <div className="space-y-1">
+                        <p className="font-medium text-sm">{report.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {report.profiles?.full_name} • {format(new Date(report.created_at), 'MMM dd')}
+                        </p>
+                      </div>
+                      <Badge 
+                        variant={report.status === 'approved' ? 'default' : 
+                                report.status === 'rejected' ? 'destructive' : 'secondary'}
+                      >
+                        {report.status}
+                      </Badge>
+                    </div>
+                  ))}
+                  {reports.length === 0 && (
+                    <p className="text-center text-muted-foreground py-4">No recent reports</p>
+                  )}
                 </div>
               </GlassCard>
-            </motion.div>
-          ))}
-        </div>
 
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Reports */}
-          <GlassCard className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Recent Reports</h3>
-              <Badge variant="secondary">{reports.length}</Badge>
-            </div>
-            <div className="space-y-3">
-              {reports.slice(0, 5).map((report) => (
-                <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                  <div className="space-y-1">
-                    <p className="font-medium text-sm">{report.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {report.profiles?.full_name} • {format(new Date(report.created_at), 'MMM dd')}
-                    </p>
-                  </div>
-                  <Badge 
-                    variant={report.status === 'approved' ? 'default' : 
-                            report.status === 'rejected' ? 'destructive' : 'secondary'}
-                  >
-                    {report.status}
-                  </Badge>
+              {/* Recent Payments */}
+              <GlassCard className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Recent Payments</h3>
+                  <Badge variant="secondary">{payments.length}</Badge>
                 </div>
-              ))}
-              {reports.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">No recent reports</p>
-              )}
+                <div className="space-y-3">
+                  {payments.slice(0, 5).map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
+                      <div className="space-y-1">
+                        <p className="font-medium text-sm">₹{payment.amount.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {payment.profiles?.full_name} • {format(new Date(payment.created_at), 'MMM dd')}
+                        </p>
+                      </div>
+                      <Badge 
+                        variant={payment.status === 'approved' ? 'default' : 
+                                payment.status === 'rejected' ? 'destructive' : 'secondary'}
+                      >
+                        {payment.status}
+                      </Badge>
+                    </div>
+                  ))}
+                  {payments.length === 0 && (
+                    <p className="text-center text-muted-foreground py-4">No recent payments</p>
+                  )}
+                </div>
+              </GlassCard>
             </div>
-          </GlassCard>
+          </TabsContent>
 
-          {/* Recent Payments */}
-          <GlassCard className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Recent Payments</h3>
-              <Badge variant="secondary">{payments.length}</Badge>
+          <TabsContent value="users" className="mt-6">
+            <EnhancedUserManagement />
+          </TabsContent>
+
+          <TabsContent value="reports" className="mt-6">
+            <div className="space-y-6">
+              <ReportManagement />
             </div>
-            <div className="space-y-3">
-              {payments.slice(0, 5).map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                  <div className="space-y-1">
-                    <p className="font-medium text-sm">₹{payment.amount.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {payment.profiles?.full_name} • {format(new Date(payment.created_at), 'MMM dd')}
-                    </p>
-                  </div>
-                  <Badge 
-                    variant={payment.status === 'approved' ? 'default' : 
-                            payment.status === 'rejected' ? 'destructive' : 'secondary'}
-                  >
-                    {payment.status}
-                  </Badge>
-                </div>
-              ))}
-              {payments.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">No recent payments</p>
-              )}
+          </TabsContent>
+
+          <TabsContent value="payments" className="mt-6">
+            <div className="space-y-6">
+              <PaymentManagement />
             </div>
-          </GlassCard>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
