@@ -113,6 +113,7 @@ export type Database = {
           is_demo: boolean | null
           mobile_number: string
           password_set: boolean | null
+          registrar: string | null
           role: string
           station_id: string
           updated_at: string
@@ -127,6 +128,7 @@ export type Database = {
           is_demo?: boolean | null
           mobile_number: string
           password_set?: boolean | null
+          registrar?: string | null
           role?: string
           station_id: string
           updated_at?: string
@@ -141,6 +143,7 @@ export type Database = {
           is_demo?: boolean | null
           mobile_number?: string
           password_set?: boolean | null
+          registrar?: string | null
           role?: string
           station_id?: string
           updated_at?: string

@@ -46,6 +46,7 @@ interface UserProfile {
   mobile_number: string;
   station_id: string;
   center_address: string;
+  registrar?: string;
   password_set: boolean;
   is_demo: boolean;
   created_at: string;
@@ -66,7 +67,8 @@ export default function EnhancedUserManagement() {
     full_name: '',
     mobile_number: '',
     station_id: '',
-    center_address: ''
+    center_address: '',
+    registrar: ''
   });
 
   // Search and filter states
@@ -76,6 +78,7 @@ export default function EnhancedUserManagement() {
   const [filters, setFilters] = useState({
     role: '',
     status: '',
+    registrar: '',
     dateRange: { from: null as Date | null, to: null as Date | null }
   });
 
@@ -172,7 +175,8 @@ export default function EnhancedUserManagement() {
         full_name: '',
         mobile_number: '',
         station_id: '',
-        center_address: ''
+        center_address: '',
+        registrar: ''
       });
       setInviteDialogOpen(false);
       fetchUsers();
@@ -200,7 +204,8 @@ export default function EnhancedUserManagement() {
           full_name: user.full_name,
           mobile_number: user.mobile_number,
           station_id: user.station_id,
-          center_address: user.center_address
+          center_address: user.center_address,
+          registrar: user.registrar
         }
       });
 
@@ -270,6 +275,7 @@ export default function EnhancedUserManagement() {
         user.mobile_number.toLowerCase().includes(query) ||
         user.station_id.toLowerCase().includes(query) ||
         user.center_address.toLowerCase().includes(query) ||
+        (user.registrar && user.registrar.toLowerCase().includes(query)) ||
         user.role.toLowerCase().includes(query)
       );
     }
@@ -285,6 +291,11 @@ export default function EnhancedUserManagement() {
         const status = getUserStatus(user);
         return status.toLowerCase() === filters.status.toLowerCase();
       });
+    }
+
+    // Apply registrar filter
+    if (filters.registrar) {
+      filtered = filtered.filter(user => user.registrar === filters.registrar);
     }
 
     // Apply date range filter
@@ -304,6 +315,7 @@ export default function EnhancedUserManagement() {
     setFilters({
       role: '',
       status: '',
+      registrar: '',
       dateRange: { from: null, to: null }
     });
     setSearchQuery('');
@@ -338,6 +350,7 @@ export default function EnhancedUserManagement() {
       'Full Name': user.full_name,
       'Email': user.email,
       'Role': user.role,
+      'Registrar': user.registrar || 'N/A',
       'Mobile Number': user.mobile_number,
       'Station ID': user.station_id,
       'Center Address': user.center_address,
@@ -357,6 +370,7 @@ export default function EnhancedUserManagement() {
       { wch: 20 }, // Full Name
       { wch: 25 }, // Email
       { wch: 10 }, // Role
+      { wch: 15 }, // Registrar
       { wch: 15 }, // Mobile Number
       { wch: 12 }, // Station ID
       { wch: 30 }, // Center Address
@@ -504,6 +518,16 @@ export default function EnhancedUserManagement() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="registrar">Registrar</Label>
+                  <Input
+                    id="registrar"
+                    value={inviteForm.registrar}
+                    onChange={(e) => setInviteForm({ ...inviteForm, registrar: e.target.value })}
+                    placeholder="Registrar Name"
+                  />
+                </div>
+
                 <div className="flex gap-2 pt-4">
                   <Button
                     type="button"
@@ -552,9 +576,9 @@ export default function EnhancedUserManagement() {
                 <Button variant="outline" className="gap-2">
                   <Filter className="h-4 w-4" />
                   Filters
-                  {(filters.role || filters.status || filters.dateRange.from) && (
+                  {(filters.role || filters.status || filters.registrar || filters.dateRange.from) && (
                     <Badge variant="secondary" className="ml-1">
-                      {[filters.role, filters.status, filters.dateRange.from && 'date'].filter(Boolean).length}
+                      {[filters.role, filters.status, filters.registrar, filters.dateRange.from && 'date'].filter(Boolean).length}
                     </Badge>
                   )}
                 </Button>
@@ -562,7 +586,7 @@ export default function EnhancedUserManagement() {
               <PopoverContent className="w-80" align="start">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Role (Registrar)</Label>
+                    <Label>Role</Label>
                     <Select
                       value={filters.role}
                       onValueChange={(value) => 
@@ -577,6 +601,26 @@ export default function EnhancedUserManagement() {
                         <SelectItem value="admin">Admin</SelectItem>
                         <SelectItem value="manager">Manager</SelectItem>
                         <SelectItem value="user">User</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Registrar</Label>
+                    <Select
+                      value={filters.registrar}
+                      onValueChange={(value) => 
+                        setFilters(prev => ({ ...prev, registrar: value === 'all' ? '' : value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select registrar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Registrars</SelectItem>
+                        {Array.from(new Set(users.filter(u => u.registrar).map(u => u.registrar))).map(registrar => (
+                          <SelectItem key={registrar} value={registrar!}>{registrar}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -758,6 +802,7 @@ export default function EnhancedUserManagement() {
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Registrar</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Station</TableHead>
                     <TableHead>Created</TableHead>
@@ -780,6 +825,11 @@ export default function EnhancedUserManagement() {
                         <Badge variant="outline" className="capitalize">
                           {user.role}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
+                          {user.registrar || 'N/A'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(getUserStatus(user))}

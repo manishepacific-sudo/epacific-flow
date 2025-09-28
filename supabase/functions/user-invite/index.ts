@@ -13,6 +13,7 @@ interface InviteUserRequest {
   mobile_number?: string;
   station_id?: string;
   center_address?: string;
+  registrar?: string;
   admin_email?: string;
 }
 
@@ -23,7 +24,7 @@ serve(async (req: Request): Promise<Response> => {
 
   try {
     console.log("🚀 User-invite function started");
-    const { email, role, full_name, mobile_number, station_id, center_address, admin_email }: InviteUserRequest = await req.json();
+    const { email, role, full_name, mobile_number, station_id, center_address, registrar, admin_email }: InviteUserRequest = await req.json();
     console.log(`📧 Inviting user: ${email} with role: ${role} by admin: ${admin_email}`);
 
     if (!email || !role || !full_name) {
@@ -127,14 +128,15 @@ serve(async (req: Request): Promise<Response> => {
     // ✅ Send invitation
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       redirectTo: inviteUrl,
-      data: {
-        full_name,
-        role,
-        mobile_number: mobile_number || "",
-        station_id: station_id || "",
-        center_address: center_address || "",
-        invite_expires_at: expiresAt.toISOString()
-      }
+        data: {
+          full_name,
+          role,
+          mobile_number: mobile_number || "",
+          station_id: station_id || "",
+          center_address: center_address || "",
+          registrar: registrar || "",
+          invite_expires_at: expiresAt.toISOString()
+        }
     });
 
     if (inviteError) {
@@ -164,6 +166,7 @@ serve(async (req: Request): Promise<Response> => {
       mobile_number: mobile_number || "",
       station_id: station_id || "",
       center_address: center_address || "",
+      registrar: registrar || null,
       is_demo: false,
       password_set: false,
     }).eq('user_id', newUser.id);
