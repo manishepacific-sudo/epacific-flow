@@ -248,6 +248,8 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // ✅ Send custom invitation email
+    // TODO: Replace with your custom domain to avoid auth-bridge redirects
+    // const baseUrl = "https://yourdomain.com";
     const baseUrl = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com";
     const inviteUrl = `${baseUrl}/set-password?token=${inviteToken}`;
     
