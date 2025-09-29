@@ -22,6 +22,9 @@ export default function SetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // CRITICAL: Add alerts for debugging in incognito mode
+    alert("DEBUG: SetPasswordPage mounted. URL: " + window.location.href);
+    
     console.log("=== SetPasswordPage DEBUG START ===");
     console.log("🚀 SetPasswordPage component mounted");
     console.log("🔍 window.location.href:", window.location.href);
@@ -39,6 +42,9 @@ export default function SetPasswordPage() {
     console.log("🎫 Token from window.location.search:", tokenFromWindow || "MISSING");
     console.log("🎫 Token from useSearchParams:", tokenFromSearchParams || "MISSING");
     console.log("🎯 Expected token: 3c31cc3d-5423-4009-a953-41eb3c5435b7");
+    
+    // Alert for critical debugging
+    alert("DEBUG: Token from URL: " + (tokenFromWindow || "MISSING") + " | From searchParams: " + (tokenFromSearchParams || "MISSING"));
     
     // Use whichever method works
     const tokenFromUrl = tokenFromSearchParams || tokenFromWindow;
