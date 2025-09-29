@@ -431,14 +431,17 @@ export default function PaymentsManagementPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {payment.proof_url && (
+                            {payment.proof_url ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => viewProof(payment.proof_url)}
+                                title="View payment proof"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No proof uploaded</span>
                             )}
                             {payment.status === 'pending' && (
                               <>
