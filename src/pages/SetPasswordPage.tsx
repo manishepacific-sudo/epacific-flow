@@ -10,21 +10,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 
 export default function SetPasswordPage() {
-  useEffect(() => {
-  console.log("🚀 SetPasswordPage component mounted");
-  console.log("🔍 Current URL:", window.location.href);
-  console.log("🔍 Search params:", window.location.search);
-  
-  // Read token from URL query parameters - case-sensitive "token"
-  const tokenFromUrl = searchParams.get('token');
-  console.log("🎫 Token from URL:", tokenFromUrl ? `${tokenFromUrl.substring(0, 8)}...` : "MISSING");
-  
-  // ... rest of your token validation code ...
-}, [searchParams, toast]);
-
-  const tokenFromUrl = searchParams.get('token');
-console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
-
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
@@ -39,11 +24,12 @@ console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
     console.log("🚀 SetPasswordPage component mounted");
     console.log("🔍 Current URL:", window.location.href);
     console.log("🔍 Search params:", window.location.search);
-    
+
     // Read token from URL query parameters - case-sensitive "token"
     const tokenFromUrl = searchParams.get('token');
     console.log("🎫 Token from URL:", tokenFromUrl ? `${tokenFromUrl.substring(0, 8)}...` : "MISSING");
-    
+    console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
+
     if (!tokenFromUrl) {
       console.error("❌ No token found in URL parameters");
       toast({
@@ -52,7 +38,7 @@ console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
       });
       return;
     }
-    
+
     // Basic token format validation (UUID format)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(tokenFromUrl)) {
@@ -63,13 +49,12 @@ console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
       });
       return;
     }
-    
+
     console.log("✅ Token found and format validated, setting in state");
     setToken(tokenFromUrl);
   }, [searchParams, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    
     e.preventDefault();
 
     if (!token) {
@@ -102,7 +87,7 @@ console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
           password: formData.password,
         },
       });
-      
+
       console.log("📊 Edge function response:", { data, error });
 
       if (error) {
@@ -167,8 +152,8 @@ console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
                   placeholder="Enter new password"
                   required
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -195,8 +180,8 @@ console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
                   placeholder="Confirm new password"
                   required
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -208,8 +193,8 @@ console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
               )}
             </div>
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={loading || formData.password.length < 6 || formData.password !== formData.confirmPassword}
               className="w-full py-3 px-4 bg-gradient-primary text-primary-foreground rounded-xl font-medium shadow-glow hover:shadow-lg transition-all duration-300"
             >
