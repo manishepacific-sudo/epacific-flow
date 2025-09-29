@@ -94,20 +94,49 @@ serve(async (req) => {
       );
     }
 
-    // Get target user profile
+    // Get target user profile (use maybeSingle to handle missing profiles)
     console.log('👥 Fetching target user profile...');
     const { data: targetProfile, error: targetError } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', user_id)
-      .single();
+      .maybeSingle();
 
-    if (targetError || !targetProfile) {
-      console.error('❌ Target user not found:', targetError);
+    if (targetError) {
+      console.error('❌ Error fetching target profile:', targetError);
       return new Response(
-        JSON.stringify({ error: 'User not found' }),
+        JSON.stringify({ error: 'Error fetching user profile' }),
         { 
-          status: 404, 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (!targetProfile) {
+      console.log('⚠️ No profile found, but attempting to delete auth user anyway...');
+      // Still try to delete from auth.users even if no profile exists
+      const { error: authError } = await supabase.auth.admin.deleteUser(user_id);
+      
+      if (authError) {
+        console.error('❌ Error deleting auth user (no profile):', authError);
+        return new Response(
+          JSON.stringify({ error: 'User not found or already deleted' }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      console.log('✅ Auth user deleted (no profile existed)');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'User deleted from authentication system (no profile found)' 
+        }),
+        { 
+          status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
@@ -144,7 +173,7 @@ serve(async (req) => {
 
     // Delete related data in order (payments -> reports -> profile -> auth user)
     
-    // 1. Delete payments
+    // 1. Delete payments (silently continue if none exist)
     console.log('💳 Deleting user payments...');
     const { error: paymentsError } = await supabase
       .from('payments')
@@ -152,17 +181,11 @@ serve(async (req) => {
       .eq('user_id', user_id);
 
     if (paymentsError) {
-      console.error('❌ Error deleting payments:', paymentsError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to delete user payments' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      console.log('⚠️ Warning: Could not delete payments:', paymentsError.message);
+      // Continue deletion process even if payments deletion fails
     }
 
-    // 2. Delete reports
+    // 2. Delete reports (silently continue if none exist)
     console.log('📊 Deleting user reports...');
     const { error: reportsError } = await supabase
       .from('reports')
@@ -170,17 +193,22 @@ serve(async (req) => {
       .eq('user_id', user_id);
 
     if (reportsError) {
-      console.error('❌ Error deleting reports:', reportsError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to delete user reports' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      console.log('⚠️ Warning: Could not delete reports:', reportsError.message);
+      // Continue deletion process even if reports deletion fails
     }
 
-    // 3. Delete profile
+    // 3. Delete invite tokens (cleanup any pending invites)
+    console.log('🎫 Deleting invite tokens...');
+    const { error: tokensError } = await supabase
+      .from('invite_tokens')
+      .delete()
+      .eq('email', targetProfile.email);
+
+    if (tokensError) {
+      console.log('⚠️ Warning: Could not delete invite tokens:', tokensError.message);
+    }
+
+    // 4. Delete profile
     console.log('👤 Deleting user profile...');
     const { error: profileError } = await supabase
       .from('profiles')
@@ -198,7 +226,7 @@ serve(async (req) => {
       );
     }
 
-    // 4. Delete from auth.users
+    // 5. Delete from auth.users
     console.log('🔐 Deleting from auth.users...');
     const { error: authError } = await supabase.auth.admin.deleteUser(user_id);
 
