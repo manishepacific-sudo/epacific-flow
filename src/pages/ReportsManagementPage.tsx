@@ -80,14 +80,33 @@ export default function ReportsManagementPage() {
 
       let reportsData;
       if (edgeError) {
-        // Safe fallback - fetch reports only without profiles relationship
+        // Fallback to direct query with profiles relationship
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('reports')
-          .select('*')
+          .select(`
+            *,
+            profiles (
+              full_name,
+              email,
+              mobile_number,
+              center_address,
+              registrar
+            )
+          `)
           .order('created_at', { ascending: false });
 
-        if (fallbackError) throw fallbackError;
-        reportsData = fallbackData || [];
+        if (fallbackError) {
+          // If profiles relationship still fails, fetch reports only
+          const { data: reportsOnly, error: reportsError } = await supabase
+            .from('reports')
+            .select('*')
+            .order('created_at', { ascending: false });
+          
+          if (reportsError) throw reportsError;
+          reportsData = reportsOnly || [];
+        } else {
+          reportsData = fallbackData || [];
+        }
       } else {
         reportsData = edgeData?.reports || [];
       }
@@ -382,10 +401,10 @@ export default function ReportsManagementPage() {
                         <TableCell>
                           <div>
                             <p className="font-medium">
-                              {report.profiles?.full_name || `User ID: ${report.user_id.slice(0, 8)}...`}
+                              {report.profiles?.full_name || 'Unknown User'}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {report.profiles?.email || 'Profile not linked'}
+                              {report.profiles?.email || `User ID: ${report.user_id.slice(0, 8)}...`}
                             </p>
                             {report.profiles?.registrar && (
                               <p className="text-xs text-muted-foreground">Registrar: {report.profiles.registrar}</p>
