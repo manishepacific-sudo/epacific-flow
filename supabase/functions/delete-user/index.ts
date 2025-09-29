@@ -125,16 +125,19 @@ serve(async (req) => {
       );
     }
 
-    // Manager role restrictions
-    if (adminRole === 'manager' && targetProfile.role !== 'user') {
-      console.error('❌ Manager cannot delete admin/manager accounts');
-      return new Response(
-        JSON.stringify({ error: 'Managers can only delete regular user accounts' }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+    // Manager role restrictions - updated to match new permission model
+    if (adminRole === 'manager') {
+      // Managers can delete users and other managers, but not admins
+      if (targetProfile.role === 'admin') {
+        console.error('❌ Manager cannot delete admin accounts');
+        return new Response(
+          JSON.stringify({ error: 'Managers cannot delete admin accounts' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
     }
 
     console.log('🗄️ Starting cascade deletion...');
