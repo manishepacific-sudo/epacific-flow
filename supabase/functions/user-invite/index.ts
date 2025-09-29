@@ -125,18 +125,18 @@ serve(async (req: Request): Promise<Response> => {
     const inviteUrl = `${baseUrl}/handle-invite`;
     console.log(`🔗 Invite URL: ${inviteUrl}`);
 
-    // ✅ Send invitation
+    // ✅ Send invitation with explicit redirect URL to override any cached Supabase settings
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: inviteUrl,
-        data: {
-          full_name,
-          role,
-          mobile_number: mobile_number || "",
-          station_id: station_id || "",
-          center_address: center_address || "",
-          registrar: registrar || "",
-          invite_expires_at: expiresAt.toISOString()
-        }
+      redirectTo: `${baseUrl}/handle-invite`,
+      data: {
+        full_name,
+        role,
+        mobile_number: mobile_number || "",
+        station_id: station_id || "",
+        center_address: center_address || "",
+        registrar: registrar || "",
+        invite_expires_at: expiresAt.toISOString()
+      }
     });
 
     if (inviteError) {
