@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      invite_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token: string
+          used: boolean
+          user_data: Json
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token: string
+          used?: boolean
+          user_data: Json
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used?: boolean
+          user_data?: Json
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string

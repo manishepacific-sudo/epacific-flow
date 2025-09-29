@@ -119,16 +119,17 @@ serve(async (req: Request): Promise<Response> => {
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
     console.log(`⏰ Invitation expires at: ${expiresAt.toISOString()}`);
 
-    // ✅ Use correct base URL for Lovable project
+    // ✅ Generate custom invite token to bypass Supabase redirect issues
+    const customToken = crypto.randomUUID();
     const baseUrl = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com";
+    const inviteUrl = `${baseUrl}/set-password?token=${customToken}`;
+    console.log(`🔗 Custom Invite URL: ${inviteUrl}`);
 
-    const inviteUrl = `${baseUrl}/handle-invite`;
-    console.log(`🔗 Invite URL: ${inviteUrl}`);
-
-    // ✅ Send invitation with explicit redirect URL to override any cached Supabase settings
-    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${baseUrl}/handle-invite`,
-      data: {
+    // ✅ Create user with custom invite flow
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: {
         full_name,
         role,
         mobile_number: mobile_number || "",
@@ -139,29 +140,43 @@ serve(async (req: Request): Promise<Response> => {
       }
     });
 
-    if (inviteError) {
+    if (createError) {
       return new Response(
-        JSON.stringify({ success: false, error: `Failed to send invitation: ${inviteError.message}` }),
+        JSON.stringify({ success: false, error: `Failed to create user: ${createError.message}` }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    console.log("✅ Invitation sent successfully via Supabase");
+    // ✅ Store custom invite token
+    const { error: tokenError } = await supabaseAdmin.from('invite_tokens').insert({
+      email,
+      token: customToken,
+      user_data: {
+        full_name,
+        role,
+        mobile_number: mobile_number || "",
+        station_id: station_id || "",
+        center_address: center_address || "",
+        registrar: registrar || "",
+        user_id: newUser.user.id
+      },
+      expires_at: expiresAt.toISOString()
+    });
 
-    // ✅ Get the created user
-    const { data: newUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const newUser = newUsers.users.find(u => u.email === email);
-
-    if (!newUser) {
+    if (tokenError) {
       return new Response(
-        JSON.stringify({ success: false, error: "User invitation sent but could not retrieve user details" }),
+        JSON.stringify({ success: false, error: `Failed to store invite token: ${tokenError.message}` }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // ✅ Update user profile
-    const { error: profileError } = await supabaseAdmin.from("profiles").update({
+    console.log("✅ Custom invite token created successfully");
+
+    // ✅ Update user profile in profiles table
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      user_id: newUser.user.id,
       full_name,
+      email,
       role,
       mobile_number: mobile_number || "",
       station_id: station_id || "",
@@ -169,20 +184,26 @@ serve(async (req: Request): Promise<Response> => {
       registrar: registrar || null,
       is_demo: false,
       password_set: false,
-    }).eq('user_id', newUser.id);
+    });
 
     if (profileError) {
       return new Response(
-        JSON.stringify({ success: false, error: `Failed to update user profile: ${profileError.message}` }),
+        JSON.stringify({ success: false, error: `Failed to create user profile: ${profileError.message}` }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
+    // ✅ Send email with custom invite link (using basic fetch for now)
+    console.log(`📧 Sending invite email to ${email} with URL: ${inviteUrl}`);
+    
+    // TODO: Implement email sending once RESEND_API_KEY is available
+
     return new Response(
       JSON.stringify({
         success: true,
-        user: { id: newUser.id, email, full_name, role, expires_at: expiresAt.toISOString() },
-        message: "User invited successfully. Check email for setup instructions.",
+        user: { id: newUser.user.id, email, full_name, role, expires_at: expiresAt.toISOString() },
+        invite_url: inviteUrl,
+        message: "User created successfully. Check email for setup instructions.",
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );

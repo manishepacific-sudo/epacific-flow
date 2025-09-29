@@ -22,12 +22,46 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Check both hash and query params for invitation flows
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const queryParams = new URLSearchParams(window.location.search);
+      // Get custom token from URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const customToken = urlParams.get('token');
       
-      const urlEmail = hashParams.get('email') || queryParams.get('email');
-      const urlAccessToken = hashParams.get('access_token') || queryParams.get('access_token');
+      if (customToken) {
+        console.log('✅ Custom token found:', customToken);
+        // Verify custom token and get user data
+        const { data, error } = await supabase
+          .from('invite_tokens')
+          .select('*')
+          .eq('token', customToken)
+          .eq('used', false)
+          .single();
+          
+        if (error || !data) {
+          console.error('❌ Invalid or expired token:', error);
+          setError('Invalid or expired invitation link. Please request a new invitation.');
+          return;
+        }
+        
+        // Check if token has expired
+        const expiresAt = new Date(data.expires_at);
+        if (expiresAt < new Date()) {
+          console.error('❌ Token expired');
+          setError('This invitation link has expired. Please request a new invitation.');
+          return;
+        }
+        
+        setInviteData({
+          email: data.email,
+          token: customToken,
+          userData: data.user_data
+        });
+        return;
+      }
+      
+      // Check both hash and query params for invitation flows (legacy support)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const urlEmail = hashParams.get('email') || urlParams.get('email');
+      const urlAccessToken = hashParams.get('access_token') || urlParams.get('access_token');
       
       // Then check if user is authenticated
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -60,8 +94,8 @@ export default function SetPasswordPage() {
         return;
       }
       
-      if (!urlEmail) {
-        console.log('❌ No session and no email in URL');
+      if (!urlEmail && !customToken) {
+        console.log('❌ No session, token, or email in URL');
         setError('Invalid invitation link - please use the link from your email');
         return;
       }
@@ -91,7 +125,49 @@ export default function SetPasswordPage() {
     setLoading(true);
 
     try {
-      // If user has session, update password directly
+      // Handle custom token flow
+      if (inviteData.token) {
+        // Verify token is still valid
+        const { data: tokenData, error: tokenError } = await supabase
+          .from('invite_tokens')
+          .select('*')
+          .eq('token', inviteData.token)
+          .eq('used', false)
+          .single();
+          
+        if (tokenError || !tokenData) {
+          throw new Error('Invalid or expired invitation token');
+        }
+        
+        const userData = tokenData.user_data as any;
+        
+        // Update user password
+        const { error: authError } = await supabase.auth.admin.updateUserById(
+          userData.user_id,
+          { password: formData.password }
+        );
+        
+        if (authError) throw authError;
+        
+        // Mark token as used
+        await supabase.from('invite_tokens').update({ used: true }).eq('token', inviteData.token);
+        
+        // Update profile to mark password as set
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ password_set: true })
+          .eq('user_id', userData.user_id);
+          
+        if (profileError) {
+          console.warn('Failed to update profile password_set flag:', profileError);
+        }
+        
+        toast({ title: "Password set successfully! You can now login." });
+        navigate('/login', { replace: true });
+        return;
+      }
+      
+      // Handle existing session flow
       if (inviteData.userId) {
         const { error } = await supabase.auth.updateUser({
           password: formData.password
