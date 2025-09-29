@@ -19,6 +19,7 @@ export default function SetPasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     console.log("🚀 SetPasswordPage component mounted");
@@ -34,6 +35,7 @@ export default function SetPasswordPage() {
 
     if (!tokenFromUrl) {
       console.error("❌ No token found in URL parameters");
+      setError("Invalid invitation link – please use the link from your email");
       toast({
         title: "Invalid invitation link – please use the link from your email",
         variant: "destructive"
@@ -45,6 +47,7 @@ export default function SetPasswordPage() {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(tokenFromUrl)) {
       console.error("❌ Token format invalid:", tokenFromUrl);
+      setError("Invalid invitation link – invalid token format");
       toast({
         title: "Invalid invitation link – please use the link from your email",
         variant: "destructive"
@@ -125,6 +128,31 @@ export default function SetPasswordPage() {
       setLoading(false);
     }
   };
+
+  // Show error state if there's an issue with the token
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-background p-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
+          <GlassCard className="p-8" glass>
+            <h1 className="text-2xl font-bold mb-4 text-destructive">Invalid Invitation Link</h1>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <div className="space-y-4">
+              <p className="text-sm">Please check:</p>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li>• Make sure you're using the complete link from your email</li>
+                <li>• Check if the link has expired</li>
+                <li>• Contact your administrator for a new invitation</li>
+              </ul>
+              <Button onClick={() => window.location.reload()} className="w-full">
+                Try Again
+              </Button>
+            </div>
+          </GlassCard>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-background p-4">
