@@ -13,6 +13,8 @@ export default function HandleInvite() {
     const handleInviteLink = async () => {
       try {
         console.log('🔍 Current URL:', window.location.href);
+        console.log('🔍 Hash:', window.location.hash);
+        console.log('🔍 Search:', window.location.search);
         
         // Parse both hash and query params to handle different Supabase invite formats
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -20,6 +22,9 @@ export default function HandleInvite() {
         
         console.log('📊 Hash params:', Object.fromEntries(hashParams.entries()));
         console.log('📊 Query params:', Object.fromEntries(queryParams.entries()));
+        
+        // The invite link should redirect here, so we need to process it properly
+        // If this is being accessed directly from the Supabase redirect, it should work
         
         // Check for error first (when invite link expired or invalid)
         const error = hashParams.get('error') || queryParams.get('error');
