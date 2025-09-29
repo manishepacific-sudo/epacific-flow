@@ -13,6 +13,7 @@ import { withRoleGuard } from "@/components/withRoleGuard";
 import Login from "./pages/Login";
 import HandleInvite from "./pages/HandleInvite";
 import SetPasswordPage from "./pages/SetPasswordPage";
+import TokenTest from "./pages/TokenTest";
 import ResetPassword from "./pages/ResetPassword";
 
 // Lazy load dashboard and secondary pages to reduce initial bundle size
@@ -57,6 +58,7 @@ const App = () => (
               {/* Public routes - no authentication required */}
               <Route path="/login" element={<Login />} />
               <Route path="/set-password" element={<SetPasswordPage />} />
+              <Route path="/token-test" element={<TokenTest />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/handle-invite" element={<HandleInvite />} />
               <Route path="/auth-bridge" element={<HandleInvite />} />
