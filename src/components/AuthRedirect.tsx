@@ -7,7 +7,18 @@ export function AuthRedirect() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("🎯 AuthRedirect: checking auth state");
+    console.log("🎯 Current path:", window.location.pathname);
+    console.log("🎯 Loading:", loading, "User:", !!user, "Profile:", !!profile);
+    
     if (!loading) {
+      // Skip redirect if on public routes
+      const publicRoutes = ['/set-password', '/login', '/reset-password', '/handle-invite'];
+      if (publicRoutes.includes(window.location.pathname)) {
+        console.log("🎯 On public route, skipping redirect");
+        return;
+      }
+      
       if (user && profile) {
         // Check if user needs to set password first
         if (!profile.password_set) {
