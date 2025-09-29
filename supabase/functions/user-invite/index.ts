@@ -208,6 +208,7 @@ serve(async (req: Request): Promise<Response> => {
       JSON.stringify({
         success: true,
         user: { id: newUser.user.id, email, full_name, role, expires_at: expiresAt.toISOString() },
+        invite_link: inviteUrl,
         message: "User invited successfully. Check email for setup instructions.",
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
