@@ -40,32 +40,48 @@ const GuardedUserProfile = withRoleGuard(UserProfilePage, 'admin');
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          }>
-            <Routes>
-              {/* Public routes - no authentication required */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/set-password" element={<SetPasswordPage />} />
-              <Route path="/test-token" element={
-                <div style={{ padding: '20px', fontFamily: 'monospace' }}>
-                  <h1>Direct Token Test</h1>
-                  <p>URL: {window.location.href}</p>
-                  <p>Token: {new URLSearchParams(window.location.search).get('token') || 'MISSING'}</p>
-                </div>
-              } />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/handle-invite" element={<HandleInvite />} />
-              <Route path="/auth-bridge" element={<HandleInvite />} />
+const App = () => {
+  // CRITICAL: Add debugging to see what URLs reach the App component
+  console.log("🌍 App.tsx: Current URL:", window.location.href);
+  console.log("🌍 App.tsx: Pathname:", window.location.pathname);
+  console.log("🌍 App.tsx: Search:", window.location.search);
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Suspense fallback={
+              <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            }>
+              <Routes>
+                {/* Public routes - no authentication required */}
+                <Route path="/login" element={<Login />} />
+                <Route 
+                  path="/set-password" 
+                  element={
+                    <div>
+                      <div style={{position: 'fixed', top: 0, left: 0, zIndex: 9999, background: 'red', color: 'white', padding: '10px'}}>
+                        DEBUG: /set-password route reached! URL: {window.location.href}
+                      </div>
+                      <SetPasswordPage />
+                    </div>
+                  } 
+                />
+                <Route path="/test-token" element={
+                  <div style={{ padding: '20px', fontFamily: 'monospace' }}>
+                    <h1>Direct Token Test</h1>
+                    <p>URL: {window.location.href}</p>
+                    <p>Token: {new URLSearchParams(window.location.search).get('token') || 'MISSING'}</p>
+                  </div>
+                } />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/handle-invite" element={<HandleInvite />} />
+                <Route path="/auth-bridge" element={<HandleInvite />} />
               
               {/* Protected routes - require authentication */}
               <Route path="/dashboard/*" element={
@@ -148,6 +164,7 @@ const App = () => (
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
