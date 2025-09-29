@@ -69,37 +69,7 @@ console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
   }, [searchParams, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-
-  if (!token) {
-    toast({
-      title: "Invalid invitation link – please use the link from your email",
-      variant: "destructive"
-    });
-    return;
-  }
-
-  // ... other validations ...
-
-  setLoading(true);
-  console.log("🔄 Starting password set process...");
-  console.log("🎫 Using token:", token ? `${token.substring(0, 8)}...` : "MISSING");
-
-  try {
-    console.log("📡 Calling set-password-with-token edge function...");
-    const { data, error } = await supabase.functions.invoke('set-password-with-token', {
-      body: {
-        token,
-        password: formData.password,
-      },
-    });
-
-    console.log("📊 Edge function response:", { data, error });
-
-    // ... rest of your code ...
-  }
-
+    
     e.preventDefault();
 
     if (!token) {
