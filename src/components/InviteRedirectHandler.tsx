@@ -6,16 +6,26 @@ export function InviteRedirectHandler() {
   const location = useLocation();
 
   useEffect(() => {
+    console.log('🔍 InviteRedirectHandler: Current path:', location.pathname);
+    console.log('🔍 InviteRedirectHandler: Current search:', window.location.search);
+    
+    // CRITICAL: Don't interfere with set-password page at all
+    if (location.pathname === '/set-password') {
+      console.log('🎫 On set-password page, InviteRedirectHandler doing nothing');
+      return;
+    }
+    
     // Handle direct access to root with invite params
     const urlParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
     // Check if this is a token-based invite (new system)
     const hasCustomToken = urlParams.has('token');
+    console.log('🔍 InviteRedirectHandler: Has custom token?', hasCustomToken);
     
-    // Skip redirect if user is already on set-password page or it's a token-based invite
-    if (location.pathname === '/set-password' || hasCustomToken) {
-      console.log('🎫 Token-based invite or already on set-password page, skipping redirect');
+    // Skip redirect if it's a token-based invite
+    if (hasCustomToken) {
+      console.log('🎫 Token-based invite detected, skipping redirect');
       return;
     }
     

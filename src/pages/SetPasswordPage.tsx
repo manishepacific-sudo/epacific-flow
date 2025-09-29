@@ -10,6 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 
 export default function SetPasswordPage() {
+  // CRITICAL: Add immediate alert to see if component loads
+  alert("CRITICAL DEBUG: SetPasswordPage component is loading!");
+  
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
