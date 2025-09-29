@@ -115,54 +115,26 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
-    // ✅ Generate invitation token with 2-hour expiry
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
-    console.log(`⏰ Invitation expires at: ${expiresAt.toISOString()}`);
+    // ✅ Create user manually (bypassing Supabase invite system)
+    const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: Math.random().toString(36).slice(-8), // Temporary password
+      email_confirm: true // Auto-confirm email
+    });
 
-    // ✅ Use correct base URL for Lovable project
-    const baseUrl = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com";
-    const inviteUrl = `${baseUrl}/handle-invite`;
-    console.log(`🔗 Invite URL: ${inviteUrl}`);
-
-    // ✅ Send invitation - the key is the options object structure
-    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      email, 
-      {
-        redirectTo: inviteUrl,
-        data: {
-          full_name,
-          role,
-          mobile_number: mobile_number || "",
-          station_id: station_id || "",
-          center_address: center_address || "",
-          registrar: registrar || "",
-          invite_expires_at: expiresAt.toISOString()
-        }
-      }
-    );
-
-    if (inviteError) {
+    if (createUserError) {
       return new Response(
-        JSON.stringify({ success: false, error: `Failed to send invitation: ${inviteError.message}` }),
+        JSON.stringify({ success: false, error: `Failed to create user: ${createUserError.message}` }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    console.log("✅ Invitation sent successfully via Supabase");
+    console.log("✅ User created successfully:", newUser.user.id);
 
-    // ✅ Get the created user
-    const { data: newUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const newUser = newUsers.users.find(u => u.email === email);
-
-    if (!newUser) {
-      return new Response(
-        JSON.stringify({ success: false, error: "User invitation sent but could not retrieve user details" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    // ✅ Update user profile
-    const { error: profileError } = await supabaseAdmin.from("profiles").update({
+    // ✅ Create user profile
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      user_id: newUser.user.id,
+      email,
       full_name,
       role,
       mobile_number: mobile_number || "",
@@ -171,19 +143,71 @@ serve(async (req: Request): Promise<Response> => {
       registrar: registrar || null,
       is_demo: false,
       password_set: false,
-    }).eq('user_id', newUser.id);
+    });
 
     if (profileError) {
+      // Clean up user if profile creation fails
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       return new Response(
-        JSON.stringify({ success: false, error: `Failed to update user profile: ${profileError.message}` }),
+        JSON.stringify({ success: false, error: `Failed to create user profile: ${profileError.message}` }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
+    }
+
+    // ✅ Generate secure invitation token
+    const inviteToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    console.log(`⏰ Invitation expires at: ${expiresAt.toISOString()}`);
+
+    // ✅ Store token in invite_tokens table
+    const { error: tokenError } = await supabaseAdmin.from("invite_tokens").insert({
+      email,
+      token: inviteToken,
+      expires_at: expiresAt.toISOString(),
+      user_data: {
+        user_id: newUser.user.id,
+        full_name,
+        role,
+        mobile_number: mobile_number || "",
+        station_id: station_id || "",
+        center_address: center_address || "",
+        registrar: registrar || ""
+      }
+    });
+
+    if (tokenError) {
+      // Clean up user if token creation fails
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      return new Response(
+        JSON.stringify({ success: false, error: `Failed to create invitation token: ${tokenError.message}` }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // ✅ Send custom invitation email
+    const baseUrl = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com";
+    const inviteUrl = `${baseUrl}/set-password?token=${inviteToken}`;
+    
+    const { error: emailError } = await supabaseAdmin.functions.invoke('send-invite-email', {
+      body: {
+        email,
+        full_name,
+        inviteUrl,
+        expiresAt: expiresAt.toISOString()
+      }
+    });
+
+    if (emailError) {
+      console.error("Failed to send invitation email:", emailError);
+      // Don't fail the entire operation if email fails
+    } else {
+      console.log("✅ Invitation email sent successfully");
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        user: { id: newUser.id, email, full_name, role, expires_at: expiresAt.toISOString() },
+        user: { id: newUser.user.id, email, full_name, role, expires_at: expiresAt.toISOString() },
         message: "User invited successfully. Check email for setup instructions.",
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }

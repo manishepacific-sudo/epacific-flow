@@ -127,41 +127,22 @@ export default function SetPasswordPage() {
     try {
       // Handle custom token flow
       if (inviteData.token) {
-        // Verify token is still valid
-        const { data: tokenData, error: tokenError } = await supabase
-          .from('invite_tokens')
-          .select('*')
-          .eq('token', inviteData.token)
-          .eq('used', false)
-          .single();
-          
-        if (tokenError || !tokenData) {
-          throw new Error('Invalid or expired invitation token');
+        // Use edge function to handle password setting with proper permissions
+        const { data, error } = await supabase.functions.invoke('set-password-with-token', {
+          body: {
+            token: inviteData.token,
+            password: formData.password
+          }
+        });
+
+        if (error) {
+          throw new Error(error.message || 'Failed to set password');
         }
-        
-        const userData = tokenData.user_data as any;
-        
-        // Update user password
-        const { error: authError } = await supabase.auth.admin.updateUserById(
-          userData.user_id,
-          { password: formData.password }
-        );
-        
-        if (authError) throw authError;
-        
-        // Mark token as used
-        await supabase.from('invite_tokens').update({ used: true }).eq('token', inviteData.token);
-        
-        // Update profile to mark password as set
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ password_set: true })
-          .eq('user_id', userData.user_id);
-          
-        if (profileError) {
-          console.warn('Failed to update profile password_set flag:', profileError);
+
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to set password');
         }
-        
+
         toast({ title: "Password set successfully! You can now login." });
         navigate('/login', { replace: true });
         return;
