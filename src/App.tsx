@@ -12,7 +12,6 @@ import { AuthRedirect } from "@/components/AuthRedirect";
 import { withRoleGuard } from "@/components/withRoleGuard";
 import Login from "./pages/Login";
 import HandleInvite from "./pages/HandleInvite";
-import SetPassword from "./pages/SetPassword";
 import SetPasswordPage from "./pages/SetPasswordPage";
 import ResetPassword from "./pages/ResetPassword";
 
