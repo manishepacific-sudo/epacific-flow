@@ -166,16 +166,34 @@ export default function PaymentsManagementPage() {
 
   const viewProof = async (proofPath: string) => {
     try {
+      // First check if the file exists
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from('payment-proofs')
+        .list(proofPath.substring(0, proofPath.lastIndexOf('/')), {
+          search: proofPath.substring(proofPath.lastIndexOf('/') + 1)
+        });
+
+      if (fileError || !fileData || fileData.length === 0) {
+        toast({
+          title: "File not found",
+          description: "The payment proof file no longer exists in storage",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create signed URL if file exists
       const { data, error } = await supabase.storage
         .from('payment-proofs')
-        .createSignedUrl(proofPath, 60);
+        .createSignedUrl(proofPath, 300); // 5 minutes
 
       if (error) throw error;
       window.open(data.signedUrl, '_blank');
     } catch (error: any) {
+      console.error('View proof error:', error);
       toast({
         title: "View failed",
-        description: "Failed to view proof",
+        description: "Unable to view the payment proof. The file may have been deleted or moved.",
         variant: "destructive"
       });
     }
