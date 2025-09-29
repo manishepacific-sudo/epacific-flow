@@ -10,6 +10,18 @@ import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 
 export default function SetPasswordPage() {
+  useEffect(() => {
+  console.log("🚀 SetPasswordPage component mounted");
+  console.log("🔍 Current URL:", window.location.href);
+  console.log("🔍 Search params:", window.location.search);
+  
+  // Read token from URL query parameters - case-sensitive "token"
+  const tokenFromUrl = searchParams.get('token');
+  console.log("🎫 Token from URL:", tokenFromUrl ? `${tokenFromUrl.substring(0, 8)}...` : "MISSING");
+  
+  // ... rest of your token validation code ...
+}, [searchParams, toast]);
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
