@@ -28,6 +28,7 @@ export default function SetPasswordPage() {
       
       if (customToken) {
         console.log('✅ Custom token found:', customToken);
+        console.log('🔍 Starting token validation...');
         // Validate token immediately using the edge function
         try {
           const { data, error } = await supabase.functions.invoke('set-password-with-token', {
@@ -37,12 +38,15 @@ export default function SetPasswordPage() {
             }
           });
 
-          if (error || !data.success) {
+          console.log('📡 Token validation response:', { data, error });
+
+          if (error || !data?.success) {
             console.error('❌ Token validation failed:', error || data);
             setError('Invalid or expired invitation link. Please request a new invitation.');
             return;
           }
 
+          console.log('✅ Token validation successful:', data);
           // Store token and set invite data with user info
           setInviteData({
             token: customToken,
