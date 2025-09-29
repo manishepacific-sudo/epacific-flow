@@ -21,9 +21,11 @@ export default function SetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('🚀 SetPasswordPage component mounted');
+    console.log('🚀 SetPasswordPage component mounted - NEW VERSION');
     console.log('🔍 Current URL:', window.location.href);
     console.log('🔍 URL search params:', window.location.search);
+    console.log('🔍 URL pathname:', window.location.pathname);
+    console.log('🔍 URL hash:', window.location.hash);
     
     const checkAuth = async () => {
       // Get custom token from URL params
@@ -31,6 +33,7 @@ export default function SetPasswordPage() {
       const customToken = urlParams.get('token');
       
       console.log('🎫 Token from URL params:', customToken);
+      console.log('🎫 All URL params:', Object.fromEntries(urlParams.entries()));
       
       if (customToken) {
         console.log('✅ Custom token found:', customToken);
