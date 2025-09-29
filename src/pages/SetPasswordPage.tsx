@@ -28,32 +28,10 @@ export default function SetPasswordPage() {
       
       if (customToken) {
         console.log('✅ Custom token found:', customToken);
-        // Verify custom token and get user data
-        const { data, error } = await supabase
-          .from('invite_tokens')
-          .select('*')
-          .eq('token', customToken)
-          .eq('used', false)
-          .single();
-          
-        if (error || !data) {
-          console.error('❌ Invalid or expired token:', error);
-          setError('Invalid or expired invitation link. Please request a new invitation.');
-          return;
-        }
-        
-        // Check if token has expired
-        const expiresAt = new Date(data.expires_at);
-        if (expiresAt < new Date()) {
-          console.error('❌ Token expired');
-          setError('This invitation link has expired. Please request a new invitation.');
-          return;
-        }
-        
+        // Store token and set invite data - we'll validate it when submitting
         setInviteData({
-          email: data.email,
           token: customToken,
-          userData: data.user_data
+          email: 'Loading...' // Will be populated after validation
         });
         return;
       }
@@ -136,10 +114,20 @@ export default function SetPasswordPage() {
         });
 
         if (error) {
+          // Handle different error types
+          if (error.message?.includes('Invalid or expired')) {
+            setError('Invalid or expired invitation link. Please request a new invitation.');
+            return;
+          }
           throw new Error(error.message || 'Failed to set password');
         }
 
         if (!data.success) {
+          // Handle different error types from the function response
+          if (data.error?.includes('Invalid or expired')) {
+            setError('Invalid or expired invitation link. Please request a new invitation.');
+            return;
+          }
           throw new Error(data.error || 'Failed to set password');
         }
 
@@ -202,7 +190,7 @@ export default function SetPasswordPage() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <GlassCard className="p-8" glass>
           <h1 className="text-2xl font-bold mb-4">Set Your Password</h1>
-          <p className="text-muted-foreground mb-6">{inviteData?.email}</p>
+          <p className="text-muted-foreground mb-6">{inviteData?.email || 'Setting up your account...'}</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
