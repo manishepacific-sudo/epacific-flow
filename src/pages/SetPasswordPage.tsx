@@ -10,8 +10,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 
 export default function SetPasswordPage() {
-  console.log("🎯 SetPasswordPage component rendering - ENTRY POINT");
-  
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
@@ -23,19 +21,16 @@ export default function SetPasswordPage() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("🚀 SetPasswordPage component mounted - DEBUG VERSION");
+    console.log("🚀 SetPasswordPage component mounted");
     console.log("🔍 Current URL:", window.location.href);
     console.log("🔍 Search params:", window.location.search);
-    console.log("🔍 All search params:", Object.fromEntries(searchParams.entries()));
     
     // Read token from URL query parameters - case-sensitive "token"
     const tokenFromUrl = searchParams.get('token');
     console.log("🎫 Token from URL:", tokenFromUrl ? `${tokenFromUrl.substring(0, 8)}...` : "MISSING");
-    console.log("🎫 Full token:", tokenFromUrl);
     
     if (!tokenFromUrl) {
       console.error("❌ No token found in URL parameters");
-      console.log("❌ Available params:", Array.from(searchParams.keys()));
       toast({
         title: "Invalid invitation link – please use the link from your email",
         variant: "destructive"
