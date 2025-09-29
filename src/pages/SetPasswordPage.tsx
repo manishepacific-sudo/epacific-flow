@@ -21,10 +21,16 @@ export default function SetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('🚀 SetPasswordPage component mounted');
+    console.log('🔍 Current URL:', window.location.href);
+    console.log('🔍 URL search params:', window.location.search);
+    
     const checkAuth = async () => {
       // Get custom token from URL params
       const urlParams = new URLSearchParams(window.location.search);
       const customToken = urlParams.get('token');
+      
+      console.log('🎫 Token from URL params:', customToken);
       
       if (customToken) {
         console.log('✅ Custom token found:', customToken);
