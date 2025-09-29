@@ -125,7 +125,7 @@ serve(async (req) => {
       );
     }
 
-    // Manager role restrictions - updated to match new permission model
+    // Manager role restrictions - managers can delete users and other managers, but not admins
     if (adminRole === 'manager') {
       // Managers can delete users and other managers, but not admins
       if (targetProfile.role === 'admin') {
