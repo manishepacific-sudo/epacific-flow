@@ -56,7 +56,13 @@ const App = () => (
               {/* Public routes - no authentication required */}
               <Route path="/login" element={<Login />} />
               <Route path="/set-password" element={<SetPasswordPage />} />
-              <Route path="/token-test" element={<TokenTest />} />
+              <Route path="/test-token" element={
+                <div style={{ padding: '20px', fontFamily: 'monospace' }}>
+                  <h1>Direct Token Test</h1>
+                  <p>URL: {window.location.href}</p>
+                  <p>Token: {new URLSearchParams(window.location.search).get('token') || 'MISSING'}</p>
+                </div>
+              } />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/handle-invite" element={<HandleInvite />} />
               <Route path="/auth-bridge" element={<HandleInvite />} />
