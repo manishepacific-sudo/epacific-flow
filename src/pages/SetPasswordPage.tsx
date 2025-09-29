@@ -22,10 +22,12 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Always check URL params first (for invitation flows)
+      // Check both hash and query params for invitation flows
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const urlEmail = hashParams.get('email');
-      const urlAccessToken = hashParams.get('access_token');
+      const queryParams = new URLSearchParams(window.location.search);
+      
+      const urlEmail = hashParams.get('email') || queryParams.get('email');
+      const urlAccessToken = hashParams.get('access_token') || queryParams.get('access_token');
       
       // Then check if user is authenticated
       const { data: { session }, error } = await supabase.auth.getSession();
