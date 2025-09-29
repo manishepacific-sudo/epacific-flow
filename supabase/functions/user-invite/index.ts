@@ -132,13 +132,23 @@ serve(async (req: Request): Promise<Response> => {
     await supabaseAdmin.from("invite_tokens").delete().eq("email", email);
 
     // ✅ Create user manually (bypassing Supabase invite system)
+    console.log("🔧 Creating new auth user...");
     const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: Math.random().toString(36).slice(-8), // Temporary password
-      email_confirm: true // Auto-confirm email
+      email_confirm: true, // Auto-confirm email
+      user_metadata: {
+        full_name,
+        role,
+        mobile_number: mobile_number || "",
+        station_id: station_id || "",
+        center_address: center_address || "",
+        registrar: registrar || ""
+      }
     });
 
     if (createUserError) {
+      console.error("❌ Failed to create user:", createUserError);
       return new Response(
         JSON.stringify({ success: false, error: `Failed to create user: ${createUserError.message}` }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -147,27 +157,64 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log("✅ User created successfully:", newUser.user.id);
 
-    // ✅ Create user profile
-    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
-      user_id: newUser.user.id,
-      email,
-      full_name,
-      role,
-      mobile_number: mobile_number || "",
-      station_id: station_id || "",
-      center_address: center_address || "",
-      registrar: registrar || null,
-      is_demo: false,
-      password_set: false,
-    });
+    // ✅ Wait a moment then check if profile was auto-created by trigger
+    console.log("🔍 Checking if profile was auto-created...");
+    const { data: autoProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("*")
+      .eq("user_id", newUser.user.id)
+      .maybeSingle();
 
-    if (profileError) {
-      // Clean up user if profile creation fails
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-      return new Response(
-        JSON.stringify({ success: false, error: `Failed to create user profile: ${profileError.message}` }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+    if (autoProfile) {
+      console.log("✅ Profile auto-created by trigger, updating it...");
+      // Update the existing profile instead of creating a new one
+      const { error: updateError } = await supabaseAdmin
+        .from("profiles")
+        .update({
+          email,
+          full_name,
+          role,
+          mobile_number: mobile_number || "",
+          station_id: station_id || "",
+          center_address: center_address || "",
+          registrar: registrar || null,
+          is_demo: false,
+          password_set: false,
+        })
+        .eq("user_id", newUser.user.id);
+
+      if (updateError) {
+        console.error("❌ Failed to update profile:", updateError);
+        await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+        return new Response(
+          JSON.stringify({ success: false, error: `Failed to update user profile: ${updateError.message}` }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+    } else {
+      console.log("🔧 No auto-profile found, creating manually...");
+      // Create user profile manually
+      const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+        user_id: newUser.user.id,
+        email,
+        full_name,
+        role,
+        mobile_number: mobile_number || "",
+        station_id: station_id || "",
+        center_address: center_address || "",
+        registrar: registrar || null,
+        is_demo: false,
+        password_set: false,
+      });
+
+      if (profileError) {
+        console.error("❌ Failed to create profile:", profileError);
+        await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+        return new Response(
+          JSON.stringify({ success: false, error: `Failed to create user profile: ${profileError.message}` }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
     }
 
     // ✅ Generate secure invitation token
