@@ -49,47 +49,54 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AuthProvider>
-            <InviteRedirectHandler />
-            <Suspense fallback={
-              <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            }>
-              <Routes>
-                <Route path="/" element={<AuthRedirect />} />
-                <Route path="/auth-bridge" element={<HandleInvite />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/handle-invite" element={<HandleInvite />} />
-                <Route path="/set-password" element={<SetPasswordPage />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/dashboard/user" element={<GuardedUserDashboard />} />
-                <Route path="/dashboard/admin" element={<GuardedAdminDashboard />} />
-                <Route path="/dashboard/manager" element={<GuardedManagerDashboard />} />
-                <Route path="/user-management" element={<GuardedUserManagement />} />
-                <Route path="/reports-management" element={<GuardedReportsManagement />} />
-                <Route path="/payments-management" element={<GuardedPaymentsManagement />} />
-                <Route path="/upload/report" element={<GuardedReportUpload />} />
-                <Route path="/payment/:id" element={
-                  <ProtectedRoute>
-                    <EnhancedPaymentPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/payments" element={
-                  <ProtectedRoute>
-                    <PaymentsPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/attendance" element={
-                  <ProtectedRoute>
-                    <AttendancePage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </AuthProvider>
+          <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          }>
+            <Routes>
+              {/* Public routes - no authentication required */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/set-password" element={<SetPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/handle-invite" element={<HandleInvite />} />
+              <Route path="/auth-bridge" element={<HandleInvite />} />
+              
+              {/* Protected routes - require authentication */}
+              <Route path="/*" element={
+                <AuthProvider>
+                  <InviteRedirectHandler />
+                  <Routes>
+                    <Route path="/" element={<AuthRedirect />} />
+                    <Route path="/dashboard/user" element={<GuardedUserDashboard />} />
+                    <Route path="/dashboard/admin" element={<GuardedAdminDashboard />} />
+                    <Route path="/dashboard/manager" element={<GuardedManagerDashboard />} />
+                    <Route path="/user-management" element={<GuardedUserManagement />} />
+                    <Route path="/reports-management" element={<GuardedReportsManagement />} />
+                    <Route path="/payments-management" element={<GuardedPaymentsManagement />} />
+                    <Route path="/upload/report" element={<GuardedReportUpload />} />
+                    <Route path="/payment/:id" element={
+                      <ProtectedRoute>
+                        <EnhancedPaymentPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/payments" element={
+                      <ProtectedRoute>
+                        <PaymentsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/attendance" element={
+                      <ProtectedRoute>
+                        <AttendancePage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </AuthProvider>
+              } />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
