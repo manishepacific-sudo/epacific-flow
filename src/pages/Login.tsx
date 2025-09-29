@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { GlassCard } from '@/components/ui/glass-card';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import logo from '@/assets/epacific-logo.png'
@@ -17,6 +17,36 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  
+  // Add debugging for token test
+  const debugToken = searchParams.get('debug-token');
+  if (debugToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-background p-4">
+        <GlassCard className="p-8">
+          <h1 className="text-2xl font-bold mb-4">Token Debug Test</h1>
+          <div className="space-y-2 text-sm">
+            <p><strong>URL:</strong> {window.location.href}</p>
+            <p><strong>Debug Token:</strong> {debugToken}</p>
+            <p><strong>Search:</strong> {window.location.search}</p>
+            <p><strong>All Params:</strong></p>
+            <pre className="bg-muted p-2 rounded text-xs overflow-auto">
+              {JSON.stringify(Object.fromEntries(searchParams.entries()), null, 2)}
+            </pre>
+            <p><strong>Expected:</strong> 3c31cc3d-5423-4009-a953-41eb3c5435b7</p>
+            <p><strong>Match:</strong> {debugToken === '3c31cc3d-5423-4009-a953-41eb3c5435b7' ? '✅ YES' : '❌ NO'}</p>
+          </div>
+          <button 
+            onClick={() => navigate('/login')} 
+            className="mt-4 px-4 py-2 bg-primary text-white rounded"
+          >
+            Back to Login
+          </button>
+        </GlassCard>
+      </div>
+    );
+  }
 
   // Display success message from password setup
   useEffect(() => {
