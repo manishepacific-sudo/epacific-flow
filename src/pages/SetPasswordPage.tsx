@@ -22,6 +22,9 @@ export default function SetPasswordPage() {
   // ... rest of your token validation code ...
 }, [searchParams, toast]);
 
+  const tokenFromUrl = searchParams.get('token');
+console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
