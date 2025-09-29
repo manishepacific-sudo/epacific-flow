@@ -56,7 +56,7 @@ export default function Layout({ children, role }: LayoutProps) {
     ],
   };
 
-  const currentMenuItems = menuItems[role];
+  const currentMenuItems = menuItems[role] || [];
 
   const isActive = (path: string) => {
     const currentPath = location.pathname + location.search;
