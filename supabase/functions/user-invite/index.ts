@@ -264,7 +264,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // ✅ Send custom invitation email
-    const baseUrl = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com";
+    const baseUrl = "https://epacific.lovable.app";
     const inviteUrl = `${baseUrl}/set-password?token=${inviteToken}`;
     
     const { error: emailError } = await supabaseAdmin.functions.invoke('send-invite-email', {
