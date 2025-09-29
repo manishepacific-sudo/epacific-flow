@@ -1,23 +1,16 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { 
-  FileText,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Eye,
-  Download,
-  RefreshCw
-} from "lucide-react";
+import { FileText, CheckCircle2, XCircle, Clock, Eye, Download } from "lucide-react";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import SearchFilterExport, { FilterConfig } from "@/components/shared/SearchFilterExport";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import * as XLSX from 'xlsx';
 
 interface Report {
   id: string;
@@ -34,6 +27,9 @@ interface Report {
   profiles?: {
     full_name: string;
     email: string;
+    mobile_number: string;
+    center_address: string;
+    registrar: string;
   } | null;
 }
 
@@ -45,6 +41,29 @@ export default function ReportsManagementPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingReports, setProcessingReports] = useState<Set<string>>(new Set());
+  const [searchValue, setSearchValue] = useState('');
+  const [filters, setFilters] = useState({
+    role: 'all',
+    registrar: 'all',
+    status: 'all',
+    approval: 'all',
+    dateRange: { from: null as Date | null, to: null as Date | null }
+  });
+
+  const filterConfig: FilterConfig = {
+    statuses: ['pending', 'approved', 'rejected'],
+    additionalFilters: [
+      {
+        key: 'approval',
+        label: 'Approval Status',
+        options: [
+          { value: 'pending', label: 'Pending' },
+          { value: 'approved', label: 'Approved' },
+          { value: 'rejected', label: 'Rejected' }
+        ]
+      }
+    ]
+  };
 
   useEffect(() => {
     fetchReports();
@@ -66,7 +85,13 @@ export default function ReportsManagementPage() {
           .from('reports')
           .select(`
             *,
-            profiles(full_name, email)
+            profiles (
+              full_name,
+              email,
+              mobile_number,
+              center_address,
+              registrar
+            )
           `)
           .order('created_at', { ascending: false });
 
@@ -159,6 +184,107 @@ export default function ReportsManagementPage() {
     }
   };
 
+  const filteredReports = reports.filter(report => {
+    // Search filter
+    if (searchValue) {
+      const searchLower = searchValue.toLowerCase();
+      const matchesSearch = (
+        report.title?.toLowerCase().includes(searchLower) ||
+        report.description?.toLowerCase().includes(searchLower) ||
+        report.profiles?.full_name?.toLowerCase().includes(searchLower) ||
+        report.profiles?.email?.toLowerCase().includes(searchLower) ||
+        report.profiles?.mobile_number?.includes(searchValue) ||
+        report.profiles?.center_address?.toLowerCase().includes(searchLower) ||
+        report.profiles?.registrar?.toLowerCase().includes(searchLower)
+      );
+      if (!matchesSearch) return false;
+    }
+
+    // Status filter
+    if (filters.status !== 'all' && report.status !== filters.status) return false;
+    if (filters.approval !== 'all' && report.status !== filters.approval) return false;
+
+    // Registrar filter
+    if (filters.registrar !== 'all' && report.profiles?.registrar !== filters.registrar) return false;
+
+    // Date range filter
+    if (filters.dateRange.from) {
+      const reportDate = new Date(report.created_at);
+      if (reportDate < filters.dateRange.from) return false;
+      if (filters.dateRange.to && reportDate > filters.dateRange.to) return false;
+    }
+
+    return true;
+  });
+
+  const exportToExcel = (type: 'all' | 'filtered' | 'active' | 'inactive' | 'date-range') => {
+    let dataToExport: Report[] = [];
+    let filename = 'reports-export';
+
+    switch (type) {
+      case 'all':
+        dataToExport = reports;
+        filename = 'all-reports';
+        break;
+      case 'filtered':
+        dataToExport = filteredReports;
+        filename = 'filtered-reports';
+        break;
+      case 'active':
+        dataToExport = reports.filter(r => r.status === 'approved');
+        filename = 'approved-reports';
+        break;
+      case 'inactive':
+        dataToExport = reports.filter(r => r.status === 'rejected');
+        filename = 'rejected-reports';
+        break;
+      case 'date-range':
+        dataToExport = filteredReports;
+        filename = 'date-range-reports';
+        break;
+    }
+
+    const excelData = dataToExport.map(report => ({
+      'Title': report.title,
+      'Description': report.description,
+      'User Name': report.profiles?.full_name || 'N/A',
+      'User Email': report.profiles?.email || 'N/A',
+      'Registrar': report.profiles?.registrar || 'N/A',
+      'Amount': report.amount || 'N/A',
+      'Status': report.status,
+      'Manager Notes': report.manager_notes || 'N/A',
+      'Rejection Message': report.rejection_message || 'N/A',
+      'Created Date': format(new Date(report.created_at), 'yyyy-MM-dd HH:mm:ss'),
+      'Updated Date': format(new Date(report.updated_at), 'yyyy-MM-dd HH:mm:ss')
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reports');
+
+    const colWidths = [
+      { wch: 25 }, // Title
+      { wch: 35 }, // Description
+      { wch: 20 }, // User Name
+      { wch: 25 }, // User Email
+      { wch: 15 }, // Registrar
+      { wch: 12 }, // Amount
+      { wch: 10 }, // Status
+      { wch: 20 }, // Manager Notes
+      { wch: 20 }, // Rejection Message
+      { wch: 20 }, // Created Date
+      { wch: 20 }  // Updated Date
+    ];
+    ws['!cols'] = colWidths;
+
+    XLSX.writeFile(wb, `${filename}.xlsx`);
+    
+    toast({
+      title: "Export completed",
+      description: `Exported ${dataToExport.length} reports to ${filename}.xlsx`,
+    });
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
@@ -185,64 +311,44 @@ export default function ReportsManagementPage() {
     }
   };
 
-  const stats = {
-    total: reports.length,
-    pending: reports.filter(r => r.status === 'pending').length,
-    approved: reports.filter(r => r.status === 'approved').length,
-    rejected: reports.filter(r => r.status === 'rejected').length
-  };
-
   return (
     <Layout role={role}>
       <div className="space-y-6">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-2"
-        >
-          <h1 className="text-3xl font-bold gradient-text">Reports Management</h1>
-          <p className="text-muted-foreground">
-            Review and manage submitted reports
-          </p>
-        </motion.div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[
-            { title: "Total Reports", value: stats.total, icon: FileText, color: "text-blue-500" },
-            { title: "Pending Review", value: stats.pending, icon: Clock, color: "text-orange-500" },
-            { title: "Approved", value: stats.approved, icon: CheckCircle2, color: "text-green-500" },
-            { title: "Rejected", value: stats.rejected, icon: XCircle, color: "text-red-500" }
-          ].map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <GlassCard className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                  </div>
-                  <stat.icon className={`h-8 w-8 ${stat.color}`} />
-                </div>
-              </GlassCard>
-            </motion.div>
-          ))}
+        <div>
+          <h2 className="text-2xl font-bold">Reports Management</h2>
+          <p className="text-muted-foreground">Review and manage submitted reports</p>
         </div>
+
+        {/* Search, Filter, Export */}
+        <SearchFilterExport
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          filters={filters}
+          onFiltersChange={setFilters}
+          filterConfig={filterConfig}
+          onRefresh={fetchReports}
+          onExport={exportToExcel}
+          exportOptions={{
+            all: 'All Reports',
+            filtered: 'Current Filter Results',
+            active: 'Approved Reports',
+            inactive: 'Rejected Reports',
+            dateRange: 'Date Range Results'
+          }}
+          isLoading={loading}
+        />
 
         {/* Reports Table */}
         <GlassCard>
           <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">All Reports</h3>
-              <Button variant="outline" onClick={fetchReports} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold">Reports</h3>
+                <p className="text-sm text-muted-foreground">
+                  Showing {filteredReports.length} of {reports.length} reports
+                </p>
+              </div>
             </div>
 
             {loading ? (
@@ -250,10 +356,12 @@ export default function ReportsManagementPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading reports...</p>
               </div>
-            ) : reports.length === 0 ? (
+            ) : filteredReports.length === 0 ? (
               <div className="text-center py-8">
                 <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">No reports found</p>
+                <p className="text-muted-foreground">
+                  {reports.length === 0 ? 'No reports found' : 'No reports match the current filters'}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -269,7 +377,7 @@ export default function ReportsManagementPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reports.map((report) => (
+                    {filteredReports.map((report) => (
                       <TableRow key={report.id}>
                         <TableCell>
                           <div className="space-y-1">
@@ -287,6 +395,9 @@ export default function ReportsManagementPage() {
                             <p className="text-sm text-muted-foreground">
                               {report.profiles?.email}
                             </p>
+                            {report.profiles?.registrar && (
+                              <p className="text-xs text-muted-foreground">Registrar: {report.profiles.registrar}</p>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>

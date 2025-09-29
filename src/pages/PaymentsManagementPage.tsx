@@ -1,23 +1,16 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { 
-  CreditCard,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Eye,
-  RefreshCw,
-  IndianRupee
-} from "lucide-react";
+import { CreditCard, CheckCircle2, XCircle, Clock, Eye } from "lucide-react";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import SearchFilterExport, { FilterConfig } from "@/components/shared/SearchFilterExport";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import * as XLSX from 'xlsx';
 
 interface Payment {
   id: string;
@@ -35,9 +28,9 @@ interface Payment {
   profiles?: {
     full_name: string;
     email: string;
-  } | null;
-  reports?: {
-    title: string;
+    mobile_number: string;
+    center_address: string;
+    registrar: string;
   } | null;
 }
 
@@ -49,6 +42,29 @@ export default function PaymentsManagementPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingPayments, setProcessingPayments] = useState<Set<string>>(new Set());
+  const [searchValue, setSearchValue] = useState('');
+  const [filters, setFilters] = useState({
+    role: 'all',
+    registrar: 'all',
+    status: 'all',
+    approval: 'all',
+    dateRange: { from: null as Date | null, to: null as Date | null }
+  });
+
+  const filterConfig: FilterConfig = {
+    statuses: ['pending', 'approved', 'rejected'],
+    additionalFilters: [
+      {
+        key: 'approval',
+        label: 'Approval Status',
+        options: [
+          { value: 'pending', label: 'Pending' },
+          { value: 'approved', label: 'Approved' },
+          { value: 'rejected', label: 'Rejected' }
+        ]
+      }
+    ]
+  };
 
   useEffect(() => {
     fetchPayments();
@@ -70,8 +86,13 @@ export default function PaymentsManagementPage() {
           .from('payments')
           .select(`
             *,
-            profiles(full_name, email),
-            reports(title)
+            profiles (
+              full_name,
+              email,
+              mobile_number,
+              center_address,
+              registrar
+            )
           `)
           .order('created_at', { ascending: false });
 
@@ -150,6 +171,107 @@ export default function PaymentsManagementPage() {
     }
   };
 
+  const filteredPayments = payments.filter(payment => {
+    // Search filter
+    if (searchValue) {
+      const searchLower = searchValue.toLowerCase();
+      const matchesSearch = (
+        payment.profiles?.full_name?.toLowerCase().includes(searchLower) ||
+        payment.profiles?.email?.toLowerCase().includes(searchLower) ||
+        payment.profiles?.mobile_number?.includes(searchValue) ||
+        payment.profiles?.center_address?.toLowerCase().includes(searchLower) ||
+        payment.profiles?.registrar?.toLowerCase().includes(searchLower) ||
+        payment.method?.toLowerCase().includes(searchLower) ||
+        payment.phonepe_transaction_id?.toLowerCase().includes(searchLower)
+      );
+      if (!matchesSearch) return false;
+    }
+
+    // Status filter
+    if (filters.status !== 'all' && payment.status !== filters.status) return false;
+    if (filters.approval !== 'all' && payment.status !== filters.approval) return false;
+
+    // Registrar filter
+    if (filters.registrar !== 'all' && payment.profiles?.registrar !== filters.registrar) return false;
+
+    // Date range filter
+    if (filters.dateRange.from) {
+      const paymentDate = new Date(payment.created_at);
+      if (paymentDate < filters.dateRange.from) return false;
+      if (filters.dateRange.to && paymentDate > filters.dateRange.to) return false;
+    }
+
+    return true;
+  });
+
+  const exportToExcel = (type: 'all' | 'filtered' | 'active' | 'inactive' | 'date-range') => {
+    let dataToExport: Payment[] = [];
+    let filename = 'payments-export';
+
+    switch (type) {
+      case 'all':
+        dataToExport = payments;
+        filename = 'all-payments';
+        break;
+      case 'filtered':
+        dataToExport = filteredPayments;
+        filename = 'filtered-payments';
+        break;
+      case 'active':
+        dataToExport = payments.filter(p => p.status === 'approved');
+        filename = 'approved-payments';
+        break;
+      case 'inactive':
+        dataToExport = payments.filter(p => p.status === 'rejected');
+        filename = 'rejected-payments';
+        break;
+      case 'date-range':
+        dataToExport = filteredPayments;
+        filename = 'date-range-payments';
+        break;
+    }
+
+    const excelData = dataToExport.map(payment => ({
+      'User Name': payment.profiles?.full_name || 'N/A',
+      'User Email': payment.profiles?.email || 'N/A',
+      'Registrar': payment.profiles?.registrar || 'N/A',
+      'Amount': payment.amount,
+      'Method': payment.method,
+      'Status': payment.status,
+      'Transaction ID': payment.phonepe_transaction_id || 'N/A',
+      'Admin Notes': payment.admin_notes || 'N/A',
+      'Rejection Message': payment.rejection_message || 'N/A',
+      'Created Date': format(new Date(payment.created_at), 'yyyy-MM-dd HH:mm:ss'),
+      'Updated Date': format(new Date(payment.updated_at), 'yyyy-MM-dd HH:mm:ss')
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Payments');
+
+    const colWidths = [
+      { wch: 20 }, // User Name
+      { wch: 25 }, // User Email
+      { wch: 15 }, // Registrar
+      { wch: 12 }, // Amount
+      { wch: 15 }, // Method
+      { wch: 10 }, // Status
+      { wch: 20 }, // Transaction ID
+      { wch: 20 }, // Admin Notes
+      { wch: 20 }, // Rejection Message
+      { wch: 20 }, // Created Date
+      { wch: 20 }  // Updated Date
+    ];
+    ws['!cols'] = colWidths;
+
+    XLSX.writeFile(wb, `${filename}.xlsx`);
+    
+    toast({
+      title: "Export completed",
+      description: `Exported ${dataToExport.length} payments to ${filename}.xlsx`,
+    });
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
@@ -176,66 +298,44 @@ export default function PaymentsManagementPage() {
     }
   };
 
-  const stats = {
-    total: payments.length,
-    pending: payments.filter(p => p.status === 'pending').length,
-    approved: payments.filter(p => p.status === 'approved').length,
-    rejected: payments.filter(p => p.status === 'rejected').length,
-    totalAmount: payments.reduce((sum, p) => sum + p.amount, 0)
-  };
-
   return (
     <Layout role={role}>
       <div className="space-y-6">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-2"
-        >
-          <h1 className="text-3xl font-bold gradient-text">Payments Management</h1>
-          <p className="text-muted-foreground">
-            Review and approve payment submissions
-          </p>
-        </motion.div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {[
-            { title: "Total Payments", value: stats.total, icon: CreditCard, color: "text-blue-500" },
-            { title: "Pending Review", value: stats.pending, icon: Clock, color: "text-orange-500" },
-            { title: "Approved", value: stats.approved, icon: CheckCircle2, color: "text-green-500" },
-            { title: "Rejected", value: stats.rejected, icon: XCircle, color: "text-red-500" },
-            { title: "Total Amount", value: `₹${stats.totalAmount.toLocaleString()}`, icon: IndianRupee, color: "text-purple-500" }
-          ].map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <GlassCard className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                  </div>
-                  <stat.icon className={`h-8 w-8 ${stat.color}`} />
-                </div>
-              </GlassCard>
-            </motion.div>
-          ))}
+        <div>
+          <h2 className="text-2xl font-bold">Payments Management</h2>
+          <p className="text-muted-foreground">Review and approve payment submissions</p>
         </div>
+
+        {/* Search, Filter, Export */}
+        <SearchFilterExport
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          filters={filters}
+          onFiltersChange={setFilters}
+          filterConfig={filterConfig}
+          onRefresh={fetchPayments}
+          onExport={exportToExcel}
+          exportOptions={{
+            all: 'All Payments',
+            filtered: 'Current Filter Results',
+            active: 'Approved Payments',
+            inactive: 'Rejected Payments',
+            dateRange: 'Date Range Results'
+          }}
+          isLoading={loading}
+        />
 
         {/* Payments Table */}
         <GlassCard>
           <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">All Payments</h3>
-              <Button variant="outline" onClick={fetchPayments} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold">Payments</h3>
+                <p className="text-sm text-muted-foreground">
+                  Showing {filteredPayments.length} of {payments.length} payments
+                </p>
+              </div>
             </div>
 
             {loading ? (
@@ -243,39 +343,30 @@ export default function PaymentsManagementPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading payments...</p>
               </div>
-            ) : payments.length === 0 ? (
+            ) : filteredPayments.length === 0 ? (
               <div className="text-center py-8">
                 <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">No payments found</p>
+                <p className="text-muted-foreground">
+                  {payments.length === 0 ? 'No payments found' : 'No payments match the current filters'}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Payment Details</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Report</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Transaction ID</TableHead>
+                        <TableHead>Submitted</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {payments.map((payment) => (
+                    {filteredPayments.map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <p className="font-medium">Payment #{payment.id.slice(-8)}</p>
-                            {payment.phonepe_transaction_id && (
-                              <p className="text-sm text-muted-foreground">
-                                PhonePe: {payment.phonepe_transaction_id}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
                         <TableCell>
                           <div>
                             <p className="font-medium">
@@ -284,17 +375,13 @@ export default function PaymentsManagementPage() {
                             <p className="text-sm text-muted-foreground">
                               {payment.profiles?.email}
                             </p>
+                            {payment.profiles?.registrar && (
+                              <p className="text-xs text-muted-foreground">Registrar: {payment.profiles.registrar}</p>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm">
-                            {payment.reports?.title || 'Unknown Report'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-bold text-lg">
-                            ₹{payment.amount.toLocaleString()}
-                          </span>
+                          <span className="font-medium">₹{payment.amount?.toLocaleString()}</span>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
@@ -302,13 +389,15 @@ export default function PaymentsManagementPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(payment.status)}
-                            {getStatusBadge(payment.status)}
-                          </div>
+                          {getStatusBadge(payment.status)}
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm font-mono">
+                            {payment.phonepe_transaction_id || 'N/A'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
                             {format(new Date(payment.created_at), 'MMM dd, yyyy')}
                           </span>
                         </TableCell>
