@@ -63,7 +63,7 @@ export default function EnhancedUserManagement() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: '',
-    role: 'user' as 'manager' | 'user',
+    role: 'user' as 'admin' | 'manager' | 'user',
     full_name: '',
     mobile_number: '',
     station_id: '',
@@ -88,7 +88,7 @@ export default function EnhancedUserManagement() {
   });
 
   const canManageUsers = currentProfile?.role === 'admin' || currentProfile?.role === 'manager';
-  const canCreateManagers = currentProfile?.role === 'admin';
+  const canCreateManagers = currentProfile?.role === 'admin' || currentProfile?.role === 'manager';
 
   const validateMobileNumber = (value: string) => {
     if (!value) return '';
@@ -176,11 +176,11 @@ export default function EnhancedUserManagement() {
       return;
     }
 
-    // Check role permissions
+    // Check role permissions - both admins and managers can now create managers
     if (inviteForm.role === 'manager' && !canCreateManagers) {
       toast({
         title: "Permission denied",
-        description: "Only admins can create manager accounts",
+        description: "Only admins and managers can create manager accounts",
         variant: "destructive"
       });
       return;
@@ -513,19 +513,22 @@ export default function EnhancedUserManagement() {
                     <Label htmlFor="role">Role *</Label>
                     <Select
                       value={inviteForm.role}
-                      onValueChange={(value: 'manager' | 'user') => 
+                      onValueChange={(value: 'admin' | 'manager' | 'user') => 
                         setInviteForm({ ...inviteForm, role: value })
                       }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        {canCreateManagers && (
-                          <SelectItem value="manager">Manager</SelectItem>
-                        )}
-                      </SelectContent>
+                       <SelectContent>
+                         <SelectItem value="user">User</SelectItem>
+                         {canCreateManagers && (
+                           <SelectItem value="manager">Manager</SelectItem>
+                         )}
+                         {currentProfile?.role === 'admin' && (
+                           <SelectItem value="admin">Admin</SelectItem>
+                         )}
+                       </SelectContent>
                     </Select>
                   </div>
                 </div>
