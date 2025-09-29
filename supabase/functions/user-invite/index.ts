@@ -109,7 +109,7 @@ serve(async (req: Request): Promise<Response> => {
         }
       }
 
-      // Clean up all existing data for this user/email
+      // Clean up existing user data but keep recent tokens
       console.log("🧹 Cleaning up existing user data...");
       
       // Delete profile by user_id (more reliable)
@@ -121,15 +121,11 @@ serve(async (req: Request): Promise<Response> => {
       // Delete auth user
       await supabaseAdmin.auth.admin.deleteUser(userExists.id);
       
-      // Clean up invite tokens
-      await supabaseAdmin.from("invite_tokens").delete().eq("email", email);
-      
       console.log("✅ Cleanup completed");
     }
 
-    // Also clean up any orphaned profiles with this email
-    await supabaseAdmin.from("profiles").delete().eq("email", email);
-    await supabaseAdmin.from("invite_tokens").delete().eq("email", email);
+    // Clean up old tokens for this email (keep only recent one)
+    await supabaseAdmin.from("invite_tokens").delete().eq("email", email).lt("created_at", new Date(Date.now() - 60000).toISOString());
 
     // ✅ Create user manually (bypassing Supabase invite system)
     console.log("🔧 Creating new auth user...");
