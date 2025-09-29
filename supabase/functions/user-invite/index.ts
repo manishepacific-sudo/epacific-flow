@@ -100,24 +100,36 @@ serve(async (req: Request): Promise<Response> => {
         .eq("email", email)
         .maybeSingle();
 
-    if (existingProfile) {
+      if (existingProfile) {
         if (existingProfile.password_set && !existingProfile.is_demo) {
           return new Response(
             JSON.stringify({ success: false, error: "User already exists with password set", userExists: true }),
             { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
           );
         }
-
-        // Clean up existing profile first, then auth user
-        await supabaseAdmin.from("profiles").delete().eq("user_id", userExists.id);
-        await supabaseAdmin.auth.admin.deleteUser(userExists.id);
-      } else {
-        await supabaseAdmin.auth.admin.deleteUser(userExists.id);
       }
+
+      // Clean up all existing data for this user/email
+      console.log("🧹 Cleaning up existing user data...");
       
-      // Also clean up any existing invite tokens for this email
+      // Delete profile by user_id (more reliable)
+      await supabaseAdmin.from("profiles").delete().eq("user_id", userExists.id);
+      
+      // Delete any profiles by email as backup
+      await supabaseAdmin.from("profiles").delete().eq("email", email);
+      
+      // Delete auth user
+      await supabaseAdmin.auth.admin.deleteUser(userExists.id);
+      
+      // Clean up invite tokens
       await supabaseAdmin.from("invite_tokens").delete().eq("email", email);
+      
+      console.log("✅ Cleanup completed");
     }
+
+    // Also clean up any orphaned profiles with this email
+    await supabaseAdmin.from("profiles").delete().eq("email", email);
+    await supabaseAdmin.from("invite_tokens").delete().eq("email", email);
 
     // ✅ Create user manually (bypassing Supabase invite system)
     const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
