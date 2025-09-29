@@ -58,6 +58,7 @@ const App = () => (
             }>
               <Routes>
                 <Route path="/" element={<AuthRedirect />} />
+                <Route path="/auth-bridge" element={<HandleInvite />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/handle-invite" element={<HandleInvite />} />
                 <Route path="/set-password" element={<SetPasswordPage />} />
