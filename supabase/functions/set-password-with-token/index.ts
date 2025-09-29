@@ -20,8 +20,13 @@ serve(async (req: Request): Promise<Response> => {
   try {
     console.log("🚀 Set-password-with-token function started");
     const { token, password, validate_only }: SetPasswordRequest = await req.json();
+    
+    console.log("🔍 Received token:", token ? `${token.substring(0, 8)}...` : "MISSING");
+    console.log("🔍 Validate only:", validate_only);
+    console.log("🔍 Password provided:", !!password);
 
     if (!token) {
+      console.error("❌ No token provided in request body");
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -47,7 +52,7 @@ serve(async (req: Request): Promise<Response> => {
     );
 
     // ✅ Verify token is valid and not used
-    console.log("🔍 Verifying token...");
+    console.log("🔍 Verifying token in database...");
     const { data: tokenData, error: tokenError } = await supabaseAdmin
       .from('invite_tokens')
       .select('*')
@@ -55,7 +60,17 @@ serve(async (req: Request): Promise<Response> => {
       .eq('used', false)
       .single();
 
+    console.log("📊 Token query result:", { 
+      found: !!tokenData, 
+      error: tokenError?.message,
+      tokenId: tokenData?.id,
+      email: tokenData?.email,
+      used: tokenData?.used,
+      expires: tokenData?.expires_at
+    });
+
     if (tokenError || !tokenData) {
+      console.error("❌ Token verification failed:", tokenError);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -67,7 +82,15 @@ serve(async (req: Request): Promise<Response> => {
 
     // ✅ Check if token has expired
     const expiresAt = new Date(tokenData.expires_at);
-    if (expiresAt < new Date()) {
+    const now = new Date();
+    console.log("⏰ Token expiry check:", { 
+      expires: expiresAt.toISOString(), 
+      now: now.toISOString(), 
+      expired: expiresAt < now 
+    });
+    
+    if (expiresAt < now) {
+      console.error("❌ Token has expired");
       return new Response(
         JSON.stringify({ 
           success: false, 

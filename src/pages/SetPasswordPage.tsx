@@ -21,10 +21,16 @@ export default function SetPasswordPage() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Read token from URL query parameters
+    console.log("🚀 SetPasswordPage component mounted");
+    console.log("🔍 Current URL:", window.location.href);
+    console.log("🔍 Search params:", window.location.search);
+    
+    // Read token from URL query parameters - case-sensitive "token"
     const tokenFromUrl = searchParams.get('token');
+    console.log("🎫 Token from URL:", tokenFromUrl ? `${tokenFromUrl.substring(0, 8)}...` : "MISSING");
     
     if (!tokenFromUrl) {
+      console.error("❌ No token found in URL parameters");
       toast({
         title: "Invalid invitation link – please use the link from your email",
         variant: "destructive"
@@ -32,6 +38,18 @@ export default function SetPasswordPage() {
       return;
     }
     
+    // Basic token format validation (UUID format)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(tokenFromUrl)) {
+      console.error("❌ Token format invalid:", tokenFromUrl);
+      toast({
+        title: "Invalid invitation link – please use the link from your email",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    console.log("✅ Token found and format validated, setting in state");
     setToken(tokenFromUrl);
   }, [searchParams, toast]);
 
@@ -57,14 +75,19 @@ export default function SetPasswordPage() {
     }
 
     setLoading(true);
+    console.log("🔄 Starting password set process...");
+    console.log("🎫 Using token:", token ? `${token.substring(0, 8)}...` : "MISSING");
 
     try {
+      console.log("📡 Calling set-password-with-token edge function...");
       const { data, error } = await supabase.functions.invoke('set-password-with-token', {
         body: {
           token,
           password: formData.password,
         },
       });
+      
+      console.log("📊 Edge function response:", { data, error });
 
       if (error) {
         toast({
@@ -105,7 +128,12 @@ export default function SetPasswordPage() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <GlassCard className="p-8" glass>
           <h1 className="text-2xl font-bold mb-4">Set Your Password</h1>
-          <p className="text-muted-foreground mb-6">Please create a secure password for your account</p>
+          <p className="text-muted-foreground mb-6">
+            Please create a secure password for your account
+            {process.env.NODE_ENV === 'development' && token && (
+              <><br /><small className="text-xs opacity-60">Token: {token.substring(0, 8)}...</small></>
+            )}
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">

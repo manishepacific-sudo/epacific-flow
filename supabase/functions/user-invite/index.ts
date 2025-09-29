@@ -125,7 +125,16 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // Clean up old tokens for this email (keep only recent one)
-    await supabaseAdmin.from("invite_tokens").delete().eq("email", email).lt("created_at", new Date(Date.now() - 60000).toISOString());
+    console.log("🧹 Cleaning up old tokens for email:", email);
+    const { error: cleanupError } = await supabaseAdmin
+      .from("invite_tokens")
+      .delete()
+      .eq("email", email)
+      .lt("created_at", new Date(Date.now() - 60000).toISOString());
+    
+    if (cleanupError) {
+      console.warn("⚠️ Token cleanup warning:", cleanupError);
+    }
 
     // ✅ Create user manually (bypassing Supabase invite system)
     console.log("🔧 Creating new auth user...");
@@ -216,13 +225,15 @@ serve(async (req: Request): Promise<Response> => {
     // ✅ Generate secure invitation token
     const inviteToken = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    console.log(`🎫 Generated token: ${inviteToken.substring(0, 8)}...`);
     console.log(`⏰ Invitation expires at: ${expiresAt.toISOString()}`);
 
     // ✅ Store token in invite_tokens table
-    const { error: tokenError } = await supabaseAdmin.from("invite_tokens").insert({
+    const tokenData = {
       email,
       token: inviteToken,
       expires_at: expiresAt.toISOString(),
+      used: false, // Explicitly set to false
       user_data: {
         user_id: newUser.user.id,
         full_name,
@@ -232,7 +243,16 @@ serve(async (req: Request): Promise<Response> => {
         center_address: center_address || "",
         registrar: registrar || ""
       }
+    };
+    
+    console.log("💾 Storing token data:", { 
+      email, 
+      tokenPreview: `${inviteToken.substring(0, 8)}...`,
+      expires_at: expiresAt.toISOString(),
+      used: false
     });
+    
+    const { error: tokenError } = await supabaseAdmin.from("invite_tokens").insert(tokenData);
 
     if (tokenError) {
       // Clean up user if token creation fails
