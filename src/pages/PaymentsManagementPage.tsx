@@ -166,34 +166,32 @@ export default function PaymentsManagementPage() {
 
   const viewProof = async (proofPath: string) => {
     try {
-      // First check if the file exists
-      const { data: fileData, error: fileError } = await supabase.storage
-        .from('payment-proofs')
-        .list(proofPath.substring(0, proofPath.lastIndexOf('/')), {
-          search: proofPath.substring(proofPath.lastIndexOf('/') + 1)
-        });
-
-      if (fileError || !fileData || fileData.length === 0) {
-        toast({
-          title: "File not found",
-          description: "The payment proof file no longer exists in storage",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Create signed URL if file exists
+      // First try to create a signed URL directly
       const { data, error } = await supabase.storage
         .from('payment-proofs')
         .createSignedUrl(proofPath, 300); // 5 minutes
 
-      if (error) throw error;
+      if (error) {
+        // If error is "not found", provide a specific message
+        if (error.message?.includes('not found') || error.message?.includes('Object not found')) {
+          toast({
+            title: "File not found",
+            description: "The payment proof file no longer exists or has been moved. Please contact support if this file is needed.",
+            variant: "destructive"
+          });
+          return;
+        }
+        throw error;
+      }
+
+      // Open the file in a new tab
       window.open(data.signedUrl, '_blank');
+      
     } catch (error: any) {
       console.error('View proof error:', error);
       toast({
         title: "View failed",
-        description: "Unable to view the payment proof. The file may have been deleted or moved.",
+        description: "Unable to view the payment proof. Please try again or contact support if the issue persists.",
         variant: "destructive"
       });
     }
