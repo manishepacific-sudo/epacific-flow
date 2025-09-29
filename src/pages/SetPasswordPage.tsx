@@ -24,11 +24,13 @@ export default function SetPasswordPage() {
     console.log("🚀 SetPasswordPage component mounted");
     console.log("🔍 Current URL:", window.location.href);
     console.log("🔍 Search params:", window.location.search);
+    console.log("🔍 All URL params:", Object.fromEntries(searchParams.entries()));
 
     // Read token from URL query parameters - case-sensitive "token"
     const tokenFromUrl = searchParams.get('token');
     console.log("🎫 Token from URL:", tokenFromUrl ? `${tokenFromUrl.substring(0, 8)}...` : "MISSING");
     console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
+    console.log("DEBUG: Expected token: 3c31cc3d-5423-4009-a953-41eb3c5435b7");
 
     if (!tokenFromUrl) {
       console.error("❌ No token found in URL parameters");
