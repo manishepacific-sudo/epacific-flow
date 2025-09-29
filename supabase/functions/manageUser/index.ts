@@ -313,32 +313,9 @@ serve(async (req: Request): Promise<Response> => {
 
           console.log("✅ Profile created successfully");
 
-          // Send invitation email using Supabase's built-in email system
-          try {
-            console.log("📧 Sending invitation email via Supabase...");
-            const baseUrl = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com";
-            const inviteUrl = `${baseUrl}/handle-invite`;
-            
-            const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email!, {
-              redirectTo: inviteUrl,
-              data: {
-                full_name: full_name || email?.split("@")[0] || "User",
-                role: role!,
-                mobile_number: mobile_number || "",
-                station_id: station_id || "",
-                center_address: center_address || "",
-                temp_password: defaultPassword
-              }
-            });
-
-            if (inviteError) {
-              console.log("⚠️ Email invitation failed but user was created:", inviteError.message);
-            } else {
-              console.log("✅ Invitation email sent successfully via Supabase");
-            }
-          } catch (emailError: any) {
-            console.log("⚠️ Email sending error but user was created:", emailError.message);
-          }
+          // Skip Supabase's built-in invitation system as it redirects to lovable.dev
+          // The user-invite function should be used instead for custom invitations
+          console.log("✅ User created successfully. Use user-invite function for custom invitations.");
 
           return new Response(JSON.stringify({ 
             success: true, 
