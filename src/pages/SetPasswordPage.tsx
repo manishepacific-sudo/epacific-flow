@@ -22,16 +22,26 @@ export default function SetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("=== SetPasswordPage DEBUG START ===");
     console.log("🚀 SetPasswordPage component mounted");
-    console.log("🔍 Current URL:", window.location.href);
-    console.log("🔍 Search params:", window.location.search);
-    console.log("🔍 All URL params:", Object.fromEntries(searchParams.entries()));
+    console.log("🔍 window.location.href:", window.location.href);
+    console.log("🔍 window.location.search:", window.location.search);
+    console.log("🔍 window.location.pathname:", window.location.pathname);
+    console.log("🔍 window.location.hash:", window.location.hash);
+    console.log("🔍 URLSearchParams from location.search:", new URLSearchParams(window.location.search));
+    console.log("🔍 All searchParams entries:", Object.fromEntries(searchParams.entries()));
 
-    // Read token from URL query parameters - case-sensitive "token"
-    const tokenFromUrl = searchParams.get('token');
-    console.log("🎫 Token from URL:", tokenFromUrl ? `${tokenFromUrl.substring(0, 8)}...` : "MISSING");
-    console.log("DEBUG: Retrieved token from URL param:", tokenFromUrl);
-    console.log("DEBUG: Expected token: 3c31cc3d-5423-4009-a953-41eb3c5435b7");
+    // Multiple ways to extract token for debugging
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromWindow = urlParams.get('token');
+    const tokenFromSearchParams = searchParams.get('token');
+    
+    console.log("🎫 Token from window.location.search:", tokenFromWindow || "MISSING");
+    console.log("🎫 Token from useSearchParams:", tokenFromSearchParams || "MISSING");
+    console.log("🎯 Expected token: 3c31cc3d-5423-4009-a953-41eb3c5435b7");
+    
+    // Use whichever method works
+    const tokenFromUrl = tokenFromSearchParams || tokenFromWindow;
 
     if (!tokenFromUrl) {
       console.error("❌ No token found in URL parameters");
@@ -57,6 +67,8 @@ export default function SetPasswordPage() {
 
     console.log("✅ Token found and format validated, setting in state");
     setToken(tokenFromUrl);
+    setError(null); // Clear any previous errors
+    console.log("=== SetPasswordPage DEBUG END ===");
   }, [searchParams, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
