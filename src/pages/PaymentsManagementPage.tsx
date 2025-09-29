@@ -81,7 +81,7 @@ export default function PaymentsManagementPage() {
 
       let paymentsData;
       if (edgeError) {
-        // Fallback to direct query
+        // Fallback to direct query with profiles relationship
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('payments')
           .select(`
@@ -96,8 +96,18 @@ export default function PaymentsManagementPage() {
           `)
           .order('created_at', { ascending: false });
 
-        if (fallbackError) throw fallbackError;
-        paymentsData = fallbackData || [];
+        if (fallbackError) {
+          // If profiles relationship still fails, fetch payments only
+          const { data: paymentsOnly, error: paymentsError } = await supabase
+            .from('payments')
+            .select('*')
+            .order('created_at', { ascending: false });
+          
+          if (paymentsError) throw paymentsError;
+          paymentsData = paymentsOnly || [];
+        } else {
+          paymentsData = fallbackData || [];
+        }
       } else {
         paymentsData = edgeData?.payments || [];
       }
@@ -373,7 +383,7 @@ export default function PaymentsManagementPage() {
                               {payment.profiles?.full_name || 'Unknown User'}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {payment.profiles?.email}
+                              {payment.profiles?.email || `User ID: ${payment.user_id.slice(0, 8)}...`}
                             </p>
                             {payment.profiles?.registrar && (
                               <p className="text-xs text-muted-foreground">Registrar: {payment.profiles.registrar}</p>
