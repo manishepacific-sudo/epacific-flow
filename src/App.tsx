@@ -63,38 +63,80 @@ const App = () => (
               <Route path="/auth-bridge" element={<HandleInvite />} />
               
               {/* Protected routes - require authentication */}
-              <Route path="/*" element={
+              <Route path="/dashboard/*" element={
                 <AuthProvider>
                   <InviteRedirectHandler />
                   <Routes>
-                    <Route path="/" element={<AuthRedirect />} />
-                    <Route path="/dashboard/user" element={<GuardedUserDashboard />} />
-                    <Route path="/dashboard/admin" element={<GuardedAdminDashboard />} />
-                    <Route path="/dashboard/manager" element={<GuardedManagerDashboard />} />
-                    <Route path="/user-management" element={<GuardedUserManagement />} />
-                    <Route path="/reports-management" element={<GuardedReportsManagement />} />
-                    <Route path="/payments-management" element={<GuardedPaymentsManagement />} />
-                    <Route path="/upload/report" element={<GuardedReportUpload />} />
-                    <Route path="/payment/:id" element={
-                      <ProtectedRoute>
-                        <EnhancedPaymentPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/payments" element={
-                      <ProtectedRoute>
-                        <PaymentsPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/attendance" element={
-                      <ProtectedRoute>
-                        <AttendancePage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
-                    <Route path="*" element={<NotFound />} />
+                    <Route path="/user" element={<GuardedUserDashboard />} />
+                    <Route path="/admin" element={<GuardedAdminDashboard />} />
+                    <Route path="/manager" element={<GuardedManagerDashboard />} />
                   </Routes>
                 </AuthProvider>
               } />
+              
+              <Route path="/user-management" element={
+                <AuthProvider>
+                  <GuardedUserManagement />
+                </AuthProvider>
+              } />
+              
+              <Route path="/reports-management" element={
+                <AuthProvider>
+                  <GuardedReportsManagement />
+                </AuthProvider>
+              } />
+              
+              <Route path="/payments-management" element={
+                <AuthProvider>
+                  <GuardedPaymentsManagement />
+                </AuthProvider>
+              } />
+              
+              <Route path="/upload/report" element={
+                <AuthProvider>
+                  <GuardedReportUpload />
+                </AuthProvider>
+              } />
+              
+              <Route path="/payment/:id" element={
+                <AuthProvider>
+                  <ProtectedRoute>
+                    <EnhancedPaymentPage />
+                  </ProtectedRoute>
+                </AuthProvider>
+              } />
+              
+              <Route path="/payments" element={
+                <AuthProvider>
+                  <ProtectedRoute>
+                    <PaymentsPage />
+                  </ProtectedRoute>
+                </AuthProvider>
+              } />
+              
+              <Route path="/attendance" element={
+                <AuthProvider>
+                  <ProtectedRoute>
+                    <AttendancePage />
+                  </ProtectedRoute>
+                </AuthProvider>
+              } />
+              
+              <Route path="/user-profile/:userId" element={
+                <AuthProvider>
+                  <GuardedUserProfile />
+                </AuthProvider>
+              } />
+              
+              {/* Root redirect and 404 */}
+              <Route path="/" element={
+                <AuthProvider>
+                  <InviteRedirectHandler />
+                  <AuthRedirect />
+                </AuthProvider>
+              } />
+              
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </BrowserRouter>
