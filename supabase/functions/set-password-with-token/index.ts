@@ -8,7 +8,8 @@ const corsHeaders = {
 
 interface SetPasswordRequest {
   token: string;
-  password: string;
+  password?: string;
+  validate_only?: boolean;
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -18,13 +19,23 @@ serve(async (req: Request): Promise<Response> => {
 
   try {
     console.log("🚀 Set-password-with-token function started");
-    const { token, password }: SetPasswordRequest = await req.json();
+    const { token, password, validate_only }: SetPasswordRequest = await req.json();
 
-    if (!token || !password) {
+    if (!token) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Token and password are required" 
+          error: "Token is required" 
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (!validate_only && !password) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Password is required" 
         }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
@@ -68,6 +79,18 @@ serve(async (req: Request): Promise<Response> => {
 
     const userData = tokenData.user_data as any;
     console.log("✅ Token valid for user:", userData.user_id);
+
+    // ✅ If this is just validation, return success with user data
+    if (validate_only) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          user_data: userData,
+          message: "Token is valid"
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     // ✅ Update user password using admin privileges
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
