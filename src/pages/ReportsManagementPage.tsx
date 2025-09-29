@@ -80,19 +80,10 @@ export default function ReportsManagementPage() {
 
       let reportsData;
       if (edgeError) {
-        // Fallback to direct query
+        // Safe fallback - fetch reports only without profiles relationship
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('reports')
-          .select(`
-            *,
-            profiles (
-              full_name,
-              email,
-              mobile_number,
-              center_address,
-              registrar
-            )
-          `)
+          .select('*')
           .order('created_at', { ascending: false });
 
         if (fallbackError) throw fallbackError;
@@ -191,6 +182,7 @@ export default function ReportsManagementPage() {
       const matchesSearch = (
         report.title?.toLowerCase().includes(searchLower) ||
         report.description?.toLowerCase().includes(searchLower) ||
+        report.user_id?.toLowerCase().includes(searchLower) ||
         report.profiles?.full_name?.toLowerCase().includes(searchLower) ||
         report.profiles?.email?.toLowerCase().includes(searchLower) ||
         report.profiles?.mobile_number?.includes(searchValue) ||
@@ -390,10 +382,10 @@ export default function ReportsManagementPage() {
                         <TableCell>
                           <div>
                             <p className="font-medium">
-                              {report.profiles?.full_name || 'Unknown User'}
+                              {report.profiles?.full_name || `User ID: ${report.user_id.slice(0, 8)}...`}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {report.profiles?.email}
+                              {report.profiles?.email || 'Profile not linked'}
                             </p>
                             {report.profiles?.registrar && (
                               <p className="text-xs text-muted-foreground">Registrar: {report.profiles.registrar}</p>
