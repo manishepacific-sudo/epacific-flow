@@ -13,10 +13,8 @@ import { withRoleGuard } from "@/components/withRoleGuard";
 import Login from "./pages/Login";
 import HandleInvite from "./pages/HandleInvite";
 import SetPasswordPage from "./pages/SetPasswordPage";
+import TokenTest from "./pages/TokenTest";
 import ResetPassword from "./pages/ResetPassword";
-
-// Lazy load dashboard and secondary pages to reduce initial bundle size
-const TokenTest = lazy(() => import("./pages/TokenTest"));
 const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
