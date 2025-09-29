@@ -38,7 +38,12 @@ file_size_limit = "50MiB"
 [auth]
 enabled = true
 site_url = "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com"
-additional_redirect_urls = ["https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com"]
+additional_redirect_urls = [
+  "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com",
+  "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com/set-password",
+  "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com/handle-invite",
+  "https://548fe184-ba6f-426c-bdf6-cf1a0c71f09d.lovableproject.com/auth-bridge"
+]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
