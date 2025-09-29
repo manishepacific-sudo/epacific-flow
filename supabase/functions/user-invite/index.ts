@@ -100,7 +100,7 @@ serve(async (req: Request): Promise<Response> => {
         .eq("email", email)
         .maybeSingle();
 
-      if (existingProfile) {
+    if (existingProfile) {
         if (existingProfile.password_set && !existingProfile.is_demo) {
           return new Response(
             JSON.stringify({ success: false, error: "User already exists with password set", userExists: true }),
@@ -108,11 +108,15 @@ serve(async (req: Request): Promise<Response> => {
           );
         }
 
+        // Clean up existing profile first, then auth user
         await supabaseAdmin.from("profiles").delete().eq("user_id", userExists.id);
         await supabaseAdmin.auth.admin.deleteUser(userExists.id);
       } else {
         await supabaseAdmin.auth.admin.deleteUser(userExists.id);
       }
+      
+      // Also clean up any existing invite tokens for this email
+      await supabaseAdmin.from("invite_tokens").delete().eq("email", email);
     }
 
     // ✅ Create user manually (bypassing Supabase invite system)
