@@ -267,6 +267,10 @@ serve(async (req: Request): Promise<Response> => {
     const baseUrl = "https://epacific.lovable.app";
     const inviteUrl = `${baseUrl}/set-password?token=${inviteToken}`;
     
+    console.log("📧 About to send invitation email...");
+    console.log("🔗 Invite URL being sent:", inviteUrl);
+    console.log("🎫 Token being used:", inviteToken);
+    
     const { data: emailData, error: emailError } = await supabaseAdmin.functions.invoke('send-invite-email', {
       body: {
         email,
@@ -276,11 +280,13 @@ serve(async (req: Request): Promise<Response> => {
       }
     });
 
+    console.log("📊 Email function response:", { emailData, emailError });
+
     let emailErrorMessage = null;
     if (emailError) {
       console.error("❌ Failed to send invitation email:", emailError);
       emailErrorMessage = emailError.message || "Email sending failed";
-    } else if (!emailData?.success) {
+    } else if (emailData?.success === false) {
       console.error("❌ Email function returned error:", emailData?.error);
       emailErrorMessage = emailData?.error || "Email sending failed";
     } else {
@@ -292,6 +298,7 @@ serve(async (req: Request): Promise<Response> => {
         success: true,
         user: { id: newUser.user.id, email, full_name, role, expires_at: expiresAt.toISOString() },
         invite_link: inviteUrl,
+        token: inviteToken, // Include token for debugging
         emailError: emailErrorMessage,
         message: emailErrorMessage 
           ? "User invited successfully but email failed. Please share the invite link manually."

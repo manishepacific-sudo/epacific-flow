@@ -105,6 +105,52 @@ export default function SetPasswordPage() {
     console.log("🎫 Using token:", token ? `${token.substring(0, 8)}...` : "MISSING");
 
     try {
+      console.log("🔍 First, let's validate the token exists in database...");
+      
+      // Create a Supabase client for token validation (this doesn't require auth)
+      const supabaseClient = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_ANON_KEY
+      );
+      
+      // Try to validate token exists in database first
+      const { data: tokenCheck, error: tokenCheckError } = await supabaseClient
+        .from('invite_tokens')
+        .select('*')
+        .eq('token', token)
+        .eq('used', false)
+        .single();
+      
+      console.log("🔍 Token validation result:", { 
+        found: !!tokenCheck, 
+        error: tokenCheckError?.message,
+        tokenData: tokenCheck ? {
+          id: tokenCheck.id,
+          email: tokenCheck.email,
+          used: tokenCheck.used,
+          expires_at: tokenCheck.expires_at
+        } : null
+      });
+      
+      if (tokenCheckError || !tokenCheck) {
+        console.error("❌ Token not found in database:", tokenCheckError);
+        setError("This invitation link is invalid or has expired. Please request a new invitation.");
+        setLoading(false);
+        return;
+      }
+      
+      // Check if token has expired
+      const expiresAt = new Date(tokenCheck.expires_at);
+      const now = new Date();
+      if (expiresAt < now) {
+        console.error("❌ Token has expired:", { expires: expiresAt, now });
+        setError("This invitation link has expired. Please request a new invitation.");
+        setLoading(false);
+        return;
+      }
+      
+      console.log("✅ Token validation passed, proceeding with password update...");
+      
       console.log("📡 Calling set-password-with-token edge function...");
       const { data, error } = await supabase.functions.invoke('set-password-with-token', {
         body: {
@@ -116,32 +162,44 @@ export default function SetPasswordPage() {
       console.log("📊 Edge function response:", { data, error });
 
       if (error) {
+        console.error("❌ Edge function error:", error);
         toast({
           title: "Failed to set password",
-          description: error.message || "Please try again or contact support",
+          description: `Edge function error: ${error.message}. Please try again or contact support.`,
           variant: "destructive"
         });
         return;
       }
 
       if (!data?.success) {
+        console.error("❌ Edge function returned failure:", data);
         toast({
           title: "Failed to set password",
-          description: data?.error || "Please try again or contact support",
+          description: `Server error: ${data?.error || 'Unknown error'}. Please try again or contact support.`,
           variant: "destructive"
         });
         return;
       }
 
+      console.log("✅ Password updated successfully via edge function");
       toast({
         title: "Password set successfully – you can now log in with your new password"
       });
       navigate('/login', { replace: true });
     } catch (err: any) {
       console.error('Error setting password:', err);
+      
+      // Provide more detailed error information
+      let errorMessage = err.message || "Please try again or contact support";
+      if (err.message?.includes('Failed to fetch')) {
+        errorMessage = "Network error: Please check your internet connection and try again.";
+      } else if (err.message?.includes('token')) {
+        errorMessage = "Token validation failed. The invitation link may be invalid or expired.";
+      }
+      
       toast({
         title: "Failed to set password",
-        description: err.message || "Please try again or contact support",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

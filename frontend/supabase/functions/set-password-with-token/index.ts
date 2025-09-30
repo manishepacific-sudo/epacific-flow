@@ -58,7 +58,7 @@ serve(async (req: Request): Promise<Response> => {
       .select('*')
       .eq('token', token)
       .eq('used', false)
-      .single();
+      .maybeSingle(); // Use maybeSingle to handle missing tokens gracefully
 
     console.log("📊 Token query result:", { 
       found: !!tokenData, 
@@ -70,11 +70,17 @@ serve(async (req: Request): Promise<Response> => {
     });
 
     if (tokenError || !tokenData) {
-      console.error("❌ Token verification failed:", tokenError);
+      console.error("❌ Token verification failed:", {
+        error: tokenError,
+        token: token,
+        message: tokenError?.message || "Token not found"
+      });
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Invalid or expired invitation token" 
+          error: tokenError ? 
+            `Database error: ${tokenError.message}` : 
+            "Invalid or expired invitation token - token not found in database"
         }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );

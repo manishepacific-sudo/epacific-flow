@@ -211,13 +211,14 @@ export default function EnhancedUserManagement() {
         throw new Error(data.error);
       }
 
-      // Show invite link if email failed
-      if (data.emailError && data.invite_link) {
+      // Show invite link if email failed or provide success message
+      if (data.emailError) {
         toast({
           title: "⚠️ Email Sending Failed",
           description: (
             <div className="space-y-2">
               <p>User created successfully but email couldn't be sent.</p>
+              <p className="text-sm text-muted-foreground">{data.emailError}</p>
               <p className="text-xs font-mono bg-muted p-2 rounded">
                 {data.invite_link}
               </p>
@@ -239,7 +240,7 @@ export default function EnhancedUserManagement() {
       } else {
         toast({
           title: "User invited successfully!",
-          description: `Invitation sent to ${inviteForm.email}`,
+          description: `Invitation email sent to ${inviteForm.email}. User will receive setup instructions.`,
         });
       }
 

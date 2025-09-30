@@ -34,8 +34,19 @@ export default function InviteTokenDebug() {
       return;
     }
 
+    console.log('🔍 Validating token:', token);
     try {
-      console.log('Validating token:', token);
+      // First try direct database query
+      const { data: tokenData, error: dbError } = await supabase
+        .from('invite_tokens')
+        .select('*')
+        .eq('token', token)
+        .eq('used', false)
+        .maybeSingle();
+      
+      console.log('📊 Direct DB query result:', { tokenData, dbError });
+      
+      // Then try the edge function
       const { data, error } = await supabase.functions.invoke('set-password-with-token', {
         body: {
           token,
@@ -44,7 +55,12 @@ export default function InviteTokenDebug() {
       });
 
       console.log('Validation response:', { data, error });
-      setValidationResult({ data, error });
+      setValidationResult({ 
+        data, 
+        error, 
+        directDbQuery: { tokenData, dbError },
+        timestamp: new Date().toISOString()
+      });
     } catch (err: any) {
       console.error('Validation error:', err);
       setValidationResult({ error: err.message });
