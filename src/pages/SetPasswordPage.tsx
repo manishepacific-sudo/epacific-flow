@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import AuthLayout from '@/components/AuthLayout';
 import epacificLogo from '@/assets/epacific-logo.png';
 
+// Supabase project configuration
 const projectRef = 'nimxzvhzxsfkfpnbhphm';
 const functionsUrl = `https://${projectRef}.functions.supabase.co`;
 
