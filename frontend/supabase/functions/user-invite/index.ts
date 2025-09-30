@@ -255,6 +255,8 @@ serve(async (req: Request): Promise<Response> => {
     const { error: tokenError } = await supabaseAdmin.from("invite_tokens").insert(tokenData);
 
     if (tokenError) {
+      console.error("❌ CRITICAL: Failed to insert token into database:", tokenError);
+      console.error("❌ Token data that failed:", JSON.stringify(tokenData, null, 2));
       // Clean up user if token creation fails
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       return new Response(
@@ -263,6 +265,31 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    // ✅ Verify token was actually inserted
+    console.log("🔍 Verifying token was inserted...");
+    const { data: verifyToken, error: verifyError } = await supabaseAdmin
+      .from("invite_tokens")
+      .select('*')
+      .eq('token', inviteToken)
+      .single();
+    
+    console.log("📊 Token verification after insert:", {
+      found: !!verifyToken,
+      error: verifyError?.message,
+      tokenId: verifyToken?.id,
+      email: verifyToken?.email,
+      used: verifyToken?.used
+    });
+    
+    if (verifyError || !verifyToken) {
+      console.error("❌ CRITICAL: Token was not found after insertion!");
+      console.error("❌ Verify error:", verifyError);
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      return new Response(
+        JSON.stringify({ success: false, error: `Token insertion verification failed: ${verifyError?.message || 'Token not found after insertion'}` }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
     // ✅ Send custom invitation email
     const baseUrl = "https://epacific.lovable.app";
     const inviteUrl = `${baseUrl}/set-password?token=${inviteToken}`;

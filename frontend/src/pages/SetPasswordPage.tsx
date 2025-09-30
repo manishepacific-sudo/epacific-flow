@@ -73,12 +73,102 @@ export default function SetPasswordPage() {
     }
 
     console.log("✅ Token found and validated, setting in state");
-    setToken(tokenFromUrl);
-    setError(null);
-    setIsValidating(false);
+    
+    // Now validate token exists in database
+    validateTokenInDatabase(tokenFromUrl);
     console.log("=== SetPasswordPage DEBUG END ===");
   }, [searchParams, toast]);
 
+  const validateTokenInDatabase = async (tokenFromUrl: string) => {
+    console.log("🔍 Starting database token validation for:", tokenFromUrl);
+    
+    try {
+      // Create a fresh Supabase client for this request
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseClient = createClient(
+        "https://nimxzvhzxsfkfpnbhphm.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pbXh6dmh6eHNma2ZwbmJocGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNjAzODAsImV4cCI6MjA3MzgzNjM4MH0.nW_hrwNdIwxFRsyR8RscM2LMcocEahIzExXIZIP-9Mo"
+      );
+      
+      console.log("📡 Querying invite_tokens table for token:", tokenFromUrl);
+      const { data: tokenData, error: tokenError } = await supabaseClient
+        .from('invite_tokens')
+        .select('*')
+        .eq('token', tokenFromUrl)
+        .eq('used', false)
+        .maybeSingle();
+      
+      console.log("📊 Database query result:", {
+        found: !!tokenData,
+        error: tokenError?.message,
+        tokenId: tokenData?.id,
+        email: tokenData?.email,
+        used: tokenData?.used,
+        expires_at: tokenData?.expires_at,
+        created_at: tokenData?.created_at
+      });
+      
+      if (tokenError) {
+        console.error("❌ Database query error:", tokenError);
+        setError(`Database error: ${tokenError.message}`);
+        setIsValidating(false);
+        toast({
+          title: "Database error",
+          description: `Failed to validate token: ${tokenError.message}`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!tokenData) {
+        console.error("❌ Token not found in database");
+        setError("This invitation link is invalid or has expired. The token was not found in the database.");
+        setIsValidating(false);
+        toast({
+          title: "Token not found",
+          description: "This invitation link is not valid. Please request a new invitation.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Check expiration
+      const expiresAt = new Date(tokenData.expires_at);
+      const now = new Date();
+      console.log("⏰ Expiration check:", {
+        expires: expiresAt.toISOString(),
+        now: now.toISOString(),
+        isExpired: expiresAt < now
+      });
+      
+      if (expiresAt < now) {
+        console.error("❌ Token has expired");
+        setError("This invitation link has expired. Please request a new invitation.");
+        setIsValidating(false);
+        toast({
+          title: "Invitation expired",
+          description: "This invitation link has expired. Please request a new invitation.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log("✅ Token validation successful!");
+      setToken(tokenFromUrl);
+      setError(null);
+      setIsValidating(false);
+      
+    } catch (err: any) {
+      console.error("❌ Token validation error:", err);
+      setError(`Validation failed: ${err.message}`);
+      setIsValidating(false);
+      toast({
+        title: "Validation error",
+        description: `Failed to validate token: ${err.message}`,
+        variant: "destructive"
+      });
+    }
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
