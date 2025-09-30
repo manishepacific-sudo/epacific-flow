@@ -42,7 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setDemoUser = async (email: string, role: string, name: string) => {
     // This function is kept for compatibility but no longer used
-    console.log('Demo user function called but not implemented - use real accounts only');
   };
 
   useEffect(() => {
@@ -88,7 +87,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
       } catch (error) {
-        console.error('Error initializing auth:', error);
         setUser(null);
         setSession(null);
         setProfile(null);
@@ -155,7 +153,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       navigate('/login');
     } catch (error) {
-      console.error('Error signing out:', error);
       // Force navigation even if logout fails
       navigate('/login');
     }
