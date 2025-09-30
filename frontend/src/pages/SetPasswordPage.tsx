@@ -198,11 +198,7 @@ export default function SetPasswordPage() {
     try {
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/set-password-with-token`;
       console.log('📡 Setting password at URL:', functionUrl);
-      console.log('🎫 Token being used:', extractedToken);
-      
-      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/set-password-with-token`;
-      console.log('📡 Validating token at URL:', functionUrl);
-      console.log('🎫 Token being validated:', extractedToken);
+      console.log('🎫 Token being used:', token);
       
       console.log(`🔐 Setting password with token: ${token.substring(0, 8)}...`);
       console.log('📤 Sending POST request to edge function...');
@@ -222,9 +218,6 @@ export default function SetPasswordPage() {
         console.error('🌐 Fetch failed:', fetchError);
         throw new Error(`Network error: ${fetchError.message}`);
       });
-        console.error('🌐 Fetch failed:', fetchError);
-        throw new Error(`Network error: ${fetchError.message}`);
-      });
 
       console.log('📊 Response status:', response.status);
       console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
@@ -241,10 +234,7 @@ export default function SetPasswordPage() {
       });
       console.log('📊 Edge function response:', data);
 
-      const result = await response.json().catch(jsonError => {
-        console.error('❌ JSON parse error:', jsonError);
-        throw new Error('Invalid response format from server');
-      });
+      if (!data.success) {
         throw new Error(data.error || 'Failed to set password');
       }
 
@@ -263,11 +253,6 @@ export default function SetPasswordPage() {
       });
       
       // 5. Error → show error toast
-      console.error('❌ Full error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
       toast({
         title: "Failed to set password",
         description: error.message || "Please use the link from your email or contact support",
