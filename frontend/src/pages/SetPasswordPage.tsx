@@ -62,8 +62,9 @@ export default function SetPasswordPage() {
       try {
         console.log('🔍 Validating token via edge function...');
         
-        const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
-        const functionUrl = `${functionsUrl}/set-password-with-token`;
+        // Use dedicated Supabase functions domain
+        const projectRef = 'nimxzvhzxsfkfpnbhphm'; // Your Supabase project reference
+        const functionUrl = `https://${projectRef}.functions.supabase.co/set-password-with-token`;
         
         console.log('📡 Edge function URL:', functionUrl);
         console.log('🎫 Validating token:', tokenFromUrl.substring(0, 8) + '...');
@@ -206,8 +207,9 @@ export default function SetPasswordPage() {
     setLoading(true);
 
     try {
-      const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
-      const functionUrl = `${functionsUrl}/set-password-with-token`;
+      // Use dedicated Supabase functions domain
+      const projectRef = 'nimxzvhzxsfkfpnbhphm'; // Your Supabase project reference
+      const functionUrl = `https://${projectRef}.functions.supabase.co/set-password-with-token`;
       
       console.log('📡 Setting password at URL:', functionUrl);
       console.log('🎫 Token being used:', token);
@@ -216,13 +218,13 @@ export default function SetPasswordPage() {
       console.log('📤 Sending POST request to edge function...');
       
       const requestBody = { token, password };
-      console.log('📤 Request body:', requestBody);
+      console.log('📤 Request body:', { ...requestBody, password: '[REDACTED]' });
       
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify(requestBody)
       }).catch(fetchError => {
