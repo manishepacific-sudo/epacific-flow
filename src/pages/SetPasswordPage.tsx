@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Lock, CircleCheck as CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Lock, CheckCircle } from 'lucide-react';
 import { GlassCard } from '@/components/ui/glass-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import AuthLayout from '@/components/AuthLayout';
 import epacificLogo from '@/assets/epacific-logo.png';
 
-// Determine the correct Supabase Functions URL
-const projectRef = 'nimxzvhzxsfkfpnbhphm'; // Your Supabase project reference
+const projectRef = 'nimxzvhzxsfkfpnbhphm';
 const functionsUrl = `https://${projectRef}.functions.supabase.co`;
 
 export default function SetPasswordPage() {
