@@ -215,10 +215,6 @@ export default function SetPasswordPage() {
     try {
       const functionUrl = `${functionsUrl}/set-password-with-token`;
       
-      console.log('📡 Setting password at URL:', functionUrl);
-      console.log('📡 Setting password at URL:', functionUrl);
-      console.log('🎫 Token being used:', token);
-      
       console.log(`🔐 Setting password with token: ${token.substring(0, 8)}...`);
       console.log('📤 Sending POST request to edge function...');
       
