@@ -10,9 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import AuthLayout from '@/components/AuthLayout';
 import epacificLogo from '@/assets/epacific-logo.png';
 
-// Supabase project configuration
-const projectRef = 'nimxzvhzxsfkfpnbhphm';
-const functionsUrl = `https://${projectRef}.functions.supabase.co`;
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pbXh6dmh6eHNma2ZwbmJocGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNjAzODAsImV4cCI6MjA3MzgzNjM4MH0.nW_hrwNdIwxFRsyR8RscM2LMcocEahIzExXIZIP-9Mo';
+const FUNCTIONS_URL = 'https://nimxzvhzxsfkfpnbhphm.functions.supabase.co';
 
 export default function SetPasswordPage() {
   const navigate = useNavigate();
@@ -30,24 +29,21 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     const validateToken = async () => {
-      // 1. Read token from URL query param
       const tokenFromUrl = searchParams.get('token');
       
-      // 2. If no token found, show error and redirect
       if (!tokenFromUrl) {
         toast({
-          title: "Invalid invitation link – please use the link from your email",
+          title: "Invalid invitation link",
           variant: "destructive"
         });
         navigate('/login');
         return;
       }
 
-      // Basic UUID format validation
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(tokenFromUrl)) {
         toast({
-          title: "Invalid invitation link – please use the link from your email",
+          title: "Invalid invitation link",
           variant: "destructive"
         });
         navigate('/login');
@@ -56,28 +52,18 @@ export default function SetPasswordPage() {
 
       setToken(tokenFromUrl);
       
-      // 3. Validate token with edge function
       try {
-        const functionUrl = `${functionsUrl}/set-password-with-token`;
-        
-        // Prepare request body for validation
-        const requestBody = { 
-          token: tokenFromUrl, 
-          validate_only: true 
-        };
-        
-        const response = await fetch(functionUrl, {
+        const response = await fetch(`${FUNCTIONS_URL}/set-password-with-token`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pbXh6dmh6eHNma2ZwbmJocGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNjAzODAsImV4cCI6MjA3MzgzNjM4MH0.nW_hrwNdIwxFRsyR8RscM2LMcocEahIzExXIZIP-9Mo`,
-            'x-client-info': 'supabase-js-set-password-page',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify({ token: tokenFromUrl, validate_only: true })
         });
         
         if (!response.ok) {
-          throw new Error(`Validation failed: ${response.status}`);
+          throw new Error('Validation failed');
         }
 
         const result = await response.json();
@@ -85,7 +71,6 @@ export default function SetPasswordPage() {
         if (!result.success) {
           toast({
             title: "Invalid invitation link",
-            description: result.error || "Please use the link from your email",
             variant: "destructive"
           });
           navigate('/login');
@@ -93,11 +78,9 @@ export default function SetPasswordPage() {
         }
         
         setTokenValid(true);
-        
-      } catch (error: any) {
+      } catch (error) {
         toast({
           title: "Validation failed",
-          description: "Unable to validate invitation link. Please try again or contact support.",
           variant: "destructive"
         });
         navigate('/login');
@@ -131,7 +114,7 @@ export default function SetPasswordPage() {
 
     if (!token) {
       toast({
-        title: "Invalid invitation link – please use the link from your email",
+        title: "Invalid invitation link",
         variant: "destructive"
       });
       return;
@@ -140,7 +123,6 @@ export default function SetPasswordPage() {
     if (password !== confirmPassword) {
       toast({
         title: "Passwords don't match",
-        description: "Please make sure both passwords are identical",
         variant: "destructive"
       });
       return;
@@ -150,7 +132,6 @@ export default function SetPasswordPage() {
     if (!validation.isValid) {
       toast({
         title: "Password requirements not met",
-        description: "Please ensure your password meets all requirements",
         variant: "destructive"
       });
       return;
@@ -159,46 +140,34 @@ export default function SetPasswordPage() {
     setLoading(true);
 
     try {
-      const functionUrl = `${functionsUrl}/set-password-with-token`;
-      
-      const requestBody = { token, password };
-      
-      const response = await fetch(functionUrl, {
+      const response = await fetch(`${FUNCTIONS_URL}/set-password-with-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pbXh6dmh6eHNma2ZwbmJocGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNjAzODAsImV4cCI6MjA3MzgzNjM4MH0.nW_hrwNdIwxFRsyR8RscM2LMcocEahIzExXIZIP-9Mo`,
-          'x-client-info': 'supabase-js-set-password-page',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify(requestBody)
-      }).catch(fetchError => {
-        throw new Error(`Network error: ${fetchError.message}`);
+        body: JSON.stringify({ token, password })
       });
       
       if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unable to read response');
-        throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 200)}`);
+        throw new Error('Failed to set password');
       }
 
-      const data = await response.json().catch(jsonError => {
-        throw new Error('Invalid response format from server');
-      });
+      const data = await response.json();
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to set password');
       }
 
-      // 4. Success → show success toast and redirect to login
       toast({
-        title: "Password set successfully – you can now log in with your new password",
+        title: "Password set successfully",
       });
       
       navigate('/login');
     } catch (error: any) {
-      // 5. Error → show error toast
       toast({
         title: "Failed to set password",
-        description: error.message || "Please use the link from your email or contact support",
+        description: error.message || "Please try again",
         variant: "destructive"
       });
     } finally {
@@ -206,7 +175,6 @@ export default function SetPasswordPage() {
     }
   };
 
-  // Show loading while validating token
   if (validatingToken) {
     return (
       <AuthLayout>
@@ -219,7 +187,7 @@ export default function SetPasswordPage() {
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
               <h2 className="text-xl font-semibold mb-2">Validating Invitation...</h2>
-              <p className="text-muted-foreground">Please wait while we verify your invitation link</p>
+              <p className="text-muted-foreground">Please wait</p>
             </div>
           </GlassCard>
         </motion.div>
@@ -227,7 +195,6 @@ export default function SetPasswordPage() {
     );
   }
 
-  // Don't render form if token is invalid (will redirect)
   if (!token || !tokenValid) {
     return null;
   }
@@ -243,7 +210,6 @@ export default function SetPasswordPage() {
         className="w-full max-w-md"
       >
         <GlassCard hover={false} className="p-8">
-          {/* Logo and Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -266,7 +232,6 @@ export default function SetPasswordPage() {
             </p>
           </motion.div>
 
-          {/* Password Form */}
           <motion.form
             onSubmit={handleSubmit}
             initial={{ opacity: 0, y: 20 }}
@@ -274,7 +239,6 @@ export default function SetPasswordPage() {
             transition={{ delay: 0.6 }}
             className="space-y-6"
           >
-            {/* Password Field */}
             <div className="space-y-2">
               <Label htmlFor="password" className="text-gray-900">
                 New Password
@@ -300,7 +264,6 @@ export default function SetPasswordPage() {
               </div>
             </div>
 
-            {/* Confirm Password Field */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-gray-900">
                 Confirm Password
@@ -326,7 +289,6 @@ export default function SetPasswordPage() {
               </div>
             </div>
 
-            {/* Password Requirements */}
             {password && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -356,14 +318,13 @@ export default function SetPasswordPage() {
                   <div className="flex items-center gap-2 text-sm">
                     <CircleCheck className={`h-4 w-4 ${validation.checks.hasSpecialChar ? 'text-green-500' : 'text-gray-300'}`} />
                     <span className={validation.checks.hasSpecialChar ? 'text-green-700' : 'text-gray-500'}>
-                      At least one special character (!@#$%^&*...)
+                      At least one special character
                     </span>
                   </div>
                 </div>
               </motion.div>
             )}
 
-            {/* Password Mismatch Warning */}
             {confirmPassword && password !== confirmPassword && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -374,7 +335,6 @@ export default function SetPasswordPage() {
               </motion.div>
             )}
 
-            {/* Submit Button */}
             <Button
               type="submit"
               className="w-full"
