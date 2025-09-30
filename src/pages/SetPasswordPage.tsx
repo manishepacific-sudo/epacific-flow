@@ -82,10 +82,8 @@ export default function SetPasswordPage() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            // Ensure VITE_SUPABASE_ANON_KEY is correctly loaded from environment
-            // It's crucial for the edge function to receive this for authentication
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_ANON_KEY_HERE'}`,
-            'x-client-info': 'supabase-js-set-password-page', // Custom header for debugging
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pbXh6dmh6eHNma2ZwbmJocGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNjAzODAsImV4cCI6MjA3MzgzNjM4MH0.nW_hrwNdIwxFRsyR8RscM2LMcocEahIzExXIZIP-9Mo`,
+            'x-client-info': 'supabase-js-set-password-page',
           },
           body: JSON.stringify(requestBody)
         });
@@ -225,8 +223,8 @@ export default function SetPasswordPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_ANON_KEY_HERE'}`,
-          'x-client-info': 'supabase-js-set-password-page', // Custom header for debugging
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pbXh6dmh6eHNma2ZwbmJocGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNjAzODAsImV4cCI6MjA3MzgzNjM4MH0.nW_hrwNdIwxFRsyR8RscM2LMcocEahIzExXIZIP-9Mo`,
+          'x-client-info': 'supabase-js-set-password-page',
         },
         body: JSON.stringify(requestBody)
       }).catch(fetchError => {
