@@ -15,6 +15,7 @@ import HandleInvite from "./pages/HandleInvite";
 import SetPasswordPage from "./pages/SetPasswordPage";
 import TokenTest from "./pages/TokenTest";
 import ResetPassword from "./pages/ResetPassword";
+import InviteTokenDebug from "./pages/InviteTokenDebug";
 const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
