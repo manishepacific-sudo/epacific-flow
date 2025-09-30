@@ -63,6 +63,7 @@ const App = () => {
                 {/* Public routes - no authentication required */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/set-password" element={<SetPasswordPage />} />
+                <Route path="/debug-invite" element={<InviteTokenDebug />} />
                 <Route path="/test-token" element={
                   <div style={{ padding: '20px', fontFamily: 'monospace' }}>
                     <h1>Direct Token Test</h1>
