@@ -31,15 +31,11 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     const validateToken = async () => {
-      console.log('🔍 Starting token validation...');
-      
       // 1. Read token from URL query param
       const tokenFromUrl = searchParams.get('token');
-      console.log('🎫 Token from URL:', tokenFromUrl ? `${tokenFromUrl.substring(0, 8)}...` : 'MISSING');
       
       // 2. If no token found, show error and redirect
       if (!tokenFromUrl) {
-        console.error('❌ No token found in URL');
         toast({
           title: "Invalid invitation link – please use the link from your email",
           variant: "destructive"
@@ -51,7 +47,6 @@ export default function SetPasswordPage() {
       // Basic UUID format validation
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(tokenFromUrl)) {
-        console.error('❌ Invalid token format:', tokenFromUrl);
         toast({
           title: "Invalid invitation link – please use the link from your email",
           variant: "destructive"
@@ -64,19 +59,13 @@ export default function SetPasswordPage() {
       
       // 3. Validate token with edge function
       try {
-        console.log('🔍 Validating token via edge function...');
-        
         const functionUrl = `${functionsUrl}/set-password-with-token`;
-        
-        console.log('📡 Edge function URL:', functionUrl);
-        console.log('🎫 Validating token:', tokenFromUrl.substring(0, 8) + '...');
         
         // Prepare request body for validation
         const requestBody = { 
           token: tokenFromUrl, 
           validate_only: true 
         };
-        console.log('📤 Validation request body:', requestBody);
         
         const response = await fetch(functionUrl, {
           method: 'POST',
@@ -87,21 +76,14 @@ export default function SetPasswordPage() {
           },
           body: JSON.stringify(requestBody)
         });
-
-        console.log('📊 Validation response status:', response.status);
-        console.log('📊 Validation response headers:', Object.fromEntries(response.headers.entries()));
         
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ Validation failed with status:', response.status, 'Body:', errorText);
           throw new Error(`Validation failed: ${response.status}`);
         }
 
         const result = await response.json();
-        console.log('📊 Validation result:', result);
         
         if (!result.success) {
-          console.error('❌ Token validation failed:', result.error);
           toast({
             title: "Invalid invitation link",
             description: result.error || "Please use the link from your email",
@@ -111,11 +93,9 @@ export default function SetPasswordPage() {
           return;
         }
         
-        console.log('✅ Token validation successful');
         setTokenValid(true);
         
       } catch (error: any) {
-        console.error('❌ Token validation error:', error);
         toast({
           title: "Validation failed",
           description: "Unable to validate invitation link. Please try again or contact support.",
@@ -129,37 +109,6 @@ export default function SetPasswordPage() {
 
     validateToken();
   }, [searchParams, toast, navigate]);
-
-  useEffect(() => {
-    // Original token extraction logic (kept for compatibility)
-    const tokenFromUrl = searchParams.get('token');
-    
-    // 2. If no token found, show error and redirect
-    if (!tokenFromUrl) {
-      toast({
-        title: "Invalid invitation link – please use the link from your email",
-        variant: "destructive"
-      });
-      navigate('/login');
-      return;
-    }
-
-    // Basic UUID format validation
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(tokenFromUrl)) {
-      toast({
-        title: "Invalid invitation link – please use the link from your email",
-        variant: "destructive"
-      });
-      navigate('/login');
-      return;
-    }
-
-    if (!token) {
-      setToken(tokenFromUrl);
-      console.log(`🎫 Token extracted from URL: ${tokenFromUrl.substring(0, 8)}...`);
-    }
-  }, [searchParams, toast, navigate, token]);
 
   const validatePassword = (password: string) => {
     const minLength = password.length >= 8;
@@ -213,11 +162,7 @@ export default function SetPasswordPage() {
     try {
       const functionUrl = `${functionsUrl}/set-password-with-token`;
       
-      console.log(`🔐 Setting password with token: ${token.substring(0, 8)}...`);
-      console.log('📤 Sending POST request to edge function...');
-      
       const requestBody = { token, password };
-      console.log('📤 Request body:', { ...requestBody, password: '[REDACTED]' });
       
       const response = await fetch(functionUrl, {
         method: 'POST',
@@ -228,24 +173,17 @@ export default function SetPasswordPage() {
         },
         body: JSON.stringify(requestBody)
       }).catch(fetchError => {
-        console.error('🌐 Fetch failed:', fetchError);
         throw new Error(`Network error: ${fetchError.message}`);
       });
-
-      console.log('📊 Response status:', response.status);
-      console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unable to read response');
-        console.error('❌ HTTP error:', response.status, errorText);
         throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 200)}`);
       }
 
       const data = await response.json().catch(jsonError => {
-        console.error('❌ JSON parse error:', jsonError);
         throw new Error('Invalid response format from server');
       });
-      console.log('📊 Edge function response:', data);
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to set password');
@@ -258,13 +196,6 @@ export default function SetPasswordPage() {
       
       navigate('/login');
     } catch (error: any) {
-      console.error('❌ Error setting password:', error);
-      console.error('❌ Full error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-      
       // 5. Error → show error toast
       toast({
         title: "Failed to set password",
