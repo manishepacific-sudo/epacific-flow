@@ -55,6 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
 
         if (error) {
+          // Clear invalid session data
+          await supabase.auth.signOut();
           setUser(null);
           setSession(null);
           setProfile(null);
