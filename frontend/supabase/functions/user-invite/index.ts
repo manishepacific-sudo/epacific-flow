@@ -267,7 +267,7 @@ serve(async (req: Request): Promise<Response> => {
     const baseUrl = "https://epacific.lovable.app";
     const inviteUrl = `${baseUrl}/set-password?token=${inviteToken}`;
     
-    const { error: emailError } = await supabaseAdmin.functions.invoke('send-invite-email', {
+    const { data: emailData, error: emailError } = await supabaseAdmin.functions.invoke('send-invite-email', {
       body: {
         email,
         full_name,
@@ -276,9 +276,13 @@ serve(async (req: Request): Promise<Response> => {
       }
     });
 
+    let emailErrorMessage = null;
     if (emailError) {
-      console.error("Failed to send invitation email:", emailError);
-      // Don't fail the entire operation if email fails
+      console.error("❌ Failed to send invitation email:", emailError);
+      emailErrorMessage = emailError.message || "Email sending failed";
+    } else if (!emailData?.success) {
+      console.error("❌ Email function returned error:", emailData?.error);
+      emailErrorMessage = emailData?.error || "Email sending failed";
     } else {
       console.log("✅ Invitation email sent successfully");
     }
@@ -288,7 +292,10 @@ serve(async (req: Request): Promise<Response> => {
         success: true,
         user: { id: newUser.user.id, email, full_name, role, expires_at: expiresAt.toISOString() },
         invite_link: inviteUrl,
-        message: "User invited successfully. Check email for setup instructions.",
+        emailError: emailErrorMessage,
+        message: emailErrorMessage 
+          ? "User invited successfully but email failed. Please share the invite link manually."
+          : "User invited successfully. Check email for setup instructions.",
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
