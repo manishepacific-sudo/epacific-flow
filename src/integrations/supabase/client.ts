@@ -22,12 +22,3 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     }
   }
 });
-
-// Handle refresh token errors globally
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'TOKEN_REFRESHED' && !session) {
-    // Clear invalid session
-    localStorage.removeItem('sb-nimxzvhzxsfkfpnbhphm-auth-token');
-    supabase.auth.signOut();
-  }
-});
