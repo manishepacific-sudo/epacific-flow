@@ -211,13 +211,37 @@ export default function EnhancedUserManagement() {
         throw new Error(data.error);
       }
 
-      toast({
-        title: "User invited successfully!",
-        description: data.emailError 
-          ? `User created but email sending failed. Please resend the invitation to ${inviteForm.email}` 
-          : `Invitation sent to ${inviteForm.email}`,
-        variant: data.emailError ? "destructive" : "default"
-      });
+      // Show invite link if email failed
+      if (data.emailError && data.invite_link) {
+        toast({
+          title: "⚠️ Email Sending Failed",
+          description: (
+            <div className="space-y-2">
+              <p>User created successfully but email couldn't be sent.</p>
+              <p className="text-xs font-mono bg-muted p-2 rounded">
+                {data.invite_link}
+              </p>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(data.invite_link);
+                  toast({ title: "Copied!", description: "Invite link copied to clipboard" });
+                }}
+              >
+                Copy Link
+              </Button>
+            </div>
+          ),
+          variant: "destructive",
+          duration: 10000, // Show for 10 seconds
+        });
+      } else {
+        toast({
+          title: "User invited successfully!",
+          description: `Invitation sent to ${inviteForm.email}`,
+        });
+      }
 
       setInviteForm({
         email: '',
