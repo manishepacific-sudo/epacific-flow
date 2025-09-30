@@ -149,36 +149,46 @@ export default function SetPasswordPage() {
     }
   };
 
+  // Show loading state while validating
+  if (isValidating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-background p-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
+          <GlassCard className="p-8" glass>
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              <p className="text-muted-foreground">Validating invitation link...</p>
+            </div>
+          </GlassCard>
+        </motion.div>
+      </div>
+    );
+  }
+
   // Show error state if there's an issue with the token
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-background p-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
           <GlassCard className="p-8" glass>
-            <h1 className="text-2xl font-bold mb-4 text-destructive">Debugging Token Issue</h1>
-            <div className="space-y-4 text-sm">
-              <div><strong>Error:</strong> {error}</div>
-              <div><strong>Current URL:</strong> {window.location.href}</div>
-              <div><strong>Search params:</strong> {window.location.search}</div>
-              <div><strong>Token from searchParams:</strong> {searchParams.get('token') || 'NOT FOUND'}</div>
-              <div><strong>Expected token:</strong> 3c31cc3d-5423-4009-a953-41eb3c5435b7</div>
-              <div><strong>All params:</strong></div>
-              <pre className="bg-muted p-2 rounded text-xs overflow-auto">
-                {JSON.stringify(Object.fromEntries(searchParams.entries()), null, 2)}
-              </pre>
-              <div><strong>Manual token check:</strong> {new URLSearchParams(window.location.search).get('token') || 'NOT FOUND'}</div>
-            </div>
-            <div className="mt-6 space-y-4">
-              <p className="text-sm">Troubleshooting steps:</p>
+            <h1 className="text-2xl font-bold mb-4 text-destructive">Invalid Invitation Link</h1>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <div className="space-y-4">
+              <p className="text-sm font-medium">Troubleshooting steps:</p>
               <ul className="text-sm text-muted-foreground space-y-2">
-                <li>• Make sure you're using the complete link from your email</li>
-                <li>• Check if the link has expired</li>
-                <li>• Try copying and pasting the entire URL</li>
-                <li>• Contact your administrator for a new invitation</li>
+                <li>• Make sure you're using the complete link from your invitation email</li>
+                <li>• Check if the invitation link has expired (links expire after 24 hours)</li>
+                <li>• Try copying and pasting the entire URL into your browser</li>
+                <li>• Contact your administrator for a new invitation if the link has expired</li>
               </ul>
-              <Button onClick={() => window.location.reload()} className="w-full">
-                Reload Page
-              </Button>
+              <div className="pt-4 space-y-2">
+                <Button onClick={() => navigate('/login')} className="w-full" variant="outline">
+                  Go to Login Page
+                </Button>
+                <Button onClick={() => window.location.reload()} className="w-full">
+                  Reload Page
+                </Button>
+              </div>
             </div>
           </GlassCard>
         </motion.div>
