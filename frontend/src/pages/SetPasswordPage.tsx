@@ -196,6 +196,14 @@ export default function SetPasswordPage() {
     setLoading(true);
 
     try {
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/set-password-with-token`;
+      console.log('📡 Setting password at URL:', functionUrl);
+      console.log('🎫 Token being used:', extractedToken);
+      
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/set-password-with-token`;
+      console.log('📡 Validating token at URL:', functionUrl);
+      console.log('🎫 Token being validated:', extractedToken);
+      
       console.log(`🔐 Setting password with token: ${token.substring(0, 8)}...`);
       console.log('📤 Sending POST request to edge function...');
       
@@ -203,28 +211,40 @@ export default function SetPasswordPage() {
       const requestBody = { token, password };
       console.log('📤 Request body:', requestBody);
       
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/set-password-with-token`, {
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify(requestBody)
+      }).catch(fetchError => {
+        console.error('🌐 Fetch failed:', fetchError);
+        throw new Error(`Network error: ${fetchError.message}`);
+      });
+        console.error('🌐 Fetch failed:', fetchError);
+        throw new Error(`Network error: ${fetchError.message}`);
       });
 
       console.log('📊 Response status:', response.status);
       console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text().catch(() => 'Unable to read response');
         console.error('❌ HTTP error:', response.status, errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 200)}`);
       }
 
-      const data = await response.json();
+      const data = await response.json().catch(jsonError => {
+        console.error('❌ JSON parse error:', jsonError);
+        throw new Error('Invalid response format from server');
+      });
       console.log('📊 Edge function response:', data);
 
-      if (!data.success) {
+      const result = await response.json().catch(jsonError => {
+        console.error('❌ JSON parse error:', jsonError);
+        throw new Error('Invalid response format from server');
+      });
         throw new Error(data.error || 'Failed to set password');
       }
 
@@ -236,11 +256,21 @@ export default function SetPasswordPage() {
       navigate('/login');
     } catch (error: any) {
       console.error('❌ Error setting password:', error);
+      console.error('❌ Full error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       
       // 5. Error → show error toast
+      console.error('❌ Full error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       toast({
         title: "Failed to set password",
-        description: error.message || "Please try again or contact support",
+        description: error.message || "Please use the link from your email or contact support",
         variant: "destructive"
       });
     } finally {
