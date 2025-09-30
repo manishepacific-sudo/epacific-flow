@@ -101,12 +101,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Set up Supabase auth state listener for real-time updates
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
         
         // Handle token refresh errors
         if (event === 'TOKEN_REFRESHED' && !session) {
-          await supabase.auth.signOut();
+          // Defer signOut to prevent deadlock
+          setTimeout(() => {
+            supabase.auth.signOut();
+          }, 0);
           setUser(null);
           setSession(null);
           setProfile(null);
@@ -122,8 +125,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session.user);
           setSession(session);
           
-          // Fetch profile with role
+          // Defer profile fetch to prevent deadlock
           setTimeout(async () => {
+            if (!mounted) return;
             try {
               const { data: profile } = await supabase
                 .from('profiles')
