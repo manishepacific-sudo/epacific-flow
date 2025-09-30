@@ -61,17 +61,7 @@ const App = () => {
               <Routes>
                 {/* Public routes - no authentication required */}
                 <Route path="/login" element={<Login />} />
-                <Route 
-                  path="/set-password" 
-                  element={
-                    <div>
-                      <div style={{position: 'fixed', top: 0, left: 0, zIndex: 9999, background: 'red', color: 'white', padding: '10px'}}>
-                        DEBUG: /set-password route reached! URL: {window.location.href}
-                      </div>
-                      <SetPasswordPage />
-                    </div>
-                  } 
-                />
+                <Route path="/set-password" element={<SetPasswordPage />} />
                 <Route path="/test-token" element={
                   <div style={{ padding: '20px', fontFamily: 'monospace' }}>
                     <h1>Direct Token Test</h1>
