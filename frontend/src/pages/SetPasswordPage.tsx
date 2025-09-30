@@ -21,10 +21,102 @@ export default function SetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [validatingToken, setValidatingToken] = useState(true);
   const [token, setToken] = useState<string | null>(null);
+  const [tokenValid, setTokenValid] = useState(false);
 
   useEffect(() => {
-    // 1. Read token from URL query param
+    const validateToken = async () => {
+      console.log('🔍 Starting token validation...');
+      
+      // 1. Read token from URL query param
+      const tokenFromUrl = searchParams.get('token');
+      console.log('🎫 Token from URL:', tokenFromUrl ? `${tokenFromUrl.substring(0, 8)}...` : 'MISSING');
+      
+      // 2. If no token found, show error and redirect
+      if (!tokenFromUrl) {
+        console.error('❌ No token found in URL');
+        toast({
+          title: "Invalid invitation link – please use the link from your email",
+          variant: "destructive"
+        });
+        navigate('/login');
+        return;
+      }
+
+      // Basic UUID format validation
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(tokenFromUrl)) {
+        console.error('❌ Invalid token format:', tokenFromUrl);
+        toast({
+          title: "Invalid invitation link – please use the link from your email",
+          variant: "destructive"
+        });
+        navigate('/login');
+        return;
+      }
+
+      setToken(tokenFromUrl);
+      
+      // 3. Validate token with edge function
+      try {
+        console.log('🔍 Validating token via edge function...');
+        
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/set-password-with-token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ 
+            token: tokenFromUrl, 
+            validate_only: true 
+          })
+        });
+
+        console.log('📊 Validation response status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Validation failed with status:', response.status, 'Body:', errorText);
+          throw new Error(`Validation failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('📊 Validation result:', result);
+        
+        if (!result.success) {
+          console.error('❌ Token validation failed:', result.error);
+          toast({
+            title: "Invalid invitation link",
+            description: result.error || "Please use the link from your email",
+            variant: "destructive"
+          });
+          navigate('/login');
+          return;
+        }
+        
+        console.log('✅ Token validation successful');
+        setTokenValid(true);
+        
+      } catch (error: any) {
+        console.error('❌ Token validation error:', error);
+        toast({
+          title: "Validation failed",
+          description: "Unable to validate invitation link. Please try again or contact support.",
+          variant: "destructive"
+        });
+        navigate('/login');
+      } finally {
+        setValidatingToken(false);
+      }
+    };
+
+    validateToken();
+  }, [searchParams, toast, navigate]);
+
+  useEffect(() => {
+    // Original token extraction logic (kept for compatibility)
     const tokenFromUrl = searchParams.get('token');
     
     // 2. If no token found, show error and redirect
@@ -48,9 +140,11 @@ export default function SetPasswordPage() {
       return;
     }
 
-    setToken(tokenFromUrl);
-    console.log(`🎫 Token extracted from URL: ${tokenFromUrl.substring(0, 8)}...`);
-  }, [searchParams, toast, navigate]);
+    if (!token) {
+      setToken(tokenFromUrl);
+      console.log(`🎫 Token extracted from URL: ${tokenFromUrl.substring(0, 8)}...`);
+    }
+  }, [searchParams, toast, navigate, token]);
 
   const validatePassword = (password: string) => {
     const minLength = password.length >= 8;
@@ -103,23 +197,35 @@ export default function SetPasswordPage() {
 
     try {
       console.log(`🔐 Setting password with token: ${token.substring(0, 8)}...`);
+      console.log('📤 Sending POST request to edge function...');
       
-      // 3. Call edge function with token and password only
-      const { data, error } = await supabase.functions.invoke('set-password-with-token', {
-        body: {
-          token,
-          password,
+      // 3. Call edge function with proper JSON format
+      const requestBody = { token, password };
+      console.log('📤 Request body:', requestBody);
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/set-password-with-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
+        body: JSON.stringify(requestBody)
       });
 
-      console.log('📊 Edge function response:', { data, error });
-
-      if (error) {
-        throw new Error(error.message);
+      console.log('📊 Response status:', response.status);
+      console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ HTTP error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      if (!data?.success) {
-        throw new Error(data?.error || 'Failed to set password');
+      const data = await response.json();
+      console.log('📊 Edge function response:', data);
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to set password');
       }
 
       // 4. Success → show success toast and redirect to login
@@ -142,8 +248,29 @@ export default function SetPasswordPage() {
     }
   };
 
-  // Don't render anything if no token (will redirect)
-  if (!token) {
+  // Show loading while validating token
+  if (validatingToken) {
+    return (
+      <AuthLayout>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md"
+        >
+          <GlassCard hover={false} className="p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <h2 className="text-xl font-semibold mb-2">Validating Invitation...</h2>
+              <p className="text-muted-foreground">Please wait while we verify your invitation link</p>
+            </div>
+          </GlassCard>
+        </motion.div>
+      </AuthLayout>
+    );
+  }
+
+  // Don't render form if token is invalid (will redirect)
+  if (!token || !tokenValid) {
     return null;
   }
 
