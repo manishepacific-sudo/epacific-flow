@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Lock, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Lock, CircleCheck } from 'lucide-react';
 import { GlassCard } from '@/components/ui/glass-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -335,25 +335,25 @@ export default function SetPasswordPage() {
                 <p className="text-sm font-medium text-gray-700">Password Requirements:</p>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className={`h-4 w-4 ${validation.checks.minLength ? 'text-green-500' : 'text-gray-300'}`} />
+                    <CircleCheck className={`h-4 w-4 ${validation.checks.minLength ? 'text-green-500' : 'text-gray-300'}`} />
                     <span className={validation.checks.minLength ? 'text-green-700' : 'text-gray-500'}>
                       At least 8 characters
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className={`h-4 w-4 ${validation.checks.hasNumber ? 'text-green-500' : 'text-gray-300'}`} />
+                    <CircleCheck className={`h-4 w-4 ${validation.checks.hasNumber ? 'text-green-500' : 'text-gray-300'}`} />
                     <span className={validation.checks.hasNumber ? 'text-green-700' : 'text-gray-500'}>
                       At least one number
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className={`h-4 w-4 ${validation.checks.hasLetter ? 'text-green-500' : 'text-gray-300'}`} />
+                    <CircleCheck className={`h-4 w-4 ${validation.checks.hasLetter ? 'text-green-500' : 'text-gray-300'}`} />
                     <span className={validation.checks.hasLetter ? 'text-green-700' : 'text-gray-500'}>
                       At least one letter
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className={`h-4 w-4 ${validation.checks.hasSpecialChar ? 'text-green-500' : 'text-gray-300'}`} />
+                    <CircleCheck className={`h-4 w-4 ${validation.checks.hasSpecialChar ? 'text-green-500' : 'text-gray-300'}`} />
                     <span className={validation.checks.hasSpecialChar ? 'text-green-700' : 'text-gray-500'}>
                       At least one special character (!@#$%^&*...)
                     </span>
