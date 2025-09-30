@@ -19,7 +19,7 @@ export default function TokenTest() {
         <div style={{ marginTop: '20px', padding: '15px', border: '2px solid #4CAF50', borderRadius: '4px', backgroundColor: '#f8fff8' }}>
           <strong>Test Instructions:</strong>
           <ol>
-            <li>Copy this URL: <code>https://epacific.lovable.app/token-test?token=3c31cc3d-5423-4009-a953-41eb3c5435b7</code></li>
+            <li>Copy this URL: <code>https://epacific.lovable.app/token-test?token=invite-validator</code></li>
             <li>Open it in incognito/private browser window</li>
             <li>Check if the token shows up above</li>
           </ol>
