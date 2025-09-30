@@ -62,19 +62,29 @@ export default function SetPasswordPage() {
       try {
         console.log('🔍 Validating token via edge function...');
         
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/set-password-with-token`, {
+        const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+        const functionUrl = `${functionsUrl}/set-password-with-token`;
+        
+        console.log('📡 Edge function URL:', functionUrl);
+        console.log('🎫 Validating token:', tokenFromUrl.substring(0, 8) + '...');
+        
+        const requestBody = { 
+          token: tokenFromUrl, 
+          validate_only: true 
+        };
+        console.log('📤 Validation request body:', requestBody);
+        
+        const response = await fetch(functionUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify({ 
-            token: tokenFromUrl, 
-            validate_only: true 
-          })
+          body: JSON.stringify(requestBody)
         });
 
         console.log('📊 Validation response status:', response.status);
+        console.log('📊 Validation response headers:', Object.fromEntries(response.headers.entries()));
         
         if (!response.ok) {
           const errorText = await response.text();
@@ -196,14 +206,15 @@ export default function SetPasswordPage() {
     setLoading(true);
 
     try {
-      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/set-password-with-token`;
+      const functionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+      const functionUrl = `${functionsUrl}/set-password-with-token`;
+      
       console.log('📡 Setting password at URL:', functionUrl);
       console.log('🎫 Token being used:', token);
       
       console.log(`🔐 Setting password with token: ${token.substring(0, 8)}...`);
       console.log('📤 Sending POST request to edge function...');
       
-      // 3. Call edge function with proper JSON format
       const requestBody = { token, password };
       console.log('📤 Request body:', requestBody);
       
