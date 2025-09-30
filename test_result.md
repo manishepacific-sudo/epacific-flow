@@ -101,3 +101,62 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Password set page shows error 'Invalid invitation link' when users are not logged into lovable.dev platform, but works when they are logged in. Expected behavior: Password set page should work for unauthenticated first-time users"
+
+frontend:
+  - task: "Fix SetPasswordPage token extraction and validation"
+    implemented: true
+    working: "NA"  # Needs testing
+    file: "frontend/src/pages/SetPasswordPage.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Removed debug alerts, improved token extraction logic with multiple fallback methods, added proper loading and error states, updated Supabase client config to prevent URL hash interception"
+  
+  - task: "Create debug page for invitation token troubleshooting"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/pages/InviteTokenDebug.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created comprehensive debug page at /debug-invite to help diagnose token extraction and validation issues"
+
+backend:
+  - task: "Verify Supabase edge function 'set-password-with-token' works without authentication"
+    implemented: true
+    working: "NA"
+    file: "frontend/supabase/functions/set-password-with-token/index.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Edge function uses service_role key which bypasses RLS. Should work for unauthenticated requests. Needs validation"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Test /set-password page with valid invitation token (unauthenticated)"
+    - "Test /debug-invite page to see token extraction details"
+    - "Verify edge function can be called without Supabase session"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Implemented fixes for password set page. Key changes: (1) Improved token extraction with fallbacks, (2) Added detectSessionInUrl: false to Supabase client config, (3) Removed debug alerts, (4) Added proper loading states. Created /debug-invite page for troubleshooting. Need to test with actual invitation link to verify token is extracted correctly when user has no Supabase session."
