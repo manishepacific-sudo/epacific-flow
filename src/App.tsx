@@ -10,7 +10,6 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InviteRedirectHandler } from "@/components/InviteRedirectHandler";
 import { AuthRedirect } from "@/components/AuthRedirect";
 import { withRoleGuard } from "@/components/withRoleGuard";
-import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import Login from "./pages/Login";
 import HandleInvite from "./pages/HandleInvite";
 import SetPasswordPage from "./pages/SetPasswordPage";
@@ -42,12 +41,6 @@ const GuardedUserProfile = withRoleGuard(UserProfilePage, 'admin');
 
 const queryClient = new QueryClient();
 
-// Session timeout wrapper component
-function SessionTimeoutWrapper({ children }: { children: React.ReactNode }) {
-  useSessionTimeout();
-  return <>{children}</>;
-}
-
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
@@ -56,6 +49,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <AuthProvider>
             <Suspense fallback={
               <div className="min-h-screen flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -79,83 +73,56 @@ const App = () => {
               
               {/* Protected routes - require authentication */}
               <Route path="/dashboard/*" element={
-                <AuthProvider>
-                  <SessionTimeoutWrapper>
-                    <InviteRedirectHandler />
-                    <Routes>
-                      <Route path="/user" element={<GuardedUserDashboard />} />
-                      <Route path="/admin" element={<GuardedAdminDashboard />} />
-                      <Route path="/manager" element={<GuardedManagerDashboard />} />
-                    </Routes>
-                  </SessionTimeoutWrapper>
-                </AuthProvider>
+                <>
+                  <InviteRedirectHandler />
+                  <Routes>
+                    <Route path="/user" element={<GuardedUserDashboard />} />
+                    <Route path="/admin" element={<GuardedAdminDashboard />} />
+                    <Route path="/manager" element={<GuardedManagerDashboard />} />
+                  </Routes>
+                </>
               } />
               
-              <Route path="/user-management" element={
-                <AuthProvider>
-                  <GuardedUserManagement />
-                </AuthProvider>
-              } />
+              <Route path="/user-management" element={<GuardedUserManagement />} />
               
-              <Route path="/reports-management" element={
-                <AuthProvider>
-                  <GuardedReportsManagement />
-                </AuthProvider>
-              } />
+              <Route path="/reports-management" element={<GuardedReportsManagement />} />
               
-              <Route path="/payments-management" element={
-                <AuthProvider>
-                  <GuardedPaymentsManagement />
-                </AuthProvider>
-              } />
+              <Route path="/payments-management" element={<GuardedPaymentsManagement />} />
               
-              <Route path="/upload/report" element={
-                <AuthProvider>
-                  <GuardedReportUpload />
-                </AuthProvider>
-              } />
+              <Route path="/upload/report" element={<GuardedReportUpload />} />
               
               <Route path="/payment/:id" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <EnhancedPaymentPage />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ProtectedRoute>
+                  <EnhancedPaymentPage />
+                </ProtectedRoute>
               } />
               
               <Route path="/payments" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <PaymentsPage />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ProtectedRoute>
+                  <PaymentsPage />
+                </ProtectedRoute>
               } />
               
               <Route path="/attendance" element={
-                <AuthProvider>
-                  <ProtectedRoute>
-                    <AttendancePage />
-                  </ProtectedRoute>
-                </AuthProvider>
+                <ProtectedRoute>
+                  <AttendancePage />
+                </ProtectedRoute>
               } />
               
-              <Route path="/user-profile/:userId" element={
-                <AuthProvider>
-                  <GuardedUserProfile />
-                </AuthProvider>
-              } />
+              <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
               
               {/* Root redirect and 404 */}
               <Route path="/" element={
-                <AuthProvider>
+                <>
                   <InviteRedirectHandler />
                   <AuthRedirect />
-                </AuthProvider>
+                </>
               } />
               
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+            </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
