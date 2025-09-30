@@ -6,12 +6,8 @@ export function InviteRedirectHandler() {
   const location = useLocation();
 
   useEffect(() => {
-    console.log('🔍 InviteRedirectHandler: Current path:', location.pathname);
-    console.log('🔍 InviteRedirectHandler: Current search:', window.location.search);
-    
     // CRITICAL: Don't interfere with set-password page at all
     if (location.pathname === '/set-password') {
-      console.log('🎫 On set-password page, InviteRedirectHandler doing nothing');
       return;
     }
     
@@ -21,11 +17,9 @@ export function InviteRedirectHandler() {
     
     // Check if this is a token-based invite (new system)
     const hasCustomToken = urlParams.has('token');
-    console.log('🔍 InviteRedirectHandler: Has custom token?', hasCustomToken);
     
     // Skip redirect if it's a token-based invite
     if (hasCustomToken) {
-      console.log('🎫 Token-based invite detected, skipping redirect');
       return;
     }
     
@@ -35,7 +29,6 @@ export function InviteRedirectHandler() {
                                  window.location.pathname === '/auth-bridge';
     
     if (hasLegacyInviteParams || window.location.hash.includes('access_token')) {
-      console.log('🔗 Legacy invite detected, redirecting to /handle-invite');
       const fullUrl = window.location.href;
       // Extract everything after the domain and redirect to handle-invite
       const redirectUrl = fullUrl.replace(window.location.origin, '') || '/';

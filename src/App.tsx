@@ -42,11 +42,6 @@ const GuardedUserProfile = withRoleGuard(UserProfilePage, 'admin');
 const queryClient = new QueryClient();
 
 const App = () => {
-  // CRITICAL: Add debugging to see what URLs reach the App component
-  console.log("🌍 App.tsx: Current URL:", window.location.href);
-  console.log("🌍 App.tsx: Pathname:", window.location.pathname);
-  console.log("🌍 App.tsx: Search:", window.location.search);
-  
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
