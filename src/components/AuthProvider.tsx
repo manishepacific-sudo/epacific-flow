@@ -56,7 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
 
         if (error) {
-          console.log('Session error:', error);
           setUser(null);
           setSession(null);
           setProfile(null);
@@ -65,7 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (session?.user) {
-          console.log('Session found, setting user data');
           setUser(session.user);
           setSession(session);
           
@@ -78,14 +76,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .maybeSingle();
             
             if (mounted) {
-              console.log('Profile found:', profile);
               setProfile(profile);
             }
           } catch (error) {
-            console.error('Error fetching profile:', error);
+            // Error handled silently - profile will remain null
           }
         } else {
-          console.log('No session found');
           setUser(null);
           setSession(null);
           setProfile(null);
@@ -108,8 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('Auth state changed:', event, session?.user?.email);
-        
         if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
           setSession(null);
@@ -128,11 +122,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 .maybeSingle();
               
               if (mounted) {
-                console.log('Profile fetched in auth change:', profile);
                 setProfile(profile);
               }
             } catch (error) {
-              console.error('Error fetching profile:', error);
+              // Error handled silently - profile will remain null
             }
           }, 0);
         }

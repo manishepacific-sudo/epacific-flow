@@ -238,6 +238,36 @@ export type Database = {
           },
         ]
       }
+      security_audit_log: {
+        Row: {
+          created_at: string
+          details: Json | null
+          event_type: string
+          id: string
+          ip_address: string | null
+          target_user_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          target_user_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          target_user_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -274,6 +304,14 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+      }
+      log_security_event: {
+        Args: {
+          details_param?: Json
+          event_type_param: string
+          target_user_id_param?: string
+        }
+        Returns: undefined
       }
       mark_all_notifications_read: {
         Args: { target_role_param: string }
