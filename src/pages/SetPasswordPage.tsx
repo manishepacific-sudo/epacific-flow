@@ -13,7 +13,7 @@ import epacificLogo from '@/assets/epacific-logo.png';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pbXh6dmh6eHNma2ZwbmJocGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNjAzODAsImV4cCI6MjA3MzgzNjM4MH0.nW_hrwNdIwxFRsyR8RscM2LMcocEahIzExXIZIP-9Mo';
 const FUNCTIONS_URL = 'https://nimxzvhzxsfkfpnbhphm.functions.supabase.co';
 
-export default function SetPasswordPage() {
+const SetPasswordPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
@@ -347,4 +347,6 @@ export default function SetPasswordPage() {
       </motion.div>
     </AuthLayout>
   );
-}
+};
+
+export default SetPasswordPage;
