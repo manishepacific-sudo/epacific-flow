@@ -24,9 +24,10 @@ export default function SetPasswordPage() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Extract token from URL query parameters
+    // 1. Read token from URL query param
     const tokenFromUrl = searchParams.get('token');
     
+    // 2. If no token found, show error and redirect
     if (!tokenFromUrl) {
       toast({
         title: "Invalid invitation link – please use the link from your email",
@@ -48,6 +49,7 @@ export default function SetPasswordPage() {
     }
 
     setToken(tokenFromUrl);
+    console.log(`🎫 Token extracted from URL: ${tokenFromUrl.substring(0, 8)}...`);
   }, [searchParams, toast, navigate]);
 
   const validatePassword = (password: string) => {
@@ -100,13 +102,17 @@ export default function SetPasswordPage() {
     setLoading(true);
 
     try {
-      // Call the edge function with token and password
+      console.log(`🔐 Setting password with token: ${token.substring(0, 8)}...`);
+      
+      // 3. Call edge function with token and password only
       const { data, error } = await supabase.functions.invoke('set-password-with-token', {
         body: {
           token,
           password,
         },
       });
+
+      console.log('📊 Edge function response:', { data, error });
 
       if (error) {
         throw new Error(error.message);
@@ -116,14 +122,16 @@ export default function SetPasswordPage() {
         throw new Error(data?.error || 'Failed to set password');
       }
 
-      // Success - redirect to login
+      // 4. Success → show success toast and redirect to login
       toast({
         title: "Password set successfully – you can now log in with your new password",
       });
       
       navigate('/login');
     } catch (error: any) {
-      console.error('Error setting password:', error);
+      console.error('❌ Error setting password:', error);
+      
+      // 5. Error → show error toast
       toast({
         title: "Failed to set password",
         description: error.message || "Please try again or contact support",
@@ -263,7 +271,7 @@ export default function SetPasswordPage() {
                   <div className="flex items-center gap-2 text-sm">
                     <CheckCircle className={`h-4 w-4 ${validation.checks.hasSpecialChar ? 'text-green-500' : 'text-gray-300'}`} />
                     <span className={validation.checks.hasSpecialChar ? 'text-green-700' : 'text-gray-500'}>
-                      At least one special character
+                      At least one special character (!@#$%^&*...)
                     </span>
                   </div>
                 </div>
