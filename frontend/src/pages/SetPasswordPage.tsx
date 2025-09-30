@@ -10,9 +10,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 
 export default function SetPasswordPage() {
-  // CRITICAL: Add immediate alert to see if component loads
-  alert("CRITICAL DEBUG: SetPasswordPage component is loading!");
-  
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
@@ -23,40 +20,39 @@ export default function SetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(true);
 
   useEffect(() => {
-    // CRITICAL: Add alerts for debugging in incognito mode
-    alert("DEBUG: SetPasswordPage mounted. URL: " + window.location.href);
-    
     console.log("=== SetPasswordPage DEBUG START ===");
     console.log("🚀 SetPasswordPage component mounted");
-    console.log("🔍 window.location.href:", window.location.href);
-    console.log("🔍 window.location.search:", window.location.search);
-    console.log("🔍 window.location.pathname:", window.location.pathname);
-    console.log("🔍 window.location.hash:", window.location.hash);
-    console.log("🔍 URLSearchParams from location.search:", new URLSearchParams(window.location.search));
-    console.log("🔍 All searchParams entries:", Object.fromEntries(searchParams.entries()));
-
-    // Multiple ways to extract token for debugging
+    console.log("🔍 Full URL:", window.location.href);
+    console.log("🔍 Search params:", window.location.search);
+    
+    // Extract token from URL using multiple methods for reliability
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromWindow = urlParams.get('token');
     const tokenFromSearchParams = searchParams.get('token');
     
-    console.log("🎫 Token from window.location.search:", tokenFromWindow || "MISSING");
-    console.log("🎫 Token from useSearchParams:", tokenFromSearchParams || "MISSING");
-    console.log("🎯 Expected token: 3c31cc3d-5423-4009-a953-41eb3c5435b7");
-    
-    // Alert for critical debugging
-    alert("DEBUG: Token from URL: " + (tokenFromWindow || "MISSING") + " | From searchParams: " + (tokenFromSearchParams || "MISSING"));
-    
-    // Use whichever method works
+    // Try both methods and use whichever works
     const tokenFromUrl = tokenFromSearchParams || tokenFromWindow;
+    
+    console.log("🎫 Token from useSearchParams:", tokenFromSearchParams || "MISSING");
+    console.log("🎫 Token from window.location:", tokenFromWindow || "MISSING");
+    console.log("🎯 Final token:", tokenFromUrl || "MISSING");
 
     if (!tokenFromUrl) {
       console.error("❌ No token found in URL parameters");
-      setError("Invalid invitation link – please use the link from your email");
+      console.log("🔍 Debugging info:");
+      console.log("  - Current pathname:", window.location.pathname);
+      console.log("  - Current search:", window.location.search);
+      console.log("  - Current hash:", window.location.hash);
+      console.log("  - All params:", Object.fromEntries(searchParams.entries()));
+      
+      setError("Invalid invitation link - please use the link from your email");
+      setIsValidating(false);
       toast({
-        title: "Invalid invitation link – please use the link from your email",
+        title: "Missing invitation token",
+        description: "Please use the complete link from your invitation email",
         variant: "destructive"
       });
       return;
@@ -66,17 +62,20 @@ export default function SetPasswordPage() {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(tokenFromUrl)) {
       console.error("❌ Token format invalid:", tokenFromUrl);
-      setError("Invalid invitation link – invalid token format");
+      setError("Invalid invitation link - invalid token format");
+      setIsValidating(false);
       toast({
-        title: "Invalid invitation link – please use the link from your email",
+        title: "Invalid token format",
+        description: "Please use the link from your invitation email",
         variant: "destructive"
       });
       return;
     }
 
-    console.log("✅ Token found and format validated, setting in state");
+    console.log("✅ Token found and validated, setting in state");
     setToken(tokenFromUrl);
-    setError(null); // Clear any previous errors
+    setError(null);
+    setIsValidating(false);
     console.log("=== SetPasswordPage DEBUG END ===");
   }, [searchParams, toast]);
 
