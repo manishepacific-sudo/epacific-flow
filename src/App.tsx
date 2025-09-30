@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InviteRedirectHandler } from "@/components/InviteRedirectHandler";
 import { AuthRedirect } from "@/components/AuthRedirect";
 import { withRoleGuard } from "@/components/withRoleGuard";
+import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import Login from "./pages/Login";
 import HandleInvite from "./pages/HandleInvite";
 import SetPasswordPage from "./pages/SetPasswordPage";
@@ -40,6 +41,12 @@ const GuardedReportUpload = withRoleGuard(ReportUpload, 'user');
 const GuardedUserProfile = withRoleGuard(UserProfilePage, 'admin');
 
 const queryClient = new QueryClient();
+
+// Session timeout wrapper component
+function SessionTimeoutWrapper({ children }: { children: React.ReactNode }) {
+  useSessionTimeout();
+  return <>{children}</>;
+}
 
 const App = () => {
   return (
@@ -73,12 +80,14 @@ const App = () => {
               {/* Protected routes - require authentication */}
               <Route path="/dashboard/*" element={
                 <AuthProvider>
-                  <InviteRedirectHandler />
-                  <Routes>
-                    <Route path="/user" element={<GuardedUserDashboard />} />
-                    <Route path="/admin" element={<GuardedAdminDashboard />} />
-                    <Route path="/manager" element={<GuardedManagerDashboard />} />
-                  </Routes>
+                  <SessionTimeoutWrapper>
+                    <InviteRedirectHandler />
+                    <Routes>
+                      <Route path="/user" element={<GuardedUserDashboard />} />
+                      <Route path="/admin" element={<GuardedAdminDashboard />} />
+                      <Route path="/manager" element={<GuardedManagerDashboard />} />
+                    </Routes>
+                  </SessionTimeoutWrapper>
                 </AuthProvider>
               } />
               
