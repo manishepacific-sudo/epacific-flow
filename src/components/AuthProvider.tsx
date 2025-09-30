@@ -104,6 +104,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         
+        // Handle token refresh errors
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          await supabase.auth.signOut();
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        
         if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
           setSession(null);
