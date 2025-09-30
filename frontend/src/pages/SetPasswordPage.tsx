@@ -11,6 +11,10 @@ import { supabase } from '@/integrations/supabase/client';
 import AuthLayout from '@/components/AuthLayout';
 import epacificLogo from '@/assets/epacific-logo.png';
 
+// Determine the correct Supabase Functions URL
+const projectRef = 'nimxzvhzxsfkfpnbhphm'; // Your Supabase project reference
+const functionsUrl = `https://${projectRef}.functions.supabase.co`;
+
 export default function SetPasswordPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -62,13 +66,12 @@ export default function SetPasswordPage() {
       try {
         console.log('🔍 Validating token via edge function...');
         
-        // Use dedicated Supabase functions domain
-        const projectRef = 'nimxzvhzxsfkfpnbhphm'; // Your Supabase project reference
-        const functionUrl = `https://${projectRef}.functions.supabase.co/set-password-with-token`;
+        const functionUrl = `${functionsUrl}/set-password-with-token`;
         
         console.log('📡 Edge function URL:', functionUrl);
         console.log('🎫 Validating token:', tokenFromUrl.substring(0, 8) + '...');
         
+        // Prepare request body for validation
         const requestBody = { 
           token: tokenFromUrl, 
           validate_only: true 
@@ -79,7 +82,10 @@ export default function SetPasswordPage() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            // Ensure VITE_SUPABASE_ANON_KEY is correctly loaded from environment
+            // It's crucial for the edge function to receive this for authentication
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_ANON_KEY_HERE'}`,
+            'x-client-info': 'supabase-js-set-password-page', // Custom header for debugging
           },
           body: JSON.stringify(requestBody)
         });
@@ -207,10 +213,9 @@ export default function SetPasswordPage() {
     setLoading(true);
 
     try {
-      // Use dedicated Supabase functions domain
-      const projectRef = 'nimxzvhzxsfkfpnbhphm'; // Your Supabase project reference
-      const functionUrl = `https://${projectRef}.functions.supabase.co/set-password-with-token`;
+      const functionUrl = `${functionsUrl}/set-password-with-token`;
       
+      console.log('📡 Setting password at URL:', functionUrl);
       console.log('📡 Setting password at URL:', functionUrl);
       console.log('🎫 Token being used:', token);
       
@@ -224,7 +229,8 @@ export default function SetPasswordPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_ANON_KEY_HERE'}`,
+          'x-client-info': 'supabase-js-set-password-page', // Custom header for debugging
         },
         body: JSON.stringify(requestBody)
       }).catch(fetchError => {
