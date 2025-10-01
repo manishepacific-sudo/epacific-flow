@@ -16,10 +16,9 @@ export default defineConfig(({ mode }) => ({
     }
   },
 
-  // Server configuration
   server: {
     port: 8080,
-    host: '0.0.0.0',
+    host: "::",
     strictPort: false
   },
   
