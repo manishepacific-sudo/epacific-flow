@@ -17,6 +17,7 @@ import SetPasswordPage from "./pages/SetPasswordPage";
 import TokenTest from "./pages/TokenTest";
 import ResetPassword from "./pages/ResetPassword";
 import InviteTokenDebug from "./pages/InviteTokenDebug";
+import { UserProfilePage } from "./pages/UserProfilePage";
 const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
@@ -28,7 +29,6 @@ const EnhancedPaymentPage = lazy(() => import("./pages/EnhancedPaymentPage"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
 const AttendancePage = lazy(() => import("./pages/AttendancePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const UserProfilePage = lazy(() => import("./pages/UserProfilePage").then(module => ({ default: module.UserProfilePage })));
 
 // Create role-guarded components
 const GuardedUserDashboard = withRoleGuard(UserDashboard, 'user');
