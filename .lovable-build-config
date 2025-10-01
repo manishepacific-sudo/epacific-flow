@@ -1,0 +1,8 @@
+# Build configuration
+# This file ensures the build uses the correct source directory
+
+# Source directory
+SOURCE_DIR=src
+
+# Build output
+OUT_DIR=build
