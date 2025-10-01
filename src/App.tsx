@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/components/AuthProvider";
+import { SessionTimeoutManager } from "@/components/SessionTimeoutManager";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InviteRedirectHandler } from "@/components/InviteRedirectHandler";
 import { AuthRedirect } from "@/components/AuthRedirect";
@@ -50,7 +51,8 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
-            <Suspense fallback={
+              <SessionTimeoutManager />
+              <Suspense fallback={
               <div className="min-h-screen flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
