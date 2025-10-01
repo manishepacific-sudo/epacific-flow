@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 
 interface AuthContextType {
   user: User | null;
@@ -36,9 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  
-  // Initialize session timeout hook
-  useSessionTimeout();
 
   const setDemoUser = async (email: string, role: string, name: string) => {
     // This function is kept for compatibility but no longer used

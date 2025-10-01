@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/components/AuthProvider";
+import { SessionTimeoutManager } from "@/components/SessionTimeoutManager";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InviteRedirectHandler } from "@/components/InviteRedirectHandler";
 import { AuthRedirect } from "@/components/AuthRedirect";
@@ -54,105 +55,82 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Suspense fallback={
-              <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            }>
-              <Routes>
-                {/* Public routes - no authentication required */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/set-password" element={<SetPasswordPage />} />
-                <Route path="/debug-invite" element={<InviteTokenDebug />} />
-                <Route path="/test-token" element={
-                  <div style={{ padding: '20px', fontFamily: 'monospace' }}>
-                    <h1>Direct Token Test</h1>
-                    <p>URL: {window.location.href}</p>
-                    <p>Token: {new URLSearchParams(window.location.search).get('token') || 'MISSING'}</p>
-                  </div>
+            <AuthProvider>
+              <SessionTimeoutManager />
+              <Suspense fallback={
+                <div className="min-h-screen flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              }>
+                <Routes>
+                  {/* Public routes - no authentication required */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/set-password" element={<SetPasswordPage />} />
+                  <Route path="/debug-invite" element={<InviteTokenDebug />} />
+                  <Route path="/test-token" element={
+                    <div style={{ padding: '20px', fontFamily: 'monospace' }}>
+                      <h1>Direct Token Test</h1>
+                      <p>URL: {window.location.href}</p>
+                      <p>Token: {new URLSearchParams(window.location.search).get('token') || 'MISSING'}</p>
+                    </div>
+                  } />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/handle-invite" element={<HandleInvite />} />
+                  <Route path="/auth-bridge" element={<HandleInvite />} />
+                
+                {/* Protected routes - require authentication */}
+                <Route path="/dashboard/*" element={
+                  <>
+                    <InviteRedirectHandler />
+                    <Routes>
+                      <Route path="/user" element={<GuardedUserDashboard />} />
+                      <Route path="/admin" element={<GuardedAdminDashboard />} />
+                      <Route path="/manager" element={<GuardedManagerDashboard />} />
+                    </Routes>
+                  </>
                 } />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/handle-invite" element={<HandleInvite />} />
-                <Route path="/auth-bridge" element={<HandleInvite />} />
-              
-              {/* Protected routes - require authentication */}
-              <Route path="/dashboard/*" element={
-                <AuthProvider>
-                  <InviteRedirectHandler />
-                  <Routes>
-                    <Route path="/user" element={<GuardedUserDashboard />} />
-                    <Route path="/admin" element={<GuardedAdminDashboard />} />
-                    <Route path="/manager" element={<GuardedManagerDashboard />} />
-                  </Routes>
-                </AuthProvider>
-              } />
-              
-              <Route path="/user-management" element={
-                <AuthProvider>
-                  <GuardedUserManagement />
-                </AuthProvider>
-              } />
-              
-              <Route path="/reports-management" element={
-                <AuthProvider>
-                  <GuardedReportsManagement />
-                </AuthProvider>
-              } />
-              
-              <Route path="/payments-management" element={
-                <AuthProvider>
-                  <GuardedPaymentsManagement />
-                </AuthProvider>
-              } />
-              
-              <Route path="/upload/report" element={
-                <AuthProvider>
-                  <GuardedReportUpload />
-                </AuthProvider>
-              } />
-              
-              <Route path="/payment/:id" element={
-                <AuthProvider>
+                
+                <Route path="/user-management" element={<GuardedUserManagement />} />
+                
+                <Route path="/reports-management" element={<GuardedReportsManagement />} />
+                
+                <Route path="/payments-management" element={<GuardedPaymentsManagement />} />
+                
+                <Route path="/upload/report" element={<GuardedReportUpload />} />
+                
+                <Route path="/payment/:id" element={
                   <ProtectedRoute>
                     <EnhancedPaymentPage />
                   </ProtectedRoute>
-                </AuthProvider>
-              } />
-              
-              <Route path="/payments" element={
-                <AuthProvider>
+                } />
+                
+                <Route path="/payments" element={
                   <ProtectedRoute>
                     <PaymentsPage />
                   </ProtectedRoute>
-                </AuthProvider>
-              } />
-              
-              <Route path="/attendance" element={
-                <AuthProvider>
+                } />
+                
+                <Route path="/attendance" element={
                   <ProtectedRoute>
                     <AttendancePage />
                   </ProtectedRoute>
-                </AuthProvider>
-              } />
-              
-              <Route path="/user-profile/:userId" element={
-                <AuthProvider>
-                  <GuardedUserProfile />
-                </AuthProvider>
-              } />
-              
-              {/* Root redirect and 404 */}
-              <Route path="/" element={
-                <AuthProvider>
-                  <InviteRedirectHandler />
-                  <AuthRedirect />
-                </AuthProvider>
-              } />
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
+                } />
+                
+                <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
+                
+                {/* Root redirect and 404 */}
+                <Route path="/" element={
+                  <>
+                    <InviteRedirectHandler />
+                    <AuthRedirect />
+                  </>
+                } />
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+            </AuthProvider>
+          </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
