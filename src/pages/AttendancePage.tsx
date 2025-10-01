@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useDropzone } from "react-dropzone";
 import { 
@@ -8,7 +8,8 @@ import {
   Calendar,
   Clock,
   MapPin,
-  User
+  User,
+  Loader2
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -16,9 +17,22 @@ import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
+interface LocationState {
+  loading: boolean;
+  error: string | null;
+  coordinates: { latitude: number; longitude: number } | null;
+  address: string | null;
+}
+
 export default function AttendancePage() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [location, setLocation] = useState<LocationState>({
+    loading: true,
+    error: null,
+    coordinates: null,
+    address: null,
+  });
   const { toast } = useToast();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -40,6 +54,84 @@ export default function AttendancePage() {
     maxFiles: 1,
     maxSize: 5 * 1024 * 1024, // 5MB
   });
+
+  // Fetch user's location on component mount
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocation({
+        loading: false,
+        error: "Geolocation is not supported by your browser",
+        coordinates: null,
+        address: null,
+      });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const coords = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        
+        setLocation({
+          loading: false,
+          error: null,
+          coordinates: coords,
+          address: null,
+        });
+
+        // Optional: Reverse geocoding using OpenStreetMap Nominatim API
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}`
+          );
+          const data = await response.json();
+          
+          const address = data.address;
+          const addressString = [
+            address.city || address.town || address.village,
+            address.state,
+            address.country
+          ].filter(Boolean).join(", ");
+
+          setLocation(prev => ({
+            ...prev,
+            address: addressString || "Address not available",
+          }));
+        } catch (error) {
+          console.error("Reverse geocoding failed:", error);
+          // Keep the coordinates even if reverse geocoding fails
+        }
+      },
+      (error) => {
+        let errorMessage = "Unable to fetch location";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Permission denied";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location unavailable";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out";
+            break;
+        }
+        
+        setLocation({
+          loading: false,
+          error: errorMessage,
+          coordinates: null,
+          address: null,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  }, []);
 
   const handleSubmit = async () => {
     if (!photo) {
@@ -69,11 +161,24 @@ export default function AttendancePage() {
     return {
       date: now.toLocaleDateString(),
       time: now.toLocaleTimeString(),
-      location: "Mumbai, Maharashtra" // Mock location
     };
   };
 
-  const { date, time, location } = getCurrentDateTime();
+  const { date, time } = getCurrentDateTime();
+
+  const getLocationDisplay = () => {
+    if (location.loading) {
+      return "Fetching precise location...";
+    }
+    if (location.error) {
+      return `Unable to fetch location: ${location.error}`;
+    }
+    if (location.coordinates) {
+      const coordsText = `${location.coordinates.latitude.toFixed(6)}, ${location.coordinates.longitude.toFixed(6)}`;
+      return location.address || coordsText;
+    }
+    return "Location unavailable";
+  };
 
   return (
     <Layout role="user">
@@ -119,10 +224,21 @@ export default function AttendancePage() {
               </div>
               
               <div className="flex items-center gap-3 p-3 glass-button rounded-lg">
-                <MapPin className="h-5 w-5 text-warning" />
-                <div>
+                {location.loading ? (
+                  <Loader2 className="h-5 w-5 text-warning animate-spin" />
+                ) : (
+                  <MapPin className={`h-5 w-5 ${location.error ? 'text-destructive' : 'text-warning'}`} />
+                )}
+                <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">Location</p>
-                  <p className="font-medium text-xs">{location}</p>
+                  <p className={`font-medium text-xs ${location.error ? 'text-destructive' : ''}`}>
+                    {getLocationDisplay()}
+                  </p>
+                  {location.coordinates && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {location.coordinates.latitude.toFixed(6)}, {location.coordinates.longitude.toFixed(6)}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
