@@ -43,6 +43,7 @@ const GuardedUserProfile = withRoleGuard(UserProfilePage, 'admin');
 const queryClient = new QueryClient();
 
 const App = () => {
+  console.log('App component loaded');
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
