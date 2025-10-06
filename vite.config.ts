@@ -8,6 +8,14 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+<<<<<<< HEAD
+=======
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['authorization', 'x-client-info', 'apikey', 'content-type'],
+    },
+>>>>>>> feature/settings-management
   },
   plugins: [
     react(),

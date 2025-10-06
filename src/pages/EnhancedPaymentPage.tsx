@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { useState, useEffect } from "react";
+=======
+import React, { useState, useEffect } from "react";
+>>>>>>> feature/settings-management
 import { motion } from "framer-motion";
 import { 
   CreditCard, 
@@ -28,8 +32,27 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+<<<<<<< HEAD
 import { cn } from "@/lib/utils";
 
+=======
+import { usePaymentMethodsSettings, useBankDetails } from "@/hooks/useSettings";
+import { cn } from "@/lib/utils";
+
+// Bank details component
+function BankDetails() {
+  const bankDetails = useBankDetails();
+  return (
+    <div className="space-y-2">
+      <div><strong>Account Name:</strong> {bankDetails.accountName}</div>
+      <div><strong>Account Number:</strong> {bankDetails.accountNumber}</div>
+      <div><strong>IFSC Code:</strong> {bankDetails.ifscCode}</div>
+      <div><strong>Bank:</strong> {bankDetails.bankName}</div>
+    </div>
+  );
+}
+
+>>>>>>> feature/settings-management
 export default function EnhancedPaymentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -200,6 +223,7 @@ export default function EnhancedPaymentPage() {
     }
   };
 
+<<<<<<< HEAD
   const paymentMethods = [
     {
       id: "razorpay",
@@ -218,6 +242,17 @@ export default function EnhancedPaymentPage() {
       color: "bg-green-500"
     }
   ];
+=======
+  // Get payment methods from settings with built-in transformations
+  const paymentMethods = usePaymentMethodsSettings();
+  
+  // Map method icons with fallback
+  const methodIcons = {
+    razorpay: CreditCard,
+    offline: Upload,
+    default: CreditCard
+  } as const;
+>>>>>>> feature/settings-management
 
   if (loading) {
     return (
@@ -389,7 +424,14 @@ export default function EnhancedPaymentPage() {
                   >
                     <div className="flex items-start gap-3">
                       <div className={`p-2 rounded-lg ${method.color} text-white`}>
+<<<<<<< HEAD
                         <method.icon className="h-5 w-5" />
+=======
+                        {(() => {
+                          const Icon = methodIcons[method.id as keyof typeof methodIcons] ?? methodIcons.default;
+                          return <Icon className="h-5 w-5" />;
+                        })()}
+>>>>>>> feature/settings-management
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -424,10 +466,14 @@ export default function EnhancedPaymentPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold">Bank Transfer Details</h3>
                   <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+<<<<<<< HEAD
                     <div><strong>Account Name:</strong> Epacific Services</div>
                     <div><strong>Account Number:</strong> 1234567890</div>
                     <div><strong>IFSC Code:</strong> SBI0001234</div>
                     <div><strong>Bank:</strong> State Bank of India</div>
+=======
+                    <BankDetails />
+>>>>>>> feature/settings-management
                     <div><strong>Amount:</strong> ₹{reportAmount.toLocaleString()}</div>
                   </div>
                   

@@ -19,6 +19,10 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { notifyReportRejected } from "@/utils/notifications";
+<<<<<<< HEAD
+=======
+import { downloadFileFromStorage } from '@/utils/fileDownload';
+>>>>>>> feature/settings-management
 
 interface Report {
   id: string;
@@ -135,6 +139,7 @@ export default function ManagerReportApproval() {
     }
   };
 
+<<<<<<< HEAD
   const downloadFile = async (filePath: string) => {
     try {
       const { data, error } = await supabase.storage
@@ -173,6 +178,19 @@ export default function ManagerReportApproval() {
       toast({
         title: "Download failed",
         description: "Failed to download the report file",
+=======
+  const handleDownloadReport = async (filePath: string, customName: string) => {
+    try {
+      await downloadFileFromStorage('report-attachments', filePath, customName);
+      toast({
+        title: "Success",
+        description: "Report downloaded successfully",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Download Failed",
+        description: err.message || 'Failed to download report',
+>>>>>>> feature/settings-management
         variant: "destructive"
       });
     }
@@ -265,7 +283,11 @@ export default function ManagerReportApproval() {
                         <Button
                           variant="outline"
                           size="sm"
+<<<<<<< HEAD
                           onClick={() => downloadFile(report.attachment_url)}
+=======
+                          onClick={() => handleDownloadReport(report.attachment_url, report.title)}
+>>>>>>> feature/settings-management
                           className="flex items-center gap-2"
                         >
                           <Download className="h-4 w-4" />

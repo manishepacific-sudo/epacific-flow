@@ -14,10 +14,22 @@
     --card: 0 0% 100%;
     --card-foreground: 222 84% 5%;
     
+<<<<<<< HEAD
     /* Primary Brand Colors - Blue */
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 98%;
     --primary-glow: 221 83% 63%;
+=======
+    /* Primary Brand Colors - More Vibrant Blue */
+    --primary: 221 83% 58%;
+    --primary-foreground: 0 0% 98%;
+    --primary-glow: 221 83% 68%;
+    --accent-purple: 280 70% 60%;
+    --accent-purple-foreground: 0 0% 98%;
+    --gradient-vibrant: linear-gradient(135deg, hsl(221 83% 58%), hsl(280 70% 60%));
+    --gradient-purple: linear-gradient(135deg, hsl(280 70% 60%), hsl(280 70% 50%));
+    --gradient-ocean: linear-gradient(135deg, hsl(221 83% 58%), hsl(195 70% 60%));
+>>>>>>> feature/settings-management
     
     /* Secondary Colors - Subtle gray */
     --secondary: 210 40% 96%;
@@ -150,19 +162,43 @@
   }
 }
 
+<<<<<<< HEAD
 @layer base {
   * {
     @apply border-border;
+=======
+/* Global HTML Styles */
+@layer base {
+  * {
+    @apply border-border scroll-smooth;
+>>>>>>> feature/settings-management
   }
 
   body {
     @apply bg-background text-foreground overflow-x-hidden transition-colors duration-300;
+<<<<<<< HEAD
     background: hsl(var(--background));
     background-image: var(--gradient-background);
+=======
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold tracking-tight;
+  }
+
+  p {
+    @apply font-sans leading-relaxed;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary via-primary to-primary bg-clip-text text-transparent;
+>>>>>>> feature/settings-management
   }
 }
 
 @layer components {
+<<<<<<< HEAD
   /* Glass Morphism Components */
   .glass-card {
     @apply backdrop-blur-md bg-white/10 dark:bg-slate-800/40 border border-white/20 dark:border-slate-700/50 rounded-2xl shadow-[var(--shadow-glass)] transition-colors duration-300;
@@ -193,10 +229,80 @@
   }
   
   /* Animations */
+=======
+  /* Modern Card Variants */
+  .glass-card {
+    @apply backdrop-blur-md bg-white/10 dark:bg-slate-800/40 border border-white/20 dark:border-slate-700/50 rounded-2xl shadow-[var(--shadow-glass)] transition-all duration-300 hover:shadow-glow-blue dark:hover:shadow-glow-purple hover:-translate-y-1;
+  }
+
+  .card-elevated {
+    @apply bg-card rounded-2xl shadow-elevated border border-border/50 hover:shadow-glow transition-all duration-300 hover:-translate-y-1;
+  }
+
+  .card-interactive {
+    @apply bg-card rounded-xl border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer;
+  }
+
+  .card-gradient {
+    @apply bg-gradient-vibrant rounded-2xl shadow-lg hover:shadow-glow-purple transition-all duration-300 hover:scale-[1.02];
+  }
+
+  /* Button Variants */
+  .glass-button {
+    @apply backdrop-blur-sm bg-white/5 dark:bg-slate-800/20 border border-white/20 dark:border-slate-700/30 rounded-xl hover:bg-white/10 dark:hover:bg-slate-800/30 transition-all duration-300;
+  }
+
+  .button-modern {
+    @apply rounded-xl font-medium transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md;
+  }
+
+  /* Text Effects */
+  /* .gradient-text is already defined in @layer base above, so remove duplicate here. */
+
+  /* Interactive Effects */
+  .hover-lift {
+    @apply transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .hover-glow-purple {
+    @apply transition-all duration-300 hover:shadow-glow-purple hover:-translate-y-0.5;
+  }
+
+  .focus-ring-modern {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background transition-all duration-200;
+  }
+
+  .smooth-transition {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  /* Animation Effects */
+>>>>>>> feature/settings-management
   .animate-gradient {
     background-size: 400% 400%;
     animation: gradient 8s ease infinite;
   }
+<<<<<<< HEAD
+=======
+
+  .animate-shimmer-effect {
+    @apply animate-shimmer-base bg-gradient-to-r from-transparent via-white/10 to-transparent bg-[length:200%_100%];
+  }
+
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+
+  .animate-shimmer-base {
+    animation: shimmer 2s infinite linear;
+  }
+
+  .ripple-effect {
+    position: relative;
+    overflow: hidden;
+  }
+>>>>>>> feature/settings-management
   
   @keyframes gradient {
     0% { background-position: 0% 50%; }

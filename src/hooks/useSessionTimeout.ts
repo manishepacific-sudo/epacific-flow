@@ -1,9 +1,16 @@
+<<<<<<< HEAD
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 
 const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
 const WARNING_DURATION = 2 * 60 * 1000; // Show warning 2 minutes before timeout
+=======
+import { useCallback, useEffect, useRef } from "react";
+import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/hooks/use-toast";
+import { useSessionTimeoutSettings } from "@/hooks/useSettings";
+>>>>>>> feature/settings-management
 
 export function useSessionTimeout() {
   const { user, signOut } = useAuth();
@@ -12,6 +19,23 @@ export function useSessionTimeout() {
   const warningRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
+<<<<<<< HEAD
+=======
+  // Fetch session timeout settings
+  const { timeoutMinutes, warningMinutes } = useSessionTimeoutSettings();
+  
+  // Validate and normalize timeout values
+  const validTimeoutMinutes = Math.max(1, timeoutMinutes); // Ensure at least 1 minute timeout
+  const validWarningMinutes = Math.min(
+    Math.max(0, warningMinutes), // Warning must be non-negative
+    validTimeoutMinutes - 1 // Warning must be less than timeout
+  );
+  
+  // Convert minutes to milliseconds with validation
+  const TIMEOUT_DURATION = validTimeoutMinutes * 60 * 1000;
+  const WARNING_DURATION = validWarningMinutes * 60 * 1000;
+
+>>>>>>> feature/settings-management
   const resetTimeout = useCallback(() => {
     if (!user) return;
 
@@ -25,6 +49,7 @@ export function useSessionTimeout() {
       clearTimeout(warningRef.current);
     }
 
+<<<<<<< HEAD
     // Set warning timeout (13 minutes)
     warningRef.current = setTimeout(() => {
       toast({
@@ -35,6 +60,19 @@ export function useSessionTimeout() {
     }, TIMEOUT_DURATION - WARNING_DURATION);
 
     // Set logout timeout (15 minutes)
+=======
+    // Set warning timeout with dynamically computed warning time
+    warningRef.current = setTimeout(() => {
+      const minutesText = `${validWarningMinutes} minute${validWarningMinutes === 1 ? '' : 's'}`;
+      toast({
+        title: "Session Expiring Soon",
+        description: `Your session will expire in ${minutesText} due to inactivity. Click anywhere to continue.`,
+        variant: "destructive",
+      });
+    }, Math.max(0, TIMEOUT_DURATION - WARNING_DURATION));
+
+    // Set logout timeout
+>>>>>>> feature/settings-management
     timeoutRef.current = setTimeout(async () => {
       toast({
         title: "Session Expired",
@@ -43,7 +81,11 @@ export function useSessionTimeout() {
       });
       await signOut();
     }, TIMEOUT_DURATION);
+<<<<<<< HEAD
   }, [user, signOut, toast]);
+=======
+  }, [user, signOut, toast, TIMEOUT_DURATION, WARNING_DURATION, validWarningMinutes]);
+>>>>>>> feature/settings-management
 
   const handleActivity = useCallback(() => {
     resetTimeout();

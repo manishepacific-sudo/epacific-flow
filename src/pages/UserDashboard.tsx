@@ -1,17 +1,35 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+<<<<<<< HEAD
 import { 
   FileText, 
   CreditCard, 
   Camera, 
+=======
+import {
+  FileText,
+  CreditCard,
+  Camera,
+>>>>>>> feature/settings-management
   DollarSign,
   Clock,
   CheckCircle,
   Upload,
+<<<<<<< HEAD
   Calendar
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
+=======
+  Calendar,
+  Eye,
+  Download,
+  RefreshCw,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import Layout from "@/components/Layout";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+>>>>>>> feature/settings-management
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -19,11 +37,42 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+<<<<<<< HEAD
+=======
+import { useIsMobile } from "@/hooks/use-mobile";
+
+interface Report {
+  id: string;
+  user_id: string;
+  title: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
+interface Payment {
+  id: string;
+  user_id: string;
+  report_id: string;
+  amount: number;
+  method: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
+interface Attendance {
+  id: string;
+  user_id: string;
+  attendance_date: string;
+  status: 'pending' | 'approved' | 'rejected';
+  photo_url?: string;
+}
+>>>>>>> feature/settings-management
 
 export default function UserDashboard() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { toast } = useToast();
+<<<<<<< HEAD
   const [reports, setReports] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,6 +152,107 @@ export default function UserDashboard() {
       setLoading(false);
     }
   };
+=======
+
+  const [reports, setReports] = useState<Report[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const [reportsRes, paymentsRes, attendanceRes] = await Promise.all([
+          supabase
+            .from('reports')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('payments')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('attendance')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('attendance_date', { ascending: false })
+        ]);
+
+        if (reportsRes.error) throw reportsRes.error;
+        if (paymentsRes.error) throw paymentsRes.error;
+        if (attendanceRes.error) throw attendanceRes.error;
+
+        setReports(reportsRes.data || []);
+        setPayments(paymentsRes.data || []);
+        setAttendance(attendanceRes.data || []);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast({
+          title: "Error loading data",
+          description: "Failed to load dashboard data",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+
+    const reportsChannel = supabase
+      .channel('user-reports')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reports',
+          filter: `user_id=eq.${user.id}`,
+        },
+        fetchUserData
+      )
+      .subscribe();
+
+    const paymentsChannel = supabase
+      .channel('user-payments')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+          filter: `user_id=eq.${user.id}`,
+        },
+        fetchUserData
+      )
+      .subscribe();
+
+    const attendanceChannel = supabase
+      .channel('user-attendance')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance',
+          filter: `user_id=eq.${user.id}`,
+        },
+        fetchUserData
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(reportsChannel);
+      supabase.removeChannel(paymentsChannel);
+      supabase.removeChannel(attendanceChannel);
+    };
+  }, [user, toast]);
+>>>>>>> feature/settings-management
 
   const quickActions = [
     {
@@ -134,6 +284,27 @@ export default function UserDashboard() {
     r.status === 'approved' && !payments.some(p => p.report_id === r.id && p.status === 'approved')
   ).length;
   const totalPendingAmount = approvedReportsWithoutPayment * 25000;
+<<<<<<< HEAD
+=======
+
+  // Calculate monthly attendance metrics
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
+
+  const monthlyAttendance = attendance.filter(a => {
+    const attendanceDate = new Date(a.attendance_date);
+    return attendanceDate.getMonth() === currentMonth && 
+           attendanceDate.getFullYear() === currentYear &&
+           a.status === 'approved';
+  });
+
+  const monthlyAttendanceCount = monthlyAttendance.length;
+  const totalWorkingDays = 22; // Assuming 22 working days per month
+  const attendancePercentage = totalWorkingDays > 0 
+    ? Math.round((monthlyAttendanceCount / totalWorkingDays) * 100) 
+    : 0;
+>>>>>>> feature/settings-management
   
   const dashboardCards = [
     {
@@ -152,9 +323,15 @@ export default function UserDashboard() {
     },
     {
       title: "Monthly Attendance",
+<<<<<<< HEAD
       value: 0, // Placeholder for now
       icon: Calendar,
       trend: "0% this month",
+=======
+      value: monthlyAttendanceCount,
+      icon: Calendar,
+      trend: `${attendancePercentage}% this month`,
+>>>>>>> feature/settings-management
       color: "text-secondary",
     },
     {
@@ -168,9 +345,17 @@ export default function UserDashboard() {
     
   ];
 
+<<<<<<< HEAD
   return (
     <Layout role="user">
       <div className="space-y-8 max-w-7xl mx-auto">
+=======
+  const isMobile = useIsMobile();
+
+  return (
+    <Layout role={profile?.role}>
+      <div className={cn("space-y-8 max-w-7xl mx-auto", isMobile && "pb-20")}>
+>>>>>>> feature/settings-management
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -189,6 +374,7 @@ export default function UserDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {dashboardCards.map((card, index) => (
             <motion.div
+<<<<<<< HEAD
               key={card.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -206,10 +392,31 @@ export default function UserDashboard() {
                   </div>
                 </div>
               </GlassCard>
+=======
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              key={index}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow duration-200"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
+                    <h3 className="text-2xl font-bold mt-1">{card.value}</h3>
+                  </div>
+                  <div className={`p-3 rounded-lg ${card.color} bg-opacity-10`}>
+                    <card.icon className="h-6 w-6" />
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mt-3">{card.trend}</p>
+              </div>
+>>>>>>> feature/settings-management
             </motion.div>
           ))}
         </div>
 
+<<<<<<< HEAD
         {/* Quick Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -367,6 +574,232 @@ export default function UserDashboard() {
             </p>
           </GlassCard>
         </motion.div>
+=======
+        {/* Reports and Payments Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Reports Section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle>Recent Reports</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {reports.length === 0 ? (
+                <div className="py-8 border border-dashed rounded-lg">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <p className="text-muted-foreground">No reports yet</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {isMobile ? (
+                    <div className="grid grid-cols-1 gap-4">
+                      {reports.slice(0, 3).map((report) => (
+                        <motion.div
+                          key={report.id}
+                          className="rounded-lg border p-4 hover:shadow-sm transition-shadow"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-primary/80" />
+                                <p className="font-semibold truncate">{report.title}</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {new Date(report.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Badge variant={report.status === 'approved' ? 'default' : report.status === 'rejected' ? 'destructive' : 'secondary'}>
+                              {report.status}
+                            </Badge>
+                          </div>
+                          <div className="flex gap-2 mt-4">
+                            <Button variant="outline" size="sm" className="flex-1">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </Button>
+                            <Button variant="outline" size="sm" className="flex-1">
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {reports.slice(0, 5).map((report) => (
+                        <div
+                          key={report.id}
+                          className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-5 w-5 text-primary/80 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{report.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(report.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <Badge variant={report.status === 'approved' ? 'default' : report.status === 'rejected' ? 'destructive' : 'secondary'}>
+                              {report.status}
+                            </Badge>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon">
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Payments Section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle>Recent Payments</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {payments.length === 0 ? (
+                <div className="py-8 border border-dashed rounded-lg">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <CreditCard className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <p className="text-muted-foreground">No payments yet</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {isMobile ? (
+                    <div className="grid grid-cols-1 gap-4">
+                      {payments.slice(0, 3).map((payment) => (
+                        <motion.div
+                          key={payment.id}
+                          className="rounded-lg border p-4 hover:shadow-sm transition-shadow"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <CreditCard className="h-5 w-5 text-primary/80" />
+                                <p className="font-semibold">₹{payment.amount.toLocaleString()}</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {new Date(payment.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Badge variant={payment.status === 'approved' ? 'default' : payment.status === 'rejected' ? 'destructive' : 'secondary'}>
+                              {payment.status}
+                            </Badge>
+                          </div>
+                          <div className="flex gap-2 mt-4">
+                            <Button variant="outline" size="sm" className="flex-1">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {payments.slice(0, 5).map((payment) => (
+                        <div
+                          key={payment.id}
+                          className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <CreditCard className="h-5 w-5 text-primary/80 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium">₹{payment.amount.toLocaleString()}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(payment.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <Badge variant={payment.status === 'approved' ? 'default' : payment.status === 'rejected' ? 'destructive' : 'secondary'}>
+                              {payment.status}
+                            </Badge>
+                            <Button variant="ghost" size="icon">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {quickActions.map((action, index) => (
+            <motion.button
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 + 0.3 }}
+              onClick={action.action}
+              className="relative p-6 rounded-xl border bg-white dark:bg-gray-800 hover:shadow-md transition-shadow duration-200"
+            >
+              <div className="flex items-center gap-4">
+                <div className={`${action.color} p-3 rounded-lg bg-opacity-10`}>
+                  <action.icon className="h-6 w-6" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold">{action.title}</h3>
+                  <p className="text-sm text-muted-foreground">{action.description}</p>
+                </div>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+
+        {/* Attendance Progress */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle>Monthly Attendance Progress</CardTitle>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <span className="text-sm text-muted-foreground">
+                {monthlyAttendanceCount}/{totalWorkingDays} days
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Progress 
+              value={attendancePercentage} 
+              className="h-3 mb-2"
+            />
+            <p className="text-sm text-muted-foreground">
+              {monthlyAttendanceCount > 0 
+                ? `You've marked attendance for ${monthlyAttendanceCount} days this month`
+                : "No attendance records for this month yet"}
+            </p>
+          </CardContent>
+        </Card>
+>>>>>>> feature/settings-management
       </div>
     </Layout>
   );

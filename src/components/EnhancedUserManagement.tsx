@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { useState, useEffect } from 'react';
+=======
+import { useState, useEffect, useCallback } from 'react';
+>>>>>>> feature/settings-management
 import { motion } from 'framer-motion';
 import { 
   Users, 
@@ -6,6 +10,7 @@ import {
   Mail, 
   Shield, 
   Clock, 
+<<<<<<< HEAD
   CheckCircle, 
   XCircle, 
   RefreshCw,
@@ -13,14 +18,32 @@ import {
   MoreVertical,
   Eye,
   EyeOff,
+=======
+  XCircle, 
+  RefreshCw,
+  Trash2,
+  Eye,
+>>>>>>> feature/settings-management
   Search,
   Filter,
   Download,
   Calendar,
   UserCheck,
+<<<<<<< HEAD
   Building
 } from 'lucide-react';
 import { GlassCard } from '@/components/ui/glass-card';
+=======
+  Building,
+  MoreVertical
+} from 'lucide-react';
+import { GlassCard } from '@/components/ui/glass-card';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Edit } from 'lucide-react';
+import { cn } from '@/lib/utils';
+>>>>>>> feature/settings-management
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,7 +59,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+<<<<<<< HEAD
 
+=======
+>>>>>>> feature/settings-management
 interface UserProfile {
   id: string;
   user_id: string;
@@ -52,7 +78,10 @@ interface UserProfile {
   created_at: string;
   updated_at: string;
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> feature/settings-management
 export default function EnhancedUserManagement() {
   const { user: currentUser, profile: currentProfile } = useAuth();
   const { toast } = useToast();
@@ -70,12 +99,18 @@ export default function EnhancedUserManagement() {
     center_address: '',
     registrar: ''
   });
+<<<<<<< HEAD
 
+=======
+>>>>>>> feature/settings-management
   const [formErrors, setFormErrors] = useState({
     mobile_number: '',
     station_id: ''
   });
+<<<<<<< HEAD
 
+=======
+>>>>>>> feature/settings-management
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -86,24 +121,39 @@ export default function EnhancedUserManagement() {
     registrar: '',
     dateRange: { from: null as Date | null, to: null as Date | null }
   });
+<<<<<<< HEAD
 
   const canManageUsers = currentProfile?.role === 'admin' || currentProfile?.role === 'manager';
   const canCreateManagers = currentProfile?.role === 'admin' || currentProfile?.role === 'manager';
 
+=======
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState<string | null>(null);
+
+  const canManageUsers = currentProfile?.role === 'admin' || currentProfile?.role === 'manager';
+  const canCreateManagers = currentProfile?.role === 'admin' || currentProfile?.role === 'manager';
+  const isMobile = useIsMobile();
+>>>>>>> feature/settings-management
   const validateMobileNumber = (value: string) => {
     if (!value) return '';
     if (!/^\d+$/.test(value)) return 'Mobile number must contain only digits';
     if (value.length !== 10) return 'Mobile number must be exactly 10 digits';
     return '';
   };
+<<<<<<< HEAD
 
+=======
+>>>>>>> feature/settings-management
   const validateStationId = (value: string) => {
     if (!value) return '';
     if (!/^\d+$/.test(value)) return 'Station ID must contain only digits';
     if (value.length !== 5) return 'Station ID must be exactly 5 digits';
     return '';
   };
+<<<<<<< HEAD
 
+=======
+>>>>>>> feature/settings-management
   const handleInputChange = (field: string, value: string) => {
     setInviteForm({ ...inviteForm, [field]: value });
     
@@ -114,6 +164,7 @@ export default function EnhancedUserManagement() {
       setFormErrors(prev => ({ ...prev, station_id: validateStationId(value) }));
     }
   };
+<<<<<<< HEAD
 
   useEffect(() => {
     if (canManageUsers) {
@@ -122,13 +173,19 @@ export default function EnhancedUserManagement() {
   }, [canManageUsers]);
 
   const fetchUsers = async () => {
+=======
+  const fetchUsers = useCallback(async () => {
+>>>>>>> feature/settings-management
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
+<<<<<<< HEAD
 
+=======
+>>>>>>> feature/settings-management
       if (error) throw error;
       setUsers((data || []) as UserProfile[]);
       setFilteredUsers((data || []) as UserProfile[]);
@@ -142,7 +199,17 @@ export default function EnhancedUserManagement() {
     } finally {
       setLoading(false);
     }
+<<<<<<< HEAD
   };
+=======
+  }, [toast]);
+
+  useEffect(() => {
+    if (canManageUsers) {
+      fetchUsers();
+    }
+  }, [canManageUsers, fetchUsers]);
+>>>>>>> feature/settings-management
 
   const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,11 +326,20 @@ export default function EnhancedUserManagement() {
       });
       setInviteDialogOpen(false);
       fetchUsers();
+<<<<<<< HEAD
     } catch (err: any) {
       console.error('Error inviting user:', err);
       toast({
         title: "Failed to invite user",
         description: err.message || "An unexpected error occurred",
+=======
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('Error inviting user:', error);
+      toast({
+        title: "Failed to invite user",
+        description: error.message || "An unexpected error occurred",
+>>>>>>> feature/settings-management
         variant: "destructive"
       });
     } finally {
@@ -296,11 +372,20 @@ export default function EnhancedUserManagement() {
       });
       
       fetchUsers();
+<<<<<<< HEAD
     } catch (err: any) {
       console.error('Error resending invite:', err);
       toast({
         title: "Failed to resend invitation",
         description: err.message || "An unexpected error occurred",
+=======
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('Error resending invite:', error);
+      toast({
+        title: "Failed to resend invitation",
+        description: error.message || "An unexpected error occurred",
+>>>>>>> feature/settings-management
         variant: "destructive"
       });
     }
@@ -331,11 +416,20 @@ export default function EnhancedUserManagement() {
       });
       
       fetchUsers();
+<<<<<<< HEAD
     } catch (err: any) {
       console.error('Error deleting user:', err);
       toast({
         title: "Failed to delete user",
         description: err.message || "An unexpected error occurred",
+=======
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('Error deleting user:', error);
+      toast({
+        title: "Failed to delete user",
+        description: error.message || "An unexpected error occurred",
+>>>>>>> feature/settings-management
         variant: "destructive"
       });
     }
@@ -500,8 +594,30 @@ export default function EnhancedUserManagement() {
     );
   }
 
+<<<<<<< HEAD
   return (
     <div className="space-y-6">
+=======
+  // Helper: Get initials for avatar fallback
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Helper: Get avatar gradient color by role
+  const getAvatarColor = (role: string) => {
+    if (role === 'admin') return 'bg-gradient-to-br from-purple-500 to-indigo-600';
+    if (role === 'manager') return 'bg-gradient-to-br from-blue-500 to-cyan-600';
+    return 'bg-gradient-to-br from-green-500 to-teal-600';
+  };
+
+  return (
+    <div className={cn('space-y-6', isMobile && 'pb-20')}>
+>>>>>>> feature/settings-management
       {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -885,16 +1001,123 @@ export default function EnhancedUserManagement() {
                 </Button>
               )}
             </div>
+<<<<<<< HEAD
           ) : (
             <div className="overflow-x-auto">
+=======
+          ) : isMobile ? (
+            <motion.div
+              className="grid grid-cols-1 gap-4"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: {
+                  transition: {
+                    staggerChildren: 0.07
+                  }
+                }
+              }}
+            >
+              {filteredUsers.map((user, index) => (
+                <motion.div
+                  key={user.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05, duration: 0.3 }}
+                  whileHover={{ y: -4 }}
+                >
+                  <Card variant="interactive" size="default" className="group relative overflow-hidden">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-4">
+                        <Avatar className={cn('h-16 w-16', getAvatarColor(user.role))}>
+                          <AvatarFallback className="text-white text-lg font-bold">
+                            {getInitials(user.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-lg font-semibold truncate">{user.full_name}</p>
+                          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                          {user.mobile_number && (
+                            <p className="text-xs text-muted-foreground truncate">{user.mobile_number}</p>
+                          )}
+                        </div>
+                        <div className="absolute top-4 right-4">
+                          {getStatusBadge(getUserStatus(user))}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <Badge variant="outline" className="capitalize">
+                          {user.role}
+                        </Badge>
+                      </div>
+                      {user.station_id && (
+                        <div className="flex items-center gap-2">
+                          <Building className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">{user.station_id}</span>
+                          {user.center_address && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[120px]">{user.center_address}</span>
+                          )}
+                        </div>
+                      )}
+                      {user.registrar && (
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{user.registrar}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(user.created_at), 'MMM dd, yyyy')}
+                        </span>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex-wrap gap-2 pt-4 border-t">
+                      <Button variant="outline" size="sm" onClick={() => window.location.href = `/user-profile/${user.id}`} className="flex-1">
+                        <Eye className="h-3 w-3 mr-1" />View
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => window.location.href = `/user-profile/${user.id}`} className="flex-1">
+                        <Edit className="h-3 w-3 mr-1" />Edit
+                      </Button>
+                      {!user.password_set && !user.is_demo && (
+                        <Button variant="default" size="sm" onClick={() => handleResendInvite(user.email)} className="flex-1">
+                          <Mail className="h-3 w-3 mr-1" />Resend
+                        </Button>
+                      )}
+                      {user.user_id !== currentUser?.id && (
+                        <Button variant="destructive" size="sm" onClick={() => handleDeleteUser(user.user_id, user.email)} className="flex-1">
+                          <Trash2 className="h-3 w-3 mr-1" />Delete
+                        </Button>
+                      )}
+                    </CardFooter>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+>>>>>>> feature/settings-management
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
+<<<<<<< HEAD
                     <TableHead>Registrar</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Station</TableHead>
+=======
+                    <TableHead>Station</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Registrar</TableHead>
+>>>>>>> feature/settings-management
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -903,12 +1126,28 @@ export default function EnhancedUserManagement() {
                   {filteredUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>
+<<<<<<< HEAD
                         <div>
                           <p className="font-medium">{user.full_name}</p>
                           <p className="text-sm text-muted-foreground">{user.email}</p>
                           {user.mobile_number && (
                             <p className="text-xs text-muted-foreground">{user.mobile_number}</p>
                           )}
+=======
+                        <div className="flex items-center gap-3">
+                          <Avatar className={cn('h-8 w-8', getAvatarColor(user.role))}>
+                            <AvatarFallback className="text-white text-sm font-bold">
+                              {getInitials(user.full_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{user.full_name}</p>
+                            <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                            {user.mobile_number && (
+                              <p className="text-xs text-muted-foreground truncate">{user.mobile_number}</p>
+                            )}
+                          </div>
+>>>>>>> feature/settings-management
                         </div>
                       </TableCell>
                       <TableCell>
@@ -917,14 +1156,28 @@ export default function EnhancedUserManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
+<<<<<<< HEAD
                         <span className="text-sm">
                           {user.registrar || 'N/A'}
                         </span>
+=======
+                        {user.station_id ? (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">{user.station_id}</p>
+                            {user.center_address && (
+                              <p className="text-xs text-muted-foreground truncate">{user.center_address}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+>>>>>>> feature/settings-management
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(getUserStatus(user))}
                       </TableCell>
                       <TableCell>
+<<<<<<< HEAD
                         <div className="text-sm">
                           <p>{user.station_id || 'N/A'}</p>
                           {user.center_address && (
@@ -968,12 +1221,67 @@ export default function EnhancedUserManagement() {
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
+=======
+                        {user.registrar || <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm">{format(new Date(user.created_at), 'MMM dd, yyyy')}</p>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => window.location.href = `/user-profile/${user.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => window.location.href = `/user-profile/${user.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {!user.password_set && !user.is_demo && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleResendInvite(user.email)}
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {user.user_id !== currentUser?.id && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteUser(user.user_id, user.email)}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+>>>>>>> feature/settings-management
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+<<<<<<< HEAD
             </div>
+=======
+            </motion.div>
+>>>>>>> feature/settings-management
           )}
         </div>
       </GlassCard>

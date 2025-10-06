@@ -13,6 +13,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import * as XLSX from 'xlsx';
+<<<<<<< HEAD
+=======
+import { downloadFileFromStorage } from '@/utils/fileDownload';
+>>>>>>> feature/settings-management
 
 interface Report {
   id: string;
@@ -227,6 +231,7 @@ export default function ReportManagement() {
     }
   };
 
+<<<<<<< HEAD
   const downloadFile = async (url: string, filename?: string) => {
     try {
       const { data, error } = await supabase.storage.from('report-attachments').download(url);
@@ -250,6 +255,20 @@ export default function ReportManagement() {
         title: "Download failed", 
         description: error.message,
         variant: "destructive" 
+=======
+  const handleDownloadReport = async (filePath: string, customName: string) => {
+    try {
+      await downloadFileFromStorage('report-attachments', filePath, customName);
+      toast({
+        title: "Success",
+        description: "Report downloaded successfully",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Download Failed",
+        description: err.message || 'Failed to download report',
+        variant: "destructive"
+>>>>>>> feature/settings-management
       });
     }
   };
@@ -501,7 +520,11 @@ export default function ReportManagement() {
                               <Button
                                 size="sm"
                                 variant="ghost"
+<<<<<<< HEAD
                                 onClick={() => downloadFile(report.attachment_url, `report-${report.id}.pdf`)}
+=======
+                                onClick={() => handleDownloadReport(report.attachment_url, report.title || `report-${report.id}`)}
+>>>>>>> feature/settings-management
                               >
                                 <Download className="h-4 w-4" />
                               </Button>

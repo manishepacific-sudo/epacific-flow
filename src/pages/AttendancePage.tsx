@@ -16,6 +16,11 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+<<<<<<< HEAD
+=======
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
+>>>>>>> feature/settings-management
 
 interface LocationState {
   loading: boolean;
@@ -34,6 +39,15 @@ export default function AttendancePage() {
     address: null,
   });
   const { toast } = useToast();
+<<<<<<< HEAD
+=======
+  const { user } = useAuth();
+
+  const resetForm = () => {
+    setPhoto(null);
+    setUploading(false);
+  };
+>>>>>>> feature/settings-management
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const selectedFile = acceptedFiles[0];
@@ -134,6 +148,18 @@ export default function AttendancePage() {
   }, []);
 
   const handleSubmit = async () => {
+<<<<<<< HEAD
+=======
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to submit attendance",
+        variant: "destructive"
+      });
+      return;
+    }
+
+>>>>>>> feature/settings-management
     if (!photo) {
       toast({
         title: "Photo required",
@@ -143,6 +169,7 @@ export default function AttendancePage() {
       return;
     }
 
+<<<<<<< HEAD
     setUploading(true);
     
     // Simulate upload
@@ -154,6 +181,68 @@ export default function AttendancePage() {
       setUploading(false);
       setPhoto(null);
     }, 2000);
+=======
+    if (!location.coordinates) {
+      toast({
+        title: "Location required",
+        description: "Please allow location access to submit attendance",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploading(true);
+    
+    try {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Upload photo to storage
+      const fileName = `${user.id}/${Date.now()}-${photo.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('attendance-photos')
+        .upload(fileName, photo);
+        
+      if (uploadError) throw uploadError;
+
+      // Insert attendance record
+      const { error: insertError } = await supabase
+        .from('attendance')
+        .insert({
+          user_id: user.id,
+          photo_url: fileName,
+          location_latitude: location.coordinates.latitude,
+          location_longitude: location.coordinates.longitude,
+          location_address: location.address,
+          attendance_date: new Date().toISOString().split('T')[0]
+        });
+        
+      if (insertError) {
+        // Clean up uploaded photo if insert fails
+        await supabase.storage.from('attendance-photos').remove([fileName]);
+        
+        if (insertError.code === '23505') {
+          throw new Error('You have already submitted attendance for today');
+        }
+        throw insertError;
+      }
+
+      toast({
+        title: "Success",
+        description: "Attendance recorded successfully",
+      });
+      resetForm();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to submit attendance',
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+>>>>>>> feature/settings-management
   };
 
   const getCurrentDateTime = () => {
@@ -367,7 +456,11 @@ export default function AttendancePage() {
           <p className="text-center text-xs text-muted-foreground mt-3">
             Your attendance will be reviewed by a manager within 2 hours
           </p>
+<<<<<<< HEAD
         </motion.div>
+=======
+        </motion.div>   
+>>>>>>> feature/settings-management
       </div>
     </Layout>
   );

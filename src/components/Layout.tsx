@@ -11,6 +11,11 @@ import {
   Users,
   Settings
 } from "lucide-react";
+<<<<<<< HEAD
+=======
+import { useIsMobile } from "@/hooks/use-mobile";
+import BottomNavigation from "@/components/BottomNavigation";
+>>>>>>> feature/settings-management
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -33,6 +38,10 @@ export default function Layout({ children, role }: LayoutProps) {
   const location = useLocation();
   const { profile, signOut } = useAuth();
   const { unreadCount } = useNotifications();
+<<<<<<< HEAD
+=======
+  const isMobile = useIsMobile();
+>>>>>>> feature/settings-management
 
   const menuItems = {
     admin: [
@@ -40,6 +49,10 @@ export default function Layout({ children, role }: LayoutProps) {
       { icon: Users, label: "User Management", path: "/user-management" },
       { icon: FileText, label: "Reports Management", path: "/reports-management" },
       { icon: CreditCard, label: "Payments Management", path: "/payments-management" },
+<<<<<<< HEAD
+=======
+      { icon: Camera, label: "Attendance Management", path: "/attendance-management" },
+>>>>>>> feature/settings-management
       { icon: Settings, label: "Settings", path: "/settings" },
     ],
     manager: [
@@ -47,6 +60,10 @@ export default function Layout({ children, role }: LayoutProps) {
       { icon: Users, label: "User Management", path: "/user-management" },
       { icon: FileText, label: "Reports Management", path: "/reports-management" },
       { icon: CreditCard, label: "Payments Management", path: "/payments-management" },
+<<<<<<< HEAD
+=======
+      { icon: Camera, label: "Attendance Management", path: "/attendance-management" },
+>>>>>>> feature/settings-management
     ],
     user: [
       { icon: Home, label: "Dashboard", path: "/dashboard/user" },
@@ -82,6 +99,10 @@ export default function Layout({ children, role }: LayoutProps) {
         fixed left-0 top-0 h-screen w-80 z-50
         transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+<<<<<<< HEAD
+=======
+        ${isMobile && !sidebarOpen ? 'hidden' : ''}
+>>>>>>> feature/settings-management
         lg:translate-x-0 lg:relative lg:flex-shrink-0
       `}>
         <div className="h-full rounded-none lg:rounded-r-2xl p-6 flex flex-col bg-sidebar border-r border-sidebar-border backdrop-blur-md shadow-glass transition-colors duration-300">
@@ -182,13 +203,21 @@ export default function Layout({ children, role }: LayoutProps) {
         </header>
 
         {/* Page Content - Fixed overflow and scrolling */}
+<<<<<<< HEAD
         <main className="flex-1 p-3 sm:p-6 overflow-hidden flex flex-col">
+=======
+        <main className={`flex-1 p-3 sm:p-6 overflow-hidden flex flex-col ${isMobile ? 'pb-20' : ''}`}>
+>>>>>>> feature/settings-management
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="max-w-full">
               {children}
             </div>
           </div>
         </main>
+<<<<<<< HEAD
+=======
+        {isMobile && <BottomNavigation role={role} />}
+>>>>>>> feature/settings-management
       </div>
     </div>
   );

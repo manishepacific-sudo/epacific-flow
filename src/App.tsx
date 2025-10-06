@@ -11,6 +11,10 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InviteRedirectHandler } from "@/components/InviteRedirectHandler";
 import { AuthRedirect } from "@/components/AuthRedirect";
 import { withRoleGuard } from "@/components/withRoleGuard";
+<<<<<<< HEAD
+=======
+import ErrorBoundary from "@/components/ErrorBoundary";
+>>>>>>> feature/settings-management
 import Login from "./pages/Login";
 import HandleInvite from "./pages/HandleInvite";
 import SetPasswordPage from "./pages/SetPasswordPage";
@@ -29,13 +33,26 @@ const EnhancedPaymentPage = lazy(() => import("./pages/EnhancedPaymentPage"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
 const AttendancePage = lazy(() => import("./pages/AttendancePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+<<<<<<< HEAD
 
 // Create role-guarded components
 const GuardedUserDashboard = withRoleGuard(UserDashboard, 'user');
+=======
+const AttendanceManagementPage = lazy(() => import("./pages/AttendanceManagementPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+
+// Create role-guarded components
+const GuardedUserDashboard = withRoleGuard(UserDashboard, 'user');
+const GuardedAttendanceManagement = withRoleGuard(AttendanceManagementPage, ['admin', 'manager']);
+>>>>>>> feature/settings-management
 const GuardedAdminDashboard = withRoleGuard(AdminDashboard, 'admin');
 const GuardedManagerDashboard = withRoleGuard(ManagerDashboard, 'manager');
 const GuardedUserManagement = withRoleGuard(UserManagementPage, ['admin', 'manager']);
 const GuardedReportsManagement = withRoleGuard(ReportsManagementPage, ['admin', 'manager']);
+<<<<<<< HEAD
+=======
+const GuardedSettingsPage = withRoleGuard(SettingsPage, 'admin');
+>>>>>>> feature/settings-management
 const GuardedPaymentsManagement = withRoleGuard(PaymentsManagementPage, ['admin', 'manager']);
 const GuardedReportUpload = withRoleGuard(ReportUpload, 'user');
 const GuardedUserProfile = withRoleGuard(UserProfilePage, 'admin');
@@ -44,6 +61,7 @@ const queryClient = new QueryClient();
 
 const App = () => {
   return (
+<<<<<<< HEAD
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
@@ -60,6 +78,28 @@ const App = () => {
               <Routes>
                 {/* Public routes - no authentication required */}
                 <Route path="/login" element={<Login />} />
+=======
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AuthProvider>
+                <SessionTimeoutManager />
+                <ErrorBoundary>
+                  <Suspense 
+                    fallback={
+                      <div className="min-h-screen flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    }
+                  >
+                    <Routes>
+                      {/* Public routes - no authentication required */}
+                      <Route path="/login" element={<Login />} />
+>>>>>>> feature/settings-management
                 <Route path="/set-password" element={<SetPasswordPage />} />
                 <Route path="/debug-invite" element={<InviteTokenDebug />} />
                 <Route path="/test-token" element={
@@ -91,6 +131,13 @@ const App = () => {
               
               <Route path="/payments-management" element={<GuardedPaymentsManagement />} />
               
+<<<<<<< HEAD
+=======
+              <Route path="/attendance-management" element={<GuardedAttendanceManagement />} />
+              
+              <Route path="/settings" element={<GuardedSettingsPage />} />
+              
+>>>>>>> feature/settings-management
               <Route path="/upload/report" element={<GuardedReportUpload />} />
               
               <Route path="/payment/:id" element={
@@ -124,11 +171,21 @@ const App = () => {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+<<<<<<< HEAD
             </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
+=======
+        </ErrorBoundary>
+      </AuthProvider>
+    </BrowserRouter>
+  </TooltipProvider>
+</ThemeProvider>
+</QueryClientProvider>
+</ErrorBoundary>
+>>>>>>> feature/settings-management
   );
 };
 
