@@ -400,7 +400,9 @@ export default function UserDashboard() {
                   {isMobile ? (
                     <div className="grid grid-cols-1 gap-4">
                       {reports.slice(0, 3).map((report) => {
-                        const fileName = report.attachment_url?.split('/').pop()?.split('.')[0] || 'Report';
+                        const displayTitle = report.title !== 'Monthly Report' 
+                          ? report.title 
+                          : `Report - ${new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
                         const uploadDate = new Date(report.created_at).toLocaleDateString('en-US', { 
                           month: 'short', 
                           day: 'numeric',
@@ -417,7 +419,7 @@ export default function UserDashboard() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <FileText className="h-5 w-5 text-primary/80 flex-shrink-0" />
-                                  <p className="font-semibold text-sm truncate">{fileName}</p>
+                                  <p className="font-semibold text-sm truncate">{displayTitle}</p>
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-1">
                                   Uploaded: {uploadDate}
@@ -445,7 +447,9 @@ export default function UserDashboard() {
                   ) : (
                     <div className="space-y-2">
                       {reports.slice(0, 5).map((report) => {
-                        const fileName = report.attachment_url?.split('/').pop()?.split('.')[0] || 'Report';
+                        const displayTitle = report.title !== 'Monthly Report' 
+                          ? report.title 
+                          : `Report - ${new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
                         const uploadDate = new Date(report.created_at).toLocaleDateString('en-US', { 
                           month: 'short', 
                           day: 'numeric',
@@ -459,7 +463,7 @@ export default function UserDashboard() {
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               <FileText className="h-5 w-5 text-primary/80 flex-shrink-0" />
                               <div className="min-w-0 flex-1">
-                                <p className="font-medium text-sm truncate">{fileName}</p>
+                                <p className="font-medium text-sm truncate">{displayTitle}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {uploadDate}
                                 </p>
