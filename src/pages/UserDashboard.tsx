@@ -399,89 +399,88 @@ export default function UserDashboard() {
                 <div className="space-y-4">
                   {isMobile ? (
                     <div className="grid grid-cols-1 gap-4">
-                      {reports.slice(0, 3).map((report) => (
-                        <motion.div
-                          key={report.id}
-                          className="rounded-lg border p-4 hover:shadow-sm transition-shadow"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-primary/80" />
-                                <p className="font-semibold truncate">{report.title}</p>
+                      {reports.slice(0, 3).map((report) => {
+                        const fileName = report.attachment_url?.split('/').pop()?.split('.')[0] || 'Report';
+                        const uploadDate = new Date(report.created_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        });
+                        return (
+                          <motion.div
+                            key={report.id}
+                            className="rounded-lg border p-4 hover:shadow-sm transition-shadow"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-5 w-5 text-primary/80 flex-shrink-0" />
+                                  <p className="font-semibold text-sm truncate">{fileName}</p>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Uploaded: {uploadDate}
+                                </p>
                               </div>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {new Date(report.created_at).toLocaleDateString()}
-                              </p>
+                              <Badge variant={report.status === 'approved' ? 'default' : report.status === 'rejected' ? 'destructive' : 'secondary'}>
+                                {report.status}
+                              </Badge>
                             </div>
-                            <Badge variant={report.status === 'approved' ? 'default' : report.status === 'rejected' ? 'destructive' : 'secondary'}>
-                              {report.status}
-                            </Badge>
-                          </div>
-                          <div className="flex gap-2 mt-4">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="flex-1"
-                              onClick={() => handleView(report.attachment_url)}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="flex-1"
-                              onClick={() => handleReportDownload(report)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </Button>
-                          </div>
-                        </motion.div>
-                      ))}
+                            <div className="flex gap-2 mt-4">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="flex-1"
+                                onClick={() => handleReportDownload(report)}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </Button>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {reports.slice(0, 5).map((report) => (
-                        <div
-                          key={report.id}
-                          className="flex items-center justify-between p-3 rounded-lg hover:bg-accent/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <FileText className="h-5 w-5 text-primary/80 flex-shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium truncate">{report.title}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(report.created_at).toLocaleDateString()}
-                              </p>
+                      {reports.slice(0, 5).map((report) => {
+                        const fileName = report.attachment_url?.split('/').pop()?.split('.')[0] || 'Report';
+                        const uploadDate = new Date(report.created_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        });
+                        return (
+                          <div
+                            key={report.id}
+                            className="flex items-center justify-between p-3 rounded-lg hover:bg-accent/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <FileText className="h-5 w-5 text-primary/80 flex-shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-sm truncate">{fileName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {uploadDate}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                              <Badge variant={report.status === 'approved' ? 'default' : report.status === 'rejected' ? 'destructive' : 'secondary'}>
+                                {report.status}
+                              </Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleReportDownload(report)}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                            <Badge variant={report.status === 'approved' ? 'default' : report.status === 'rejected' ? 'destructive' : 'secondary'}>
-                              {report.status}
-                            </Badge>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleView(report.attachment_url)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleReportDownload(report)}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
