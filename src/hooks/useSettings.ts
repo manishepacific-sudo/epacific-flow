@@ -95,9 +95,12 @@ export function useSettingsBatch<K extends SettingKey>(keys: K[]) {
               : typeof setting.value === 'number' 
                 ? setting.value 
                 : DEFAULT_SETTINGS[setting.key];
-          } else if (setting.key === 'payments.methods' || setting.key === 'payments.bank.details') {
-            // Cast other settings to their expected types
-            acc[setting.key] = setting.value as SettingTypeMap[typeof setting.key];
+          } else if (setting.key === 'payments.methods') {
+            // Cast payment methods to their expected type
+            acc[setting.key] = setting.value as PaymentMethod[];
+          } else if (setting.key === 'payments.bank.details') {
+            // Cast bank details to their expected type
+            acc[setting.key] = setting.value as BankDetails;
           }
           return acc;
         }, {} as Partial<SettingTypeMap>);

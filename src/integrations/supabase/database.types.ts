@@ -1,5 +1,3 @@
-import { Database } from './types';
-
 export type Json =
   | string
   | number

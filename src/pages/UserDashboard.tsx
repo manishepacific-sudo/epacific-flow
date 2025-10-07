@@ -100,19 +100,19 @@ export default function UserDashboard() {
 
         // Handle individual query results
         if (reportsRes.status === 'fulfilled' && !reportsRes.value.error) {
-          setReports(reportsRes.value.data || []);
+          setReports((reportsRes.value.data || []) as Report[]);
         } else if (reportsRes.status === 'fulfilled') {
           console.error('Reports fetch error:', reportsRes.value.error);
         }
 
         if (paymentsRes.status === 'fulfilled' && !paymentsRes.value.error) {
-          setPayments(paymentsRes.value.data || []);
+          setPayments((paymentsRes.value.data || []) as Payment[]);
         } else if (paymentsRes.status === 'fulfilled') {
           console.error('Payments fetch error:', paymentsRes.value.error);
         }
 
         if (attendanceRes.status === 'fulfilled' && !attendanceRes.value.error) {
-          setAttendance(attendanceRes.value.data || []);
+          setAttendance((attendanceRes.value.data || []) as Attendance[]);
         } else if (attendanceRes.status === 'fulfilled') {
           console.error('Attendance fetch error:', attendanceRes.value.error);
         }
@@ -448,37 +448,37 @@ export default function UserDashboard() {
                       {reports.slice(0, 5).map((report) => (
                         <div
                           key={report.id}
-                          className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors"
+                          className="flex items-center justify-between p-3 rounded-lg hover:bg-accent/50 transition-colors"
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
                             <FileText className="h-5 w-5 text-primary/80 flex-shrink-0" />
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="font-medium truncate">{report.title}</p>
                               <p className="text-sm text-muted-foreground">
                                 {new Date(report.created_at).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                             <Badge variant={report.status === 'approved' ? 'default' : report.status === 'rejected' ? 'destructive' : 'secondary'}>
                               {report.status}
                             </Badge>
-                            <div className="flex gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => handleView(report.attachment_url)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => handleReportDownload(report)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleView(report.attachment_url)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleReportDownload(report)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       ))}
