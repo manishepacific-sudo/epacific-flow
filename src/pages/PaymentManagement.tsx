@@ -13,10 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import * as XLSX from 'xlsx';
-<<<<<<< HEAD
-=======
 import { downloadFileFromStorage } from '@/utils/fileDownload';
->>>>>>> feature/settings-management
 
 interface Payment {
   id: string;
@@ -233,31 +230,6 @@ export default function PaymentManagement() {
     }
   };
 
-<<<<<<< HEAD
-  const downloadFile = async (url: string, filename?: string) => {
-    try {
-      const { data, error } = await supabase.storage.from('payment-proofs').download(url);
-      
-      if (error) throw error;
-      
-      const blob = new Blob([data], { type: data.type });
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = filename || 'download';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(downloadUrl);
-      
-      toast({ title: "File downloaded successfully" });
-    } catch (error: any) {
-      console.error('Download error:', error);
-      toast({ 
-        title: "Download failed", 
-        description: error.message,
-        variant: "destructive" 
-=======
   const handleDownloadProof = async (filePath: string, customName: string) => {
     try {
       await downloadFileFromStorage('payment-proofs', filePath, customName);
@@ -270,7 +242,6 @@ export default function PaymentManagement() {
         title: "Download Failed",
         description: err.message || 'Failed to download payment proof',
         variant: "destructive"
->>>>>>> feature/settings-management
       });
     }
   };
@@ -533,11 +504,7 @@ export default function PaymentManagement() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-<<<<<<< HEAD
-                                onClick={() => downloadFile(payment.proof_url, `payment-proof-${payment.id}`)}
-=======
                                 onClick={() => handleDownloadProof(payment.proof_url, `payment-proof-${payment.id}`)}
->>>>>>> feature/settings-management
                               >
                                 <Download className="h-4 w-4" />
                               </Button>

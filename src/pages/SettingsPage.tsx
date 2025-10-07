@@ -1,922 +1,543 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { Settings, Save, RefreshCw, Clock, CreditCard, Shield, Plug } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
-import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useAuth } from "@/components/AuthProvider";
-import { cn } from "@/lib/utils";
-
+import { GlassCard } from "@/components/ui/glass-card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
-import { Switch } from "../components/ui/switch";
-import { Textarea } from "../components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useSettingsBatch } from "@/hooks/useSettings";
 
-import {
-  Settings,
-  Shield,
-  CreditCard,
-  Plug,
-  Save,
-  RefreshCw,
-  Loader2,
-} from "lucide-react";
-
-interface GeneralSettings {
-  app_name: string;
-  app_description: string;
-  timezone: string;
-  date_format: string;
-  language: string;
-  maintenance_mode: boolean;
+// TypeScript interfaces
+interface SystemSetting {
+  id: string
+  key: string
+  value: any
+  category: "system" | "security" | "payments" | "integrations"
+  description?: string
+  updated_at: string
+  updated_by: string
 }
 
-interface SecuritySettings {
-  session_timeout: number;
-  password_min_length: number;
-  password_requires_special_char: boolean;
-  enable_2fa: boolean;
-  max_login_attempts: number;
+interface SessionTimeoutSettings {
+  minutes: number
 }
 
-interface PaymentSettings {
-  default_payment_amount: number;
-  razorpay_enabled: boolean;
-  phonepe_enabled: boolean;
-  bank_transfer_enabled: boolean;
-  bank_name: string;
-  bank_account_number: string;
-  bank_ifsc_code: string;
-  bank_account_name: string;
+interface PaymentMethod {
+  id: string
+  name: string
+  description: string
+  enabled: boolean
 }
 
-interface IntegrationSettings {
-  email_provider: 'smtp' | 'sendgrid';
-  smtp_host: string;
-  smtp_port: number;
-  smtp_user: string;
-  smtp_pass: string;
-  sendgrid_api_key: string;
-  sms_provider: 'twilio' | 'aws-sns';
-  twilio_account_sid: string;
-  twilio_auth_token: string;
-  aws_sns_access_key: string;
-  aws_sns_secret_key: string;
-  push_notifications_enabled: boolean;
-  email_notifications_enabled: boolean;
-  sms_notifications_enabled: boolean;
+interface BankDetails {
+  accountName: string
+  accountNumber: string
+  ifscCode: string
+  bankName: string
 }
 
-const SettingsPage = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const isMobile = useIsMobile();
+export default function SettingsPage() {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("general");
+  const [saving, setSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState("security")
 
-  // State for all settings
-  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
-    app_name: "",
-    app_description: "",
-    timezone: "UTC",
-    date_format: "YYYY-MM-DD",
-    language: "en",
-    maintenance_mode: false,
-  });
+  // Use the useSettings hook for fetching settings with defaults
+  const { data: settings, isLoading, refetch } = useSettingsBatch([
+    'session.timeout.duration',
+    'session.timeout.warning',
+    'payments.methods',
+    'payments.bank.details'
+  ]);
 
-  const [securitySettings, setSecuritySettings] = useState<SecuritySettings>({
-    session_timeout: 30,
-    password_min_length: 8,
-    password_requires_special_char: true,
-    enable_2fa: false,
-    max_login_attempts: 5,
-  });
+  // Settings state with defaults from the hook
+  const [sessionTimeout, setSessionTimeout] = useState(settings?.['session.timeout.duration'] ?? 15)
+  const [sessionWarning, setSessionWarning] = useState(settings?.['session.timeout.warning'] ?? 2)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(settings?.['payments.methods'] ?? [])
+  const [bankDetails, setBankDetails] = useState<BankDetails>(settings?.['payments.bank.details'] ?? {
+    accountName: "",
+    accountNumber: "",
+    ifscCode: "",
+    bankName: ""
+  })
 
-  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
-    default_payment_amount: 100,
-    razorpay_enabled: false,
-    phonepe_enabled: false,
-    bank_transfer_enabled: false,
-    bank_name: "",
-    bank_account_number: "",
-    bank_ifsc_code: "",
-    bank_account_name: "",
-  });
-
-  const [integrationSettings, setIntegrationSettings] =
-    useState<IntegrationSettings>({
-      email_provider: "smtp",
-      smtp_host: "",
-      smtp_port: 587,
-      smtp_user: "",
-      smtp_pass: "",
-      sendgrid_api_key: "",
-      sms_provider: "twilio",
-      twilio_account_sid: "",
-      twilio_auth_token: "",
-      aws_sns_access_key: "",
-      aws_sns_secret_key: "",
-      push_notifications_enabled: false,
-      email_notifications_enabled: true,
-      sms_notifications_enabled: false,
-    });
-
-  const fetchSettings = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('manage-settings', {
-        body: { action: 'get' },
-      });
-
-      if (error) throw error;
-
-      if (data && data.data) {
-        const settingsFromServer = data.data;
-
-        const settingsByCategory = settingsFromServer.reduce((acc, setting) => {
-            if (!acc[setting.category]) acc[setting.category] = {};
-            acc[setting.category][setting.key] = setting.value;
-            return acc;
-        }, {});
-
-        const mapToState = (defaults, fetched) => {
-            const newState = { ...defaults };
-            if (!fetched) return newState;
-
-            Object.keys(newState).forEach(key => {
-                if (fetched[key] !== undefined) {
-                    const value = fetched[key];
-                    if (typeof newState[key] === 'boolean') {
-                        newState[key] = value === 'true' || value === true;
-                    } else if (typeof newState[key] === 'number') {
-                        newState[key] = Number(value);
-                    } else {
-                        newState[key] = value;
-                    }
-                }
-            });
-            return newState;
-        };
-
-        setGeneralSettings(prev => mapToState(prev, settingsByCategory.general));
-        setSecuritySettings(prev => mapToState(prev, settingsByCategory.security));
-        setPaymentSettings(prev => mapToState(prev, settingsByCategory.payments));
-        setIntegrationSettings(prev => mapToState(prev, settingsByCategory.integrations));
-      }
-      toast({ title: 'Success', description: 'Settings loaded successfully.' });
-    } catch (error: any) {
-      console.error('Error fetching settings:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to load settings: ${error.message}`,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
+  // Update local state when settings change
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
-  const handleSave = useCallback(async () => {
-    setSaving(true);
-    try {
-      let settingsToUpdate;
-      let category;
-
-      switch (activeTab) {
-        case 'general':
-          settingsToUpdate = generalSettings;
-          category = 'general';
-          break;
-        case 'security':
-          settingsToUpdate = securitySettings;
-          category = 'security';
-          break;
-        case 'payments':
-          settingsToUpdate = paymentSettings;
-          category = 'payments';
-          break;
-        case 'integrations':
-          settingsToUpdate = integrationSettings;
-          category = 'integrations';
-          break;
-        default:
-          setSaving(false);
-          return;
-      }
-
-      const updatePromises = Object.entries(settingsToUpdate).map(([key, value]) =>
-        supabase.functions.invoke('manage-settings', {
-          body: {
-            action: 'update',
-            payload: {
-              category,
-              key,
-              value: String(value),
-            },
-          },
-        })
-      );
-
-      const results = await Promise.all(updatePromises);
-      
-      const firstErrorResult = results.find(res => res.error);
-      if (firstErrorResult) {
-          throw firstErrorResult.error;
-      }
-
-      toast({
-        title: 'Success',
-        description: `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} settings saved successfully.`,
-      });
-    } catch (error: any) {
-      console.error(`Error saving ${activeTab} settings:`, error);
-      toast({
-        title: 'Error',
-        description: `Failed to save settings: ${error.message}`,
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
+    if (settings) {
+      setSessionTimeout(settings['session.timeout.duration'])
+      setSessionWarning(settings['session.timeout.warning'])
+      setPaymentMethods(settings['payments.methods'])
+      setBankDetails(settings['payments.bank.details'])
     }
-  }, [activeTab, generalSettings, securitySettings, paymentSettings, integrationSettings, toast]);
+  }, [settings])
 
-  const renderSaveButton = () => (
-    <CardFooter>
-      <Button onClick={handleSave} disabled={saving}>
-        {saving ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Save className="mr-2 h-4 w-4" />
-        )}
-        Save Settings
-      </Button>
-    </CardFooter>
-  );
+  // Update handlers
+  const handleUpdateSessionSettings = async () => {
+    try {
+      setSaving(true)
 
-  if (loading) {
+      // Ensure values are finite numbers
+      if (!Number.isFinite(sessionTimeout) || !Number.isFinite(sessionWarning)) {
+        throw new Error("Invalid number values provided")
+      }
+
+      if (sessionTimeout <= 0 || sessionWarning <= 0) {
+        throw new Error("Duration must be a positive number")
+      }
+
+      if (sessionWarning >= sessionTimeout) {
+        throw new Error("Warning time must be less than timeout duration")
+      }
+
+      // Update both settings
+      const [timeoutResponse, warningResponse] = await Promise.all([
+        supabase.functions.invoke("manage-settings", {
+          body: {
+            action: "update",
+            payload: {
+              category: "security",
+              key: "session.timeout.duration",
+              value: { minutes: sessionTimeout }
+            }
+          }
+        }),
+        supabase.functions.invoke("manage-settings", {
+          body: {
+            action: "update",
+            payload: {
+              category: "security",
+              key: "session.timeout.warning",
+              value: { minutes: sessionWarning }
+            }
+          }
+        })
+      ])
+
+      // Check for errors in either response
+      if (timeoutResponse.error) throw timeoutResponse.error
+      if (warningResponse.error) throw warningResponse.error
+
+      // Refresh settings after successful update
+      await refetch()
+
+      toast({
+        title: "Success",
+        description: "Session settings updated successfully",
+      })
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update session settings",
+        variant: "destructive"
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdatePaymentMethods = async () => {
+    try {
+      setSaving(true)
+
+      if (!paymentMethods.some(method => method.enabled)) {
+        throw new Error("At least one payment method must be enabled")
+      }
+
+      const { error } = await supabase.functions.invoke("manage-settings", {
+        body: {
+          action: "update",
+          payload: {
+            category: "payments",
+            key: "payments.methods",
+            value: paymentMethods
+          }
+        }
+      })
+
+      if (error) throw error
+
+      // Refresh settings after successful update
+      await refetch()
+
+      toast({
+        title: "Success",
+        description: "Payment methods updated successfully",
+      })
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update payment methods",
+        variant: "destructive"
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdateBankDetails = async () => {
+    try {
+      setSaving(true)
+
+      // Validate all fields are filled
+      if (Object.values(bankDetails).some(value => !value)) {
+        throw new Error("All bank details fields are required")
+      }
+
+      const { error } = await supabase.functions.invoke("manage-settings", {
+        body: {
+          action: "update",
+          payload: {
+            category: "payments",
+            key: "payments.bank.details",
+            value: bankDetails
+          }
+        }
+      })
+
+      if (error) throw error
+
+      // Refresh settings after successful update
+      await refetch()
+
+      toast({
+        title: "Success",
+        description: "Bank details updated successfully",
+      })
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update bank details",
+        variant: "destructive"
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (isLoading) {
     return (
       <Layout role="admin">
-        <div className="flex items-center justify-center h-full">
-          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto text-primary" />
+            <p className="text-muted-foreground">Loading settings...</p>
+          </div>
         </div>
       </Layout>
-    );
+    )
   }
+
+
 
   return (
     <Layout role="admin">
-      <div
-        className={cn(
-          "container mx-auto p-4 sm:p-6 lg:p-8",
-          isMobile ? "pb-20" : ""
-        )}
-      >
-        <header className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+      <div className="space-y-6 max-w-5xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex justify-between items-center"
+        >
+          <div className="space-y-1">
+            <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <Settings className="w-8 h-8" />
+              System Settings
+            </h2>
             <p className="text-muted-foreground">
-              Manage your application settings.
+              Configure system-wide settings and preferences
             </p>
           </div>
           <Button
             variant="outline"
-            size="icon"
-            onClick={fetchSettings}
-            disabled={loading}
+            onClick={async () => {
+              toast({
+                title: "Refreshing",
+                description: "Loading latest settings...",
+              });
+              await refetch();
+            }}
+            className="gap-2"
           >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            <RefreshCw className="w-4 h-4" />
+            Refresh
           </Button>
-        </header>
+        </motion.div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList
-            className={cn(
-              "grid w-full gap-2",
-              isMobile ? "grid-cols-2" : "grid-cols-4"
-            )}
-          >
-            <TabsTrigger value="general">
-              <Settings className="mr-2 h-4 w-4" />
-              General
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto">
+            <TabsTrigger value="system" className="gap-2">
+              <Settings className="w-4 h-4" />
+              System
             </TabsTrigger>
-            <TabsTrigger value="security">
-              <Shield className="mr-2 h-4 w-4" />
+            <TabsTrigger value="security" className="gap-2">
+              <Shield className="w-4 h-4" />
               Security
             </TabsTrigger>
-            <TabsTrigger value="payments">
-              <CreditCard className="mr-2 h-4 w-4" />
-              Payments
-            </TabsTrigger>
-            <TabsTrigger value="integrations">
-              <Plug className="mr-2 h-4 w-4" />
+            <TabsTrigger value="integrations" className="gap-2">
+              <Plug className="w-4 h-4" />
               Integrations
+            </TabsTrigger>
+            <TabsTrigger value="business" className="gap-2">
+              <CreditCard className="w-4 h-4" />
+              Business Rules
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="general">
-            <Card>
-              <CardHeader>
-                <CardTitle>General Settings</CardTitle>
-                <CardDescription>Basic application settings.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="app-name">App Name</Label>
-                  <Input
-                    id="app-name"
-                    value={generalSettings.app_name}
-                    onChange={(e) =>
-                      setGeneralSettings({
-                        ...generalSettings,
-                        app_name: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="app-description">App Description</Label>
-                  <Textarea
-                    id="app-description"
-                    value={generalSettings.app_description}
-                    onChange={(e) =>
-                      setGeneralSettings({
-                        ...generalSettings,
-                        app_description: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone">Timezone</Label>
-                    <Select
-                      value={generalSettings.timezone}
-                      onValueChange={(value) =>
-                        setGeneralSettings({
-                          ...generalSettings,
-                          timezone: value,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="UTC">UTC</SelectItem>
-                        <SelectItem value="America/New_York">
-                          America/New_York
-                        </SelectItem>
-                        <SelectItem value="Europe/London">
-                          Europe/London
-                        </SelectItem>
-                        <SelectItem value="Asia/Kolkata">
-                          Asia/Kolkata
-                        </SelectItem>
-                        <SelectItem value="Asia/Tokyo">Asia/Tokyo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date-format">Date Format</Label>
-                    <Select
-                      value={generalSettings.date_format}
-                      onValueChange={(value) =>
-                        setGeneralSettings({
-                          ...generalSettings,
-                          date_format: value,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                        <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                        <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="language">Language</Label>
-                  <Select
-                    value={generalSettings.language}
-                    onValueChange={(value) =>
-                      setGeneralSettings({
-                        ...generalSettings,
-                        language: value,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Spanish</SelectItem>
-                      <SelectItem value="fr">French</SelectItem>
-                      <SelectItem value="hi">Hindi</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="maintenance-mode"
-                    checked={generalSettings.maintenance_mode}
-                    onCheckedChange={(checked) =>
-                      setGeneralSettings({
-                        ...generalSettings,
-                        maintenance_mode: checked,
-                      })
-                    }
-                  />
-                  <Label htmlFor="maintenance-mode">Maintenance Mode</Label>
-                </div>
-              </CardContent>
-              {renderSaveButton()}
-            </Card>
-          </TabsContent>
-
           <TabsContent value="security">
-            <Card>
-              <CardHeader>
-                <CardTitle>Security Settings</CardTitle>
-                <CardDescription>
-                  Configure security policies for your application.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-3 gap-4">
+            <GlassCard className="p-6">
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium">Session Management</h3>
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="session-timeout">
-                      Session Timeout (minutes)
-                    </Label>
+                    <Label htmlFor="timeout">Session Timeout Duration (minutes)</Label>
                     <Input
-                      id="session-timeout"
+                      id="timeout"
                       type="number"
-                      value={securitySettings.session_timeout}
-                      onChange={(e) =>
-                        setSecuritySettings({
-                          ...securitySettings,
-                          session_timeout: parseInt(e.target.value, 10) || 0,
-                        })
-                      }
+                      min="1"
+                      value={sessionTimeout}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        if (Number.isFinite(value)) {
+                          setSessionTimeout(value);
+                        }
+                      }}
                     />
+                    <p className="text-sm text-muted-foreground">
+                      Users will be logged out after this period of inactivity
+                    </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password-min-length">
-                      Password Min Length
-                    </Label>
+                    <Label htmlFor="warning">Session Warning (minutes)</Label>
                     <Input
-                      id="password-min-length"
+                      id="warning"
                       type="number"
-                      value={securitySettings.password_min_length}
-                      onChange={(e) =>
-                        setSecuritySettings({
-                          ...securitySettings,
-                          password_min_length:
-                            parseInt(e.target.value, 10) || 0,
-                        })
-                      }
+                      min="1"
+                      value={sessionWarning}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        if (Number.isFinite(value)) {
+                          setSessionWarning(value);
+                        }
+                      }}
                     />
+                    <p className="text-sm text-muted-foreground">
+                      Warning shown before session expires
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="max-login-attempts">
-                      Max Login Attempts
-                    </Label>
-                    <Input
-                      id="max-login-attempts"
-                      type="number"
-                      value={securitySettings.max_login_attempts}
-                      onChange={(e) =>
-                        setSecuritySettings({
-                          ...securitySettings,
-                          max_login_attempts: parseInt(e.target.value, 10) || 0,
-                        })
-                      }
-                    />
-                  </div>
+                  <Button 
+                    onClick={handleUpdateSessionSettings}
+                    disabled={saving}
+                    className="gap-2"
+                  >
+                    {saving ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="require-special-char"
-                    checked={securitySettings.password_requires_special_char}
-                    onCheckedChange={(checked) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        password_requires_special_char: checked,
-                      })
-                    }
-                  />
-                  <Label htmlFor="require-special-char">
-                    Require Special Character in Password
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="enable-2fa"
-                    checked={securitySettings.enable_2fa}
-                    onCheckedChange={(checked) =>
-                      setSecuritySettings({
-                        ...securitySettings,
-                        enable_2fa: checked,
-                      })
-                    }
-                  />
-                  <Label htmlFor="enable-2fa">
-                    Enable Two-Factor Authentication (2FA)
-                  </Label>
-                </div>
-              </CardContent>
-              {renderSaveButton()}
-            </Card>
+              </div>
+            </GlassCard>
           </TabsContent>
 
-          <TabsContent value="payments">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Settings</CardTitle>
-                <CardDescription>
-                  Manage payment gateways and options.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="default-payment-amount">
-                    Default Payment Amount (₹)
-                  </Label>
-                  <Input
-                    id="default-payment-amount"
-                    type="number"
-                    value={paymentSettings.default_payment_amount}
-                    onChange={(e) =>
-                      setPaymentSettings({
-                        ...paymentSettings,
-                        default_payment_amount: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-4">
-                  <h3 className="text-md font-medium">Payment Methods</h3>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="razorpay-enabled"
-                      checked={paymentSettings.razorpay_enabled}
-                      onCheckedChange={(checked) =>
-                        setPaymentSettings({
-                          ...paymentSettings,
-                          razorpay_enabled: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="razorpay-enabled">Enable Razorpay</Label>
+          <TabsContent value="business">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment Methods</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Configure available payment methods and their settings
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {paymentMethods.map((method) => (
+                      <div
+                        key={method.id}
+                        className="flex items-center justify-between py-2"
+                      >
+                        <div className="flex items-center gap-4">
+                          <CreditCard className="w-5 h-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">{method.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {method.description}
+                            </p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={method.enabled}
+                          onCheckedChange={(checked) => {
+                            setPaymentMethods(methods =>
+                              methods.map(m =>
+                                m.id === method.id
+                                  ? { ...m, enabled: checked }
+                                  : m
+                              )
+                            )
+                          }}
+                        />
+                      </div>
+                    ))}
+                    <Button
+                      onClick={handleUpdatePaymentMethods}
+                      disabled={saving}
+                      className="w-full gap-2"
+                    >
+                      {saving ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Save Payment Methods
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="phonepe-enabled"
-                      checked={paymentSettings.phonepe_enabled}
-                      onCheckedChange={(checked) =>
-                        setPaymentSettings({
-                          ...paymentSettings,
-                          phonepe_enabled: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="phonepe-enabled">Enable PhonePe</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="bank-transfer-enabled"
-                      checked={paymentSettings.bank_transfer_enabled}
-                      onCheckedChange={(checked) =>
-                        setPaymentSettings({
-                          ...paymentSettings,
-                          bank_transfer_enabled: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="bank-transfer-enabled">
-                      Enable Bank Transfer
-                    </Label>
-                  </div>
-                </div>
-                {paymentSettings.bank_transfer_enabled && (
-                  <div className="space-y-4 border-t pt-6">
-                    <h3 className="text-md font-medium">Bank Details</h3>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="bank-name">Bank Name</Label>
-                        <Input
-                          id="bank-name"
-                          value={paymentSettings.bank_name}
-                          onChange={(e) =>
-                            setPaymentSettings({
-                              ...paymentSettings,
-                              bank_name: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="account-name">
-                          Account Holder Name
-                        </Label>
-                        <Input
-                          id="account-name"
-                          value={paymentSettings.bank_account_name}
-                          onChange={(e) =>
-                            setPaymentSettings({
-                              ...paymentSettings,
-                              bank_account_name: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="account-number">Account Number</Label>
-                        <Input
-                          id="account-number"
-                          value={paymentSettings.bank_account_number}
-                          onChange={(e) =>
-                            setPaymentSettings({
-                              ...paymentSettings,
-                              bank_account_number: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="ifsc-code">IFSC Code</Label>
-                        <Input
-                          id="ifsc-code"
-                          value={paymentSettings.bank_ifsc_code}
-                          onChange={(e) =>
-                            setPaymentSettings({
-                              ...paymentSettings,
-                              bank_ifsc_code: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Bank Account Details</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Configure bank account information for payment processing
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="accountName">Account Name</Label>
+                      <Input
+                        id="accountName"
+                        value={bankDetails.accountName}
+                        onChange={(e) =>
+                          setBankDetails(prev => ({
+                            ...prev,
+                            accountName: e.target.value
+                          }))
+                        }
+                      />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="accountNumber">Account Number</Label>
+                      <Input
+                        id="accountNumber"
+                        value={bankDetails.accountNumber}
+                        onChange={(e) =>
+                          setBankDetails(prev => ({
+                            ...prev,
+                            accountNumber: e.target.value
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ifscCode">IFSC Code</Label>
+                      <Input
+                        id="ifscCode"
+                        value={bankDetails.ifscCode}
+                        onChange={(e) =>
+                          setBankDetails(prev => ({
+                            ...prev,
+                            ifscCode: e.target.value.toUpperCase()
+                          }))
+                        }
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Indian Financial System Code for bank branch identification
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bankName">Bank Name</Label>
+                      <Input
+                        id="bankName"
+                        value={bankDetails.bankName}
+                        onChange={(e) =>
+                          setBankDetails(prev => ({
+                            ...prev,
+                            bankName: e.target.value
+                          }))
+                        }
+                      />
+                    </div>
+                    <Button
+                      onClick={handleUpdateBankDetails}
+                      disabled={saving}
+                      className="w-full gap-2"
+                    >
+                      {saving ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Save Bank Details
+                        </>
+                      )}
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-              {renderSaveButton()}
-            </Card>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Additional Business Rules</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Other business workflow settings and configurations
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center space-y-4">
+                    <p className="text-muted-foreground">Additional business rules coming soon</p>
+                    <Badge variant="secondary">No additional rules configured yet</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="system">
+            <GlassCard className="p-6">
+              <div className="text-center space-y-4">
+                <p className="text-muted-foreground">System settings coming soon</p>
+                <Badge variant="secondary">No system settings configured yet</Badge>
+              </div>
+            </GlassCard>
           </TabsContent>
 
           <TabsContent value="integrations">
-            <Card>
-              <CardHeader>
-                <CardTitle>Integrations</CardTitle>
-                <CardDescription>
-                  Connect with third-party services.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4 border-b pb-6">
-                  <h3 className="text-md font-medium">Email Service</h3>
-                  <div className="space-y-2">
-                    <Label htmlFor="email-provider">Provider</Label>
-                    <Select
-                      value={integrationSettings.email_provider}
-                      onValueChange={(value) =>
-                        setIntegrationSettings({
-                          ...integrationSettings,
-                          email_provider: value as "smtp" | "sendgrid",
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="smtp">SMTP</SelectItem>
-                        <SelectItem value="sendgrid">SendGrid</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {integrationSettings.email_provider === "smtp" && (
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <Input
-                        placeholder="SMTP Host"
-                        value={integrationSettings.smtp_host}
-                        onChange={(e) =>
-                          setIntegrationSettings({
-                            ...integrationSettings,
-                            smtp_host: e.target.value,
-                          })
-                        }
-                      />
-                      <Input
-                        placeholder="SMTP Port"
-                        type="number"
-                        value={integrationSettings.smtp_port}
-                        onChange={(e) =>
-                          setIntegrationSettings({
-                            ...integrationSettings,
-                            smtp_port: parseInt(e.target.value) || 0,
-                          })
-                        }
-                      />
-                      <Input
-                        placeholder="SMTP Username"
-                        value={integrationSettings.smtp_user}
-                        onChange={(e) =>
-                          setIntegrationSettings({
-                            ...integrationSettings,
-                            smtp_user: e.target.value,
-                          })
-                        }
-                      />
-                      <Input
-                        placeholder="SMTP Password"
-                        type="password"
-                        value={integrationSettings.smtp_pass}
-                        onChange={(e) =>
-                          setIntegrationSettings({
-                            ...integrationSettings,
-                            smtp_pass: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  )}
-                  {integrationSettings.email_provider === "sendgrid" && (
-                    <Input
-                      placeholder="SendGrid API Key"
-                      type="password"
-                      value={integrationSettings.sendgrid_api_key}
-                      onChange={(e) =>
-                        setIntegrationSettings({
-                          ...integrationSettings,
-                          sendgrid_api_key: e.target.value,
-                        })
-                      }
-                    />
-                  )}
-                </div>
-                <div className="space-y-4 border-b pb-6">
-                  <h3 className="text-md font-medium">SMS Service</h3>
-                  <div className="space-y-2">
-                    <Label htmlFor="sms-provider">Provider</Label>
-                    <Select
-                      value={integrationSettings.sms_provider}
-                      onValueChange={(value) =>
-                        setIntegrationSettings({
-                          ...integrationSettings,
-                          sms_provider: value as "twilio" | "aws-sns",
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="twilio">Twilio</SelectItem>
-                        <SelectItem value="aws-sns">AWS SNS</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {integrationSettings.sms_provider === "twilio" && (
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <Input
-                        placeholder="Twilio Account SID"
-                        value={integrationSettings.twilio_account_sid}
-                        onChange={(e) =>
-                          setIntegrationSettings({
-                            ...integrationSettings,
-                            twilio_account_sid: e.target.value,
-                          })
-                        }
-                      />
-                      <Input
-                        placeholder="Twilio Auth Token"
-                        type="password"
-                        value={integrationSettings.twilio_auth_token}
-                        onChange={(e) =>
-                          setIntegrationSettings({
-                            ...integrationSettings,
-                            twilio_auth_token: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  )}
-                  {integrationSettings.sms_provider === "aws-sns" && (
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <Input
-                        placeholder="AWS SNS Access Key"
-                        value={integrationSettings.aws_sns_access_key}
-                        onChange={(e) =>
-                          setIntegrationSettings({
-                            ...integrationSettings,
-                            aws_sns_access_key: e.target.value,
-                          })
-                        }
-                      />
-                      <Input
-                        placeholder="AWS SNS Secret Key"
-                        type="password"
-                        value={integrationSettings.aws_sns_secret_key}
-                        onChange={(e) =>
-                          setIntegrationSettings({
-                            ...integrationSettings,
-                            aws_sns_secret_key: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  <h3 className="text-md font-medium">
-                    Notification Preferences
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="push-notifications"
-                      checked={integrationSettings.push_notifications_enabled}
-                      onCheckedChange={(checked) =>
-                        setIntegrationSettings({
-                          ...integrationSettings,
-                          push_notifications_enabled: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="push-notifications">
-                      Enable Push Notifications
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="email-notifications"
-                      checked={integrationSettings.email_notifications_enabled}
-                      onCheckedChange={(checked) =>
-                        setIntegrationSettings({
-                          ...integrationSettings,
-                          email_notifications_enabled: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="email-notifications">
-                      Enable Email Notifications
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="sms-notifications"
-                      checked={integrationSettings.sms_notifications_enabled}
-                      onCheckedChange={(checked) =>
-                        setIntegrationSettings({
-                          ...integrationSettings,
-                          sms_notifications_enabled: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="sms-notifications">
-                      Enable SMS Notifications
-                    </Label>
-                  </div>
-                </div>
-              </CardContent>
-              {renderSaveButton()}
-            </Card>
+            <GlassCard className="p-6">
+              <div className="text-center space-y-4">
+                <p className="text-muted-foreground">Integration settings coming soon</p>
+                <Badge variant="secondary">No integration settings configured yet</Badge>
+              </div>
+            </GlassCard>
           </TabsContent>
         </Tabs>
       </div>
     </Layout>
-  );
-};
-
-export default SettingsPage;
+  )
+}

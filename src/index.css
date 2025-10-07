@@ -14,12 +14,6 @@
     --card: 0 0% 100%;
     --card-foreground: 222 84% 5%;
     
-<<<<<<< HEAD
-    /* Primary Brand Colors - Blue */
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 98%;
-    --primary-glow: 221 83% 63%;
-=======
     /* Primary Brand Colors - More Vibrant Blue */
     --primary: 221 83% 58%;
     --primary-foreground: 0 0% 98%;
@@ -29,7 +23,6 @@
     --gradient-vibrant: linear-gradient(135deg, hsl(221 83% 58%), hsl(280 70% 60%));
     --gradient-purple: linear-gradient(135deg, hsl(280 70% 60%), hsl(280 70% 50%));
     --gradient-ocean: linear-gradient(135deg, hsl(221 83% 58%), hsl(195 70% 60%));
->>>>>>> feature/settings-management
     
     /* Secondary Colors - Subtle gray */
     --secondary: 210 40% 96%;
@@ -162,24 +155,14 @@
   }
 }
 
-<<<<<<< HEAD
-@layer base {
-  * {
-    @apply border-border;
-=======
 /* Global HTML Styles */
 @layer base {
   * {
     @apply border-border scroll-smooth;
->>>>>>> feature/settings-management
   }
 
   body {
     @apply bg-background text-foreground overflow-x-hidden transition-colors duration-300;
-<<<<<<< HEAD
-    background: hsl(var(--background));
-    background-image: var(--gradient-background);
-=======
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
@@ -193,43 +176,10 @@
 
   .text-gradient {
     @apply bg-gradient-to-r from-primary via-primary to-primary bg-clip-text text-transparent;
->>>>>>> feature/settings-management
   }
 }
 
 @layer components {
-<<<<<<< HEAD
-  /* Glass Morphism Components */
-  .glass-card {
-    @apply backdrop-blur-md bg-white/10 dark:bg-slate-800/40 border border-white/20 dark:border-slate-700/50 rounded-2xl shadow-[var(--shadow-glass)] transition-colors duration-300;
-  }
-  
-  .glass-button {
-    @apply backdrop-blur-sm bg-white/5 dark:bg-slate-800/20 border border-white/20 dark:border-slate-700/30 rounded-xl hover:bg-white/10 dark:hover:bg-slate-800/30 transition-all duration-300;
-  }
-  
-  /* Gradient Text */
-  .gradient-text {
-    @apply bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent;
-  }
-  
-  /* Hover Effects */
-  .hover-glow {
-    transition: var(--transition-smooth);
-  }
-  
-  .hover-glow:hover {
-    box-shadow: var(--shadow-glow);
-    transform: translateY(-2px);
-  }
-  
-  .hover-success:hover {
-    box-shadow: var(--shadow-success);
-    transform: translateY(-2px);
-  }
-  
-  /* Animations */
-=======
   /* Modern Card Variants */
   .glass-card {
     @apply backdrop-blur-md bg-white/10 dark:bg-slate-800/40 border border-white/20 dark:border-slate-700/50 rounded-2xl shadow-[var(--shadow-glass)] transition-all duration-300 hover:shadow-glow-blue dark:hover:shadow-glow-purple hover:-translate-y-1;
@@ -277,13 +227,10 @@
   }
 
   /* Animation Effects */
->>>>>>> feature/settings-management
   .animate-gradient {
     background-size: 400% 400%;
     animation: gradient 8s ease infinite;
   }
-<<<<<<< HEAD
-=======
 
   .animate-shimmer-effect {
     @apply animate-shimmer-base bg-gradient-to-r from-transparent via-white/10 to-transparent bg-[length:200%_100%];
@@ -302,7 +249,6 @@
     position: relative;
     overflow: hidden;
   }
->>>>>>> feature/settings-management
   
   @keyframes gradient {
     0% { background-position: 0% 50%; }

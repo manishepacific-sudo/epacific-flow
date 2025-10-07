@@ -13,13 +13,10 @@ export default {
       },
     },
     extend: {
-<<<<<<< HEAD
-=======
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         display: ['Poppins', 'Inter', 'sans-serif'],
       },
->>>>>>> feature/settings-management
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -31,8 +28,6 @@ export default {
           foreground: "hsl(var(--primary-foreground))",
           glow: "hsl(var(--primary-glow))",
         },
-<<<<<<< HEAD
-=======
         purple: {
           50: '#faf5ff',
           100: '#f3e8ff',
@@ -69,7 +64,6 @@ export default {
           800: '#155e75',
           900: '#164e63',
         },
->>>>>>> feature/settings-management
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
@@ -120,26 +114,20 @@ export default {
         "gradient-secondary": "var(--gradient-secondary)",
         "gradient-background": "var(--gradient-background)",
         "gradient-glass": "var(--gradient-glass)",
-<<<<<<< HEAD
-=======
         "gradient-purple": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
         "gradient-blue-purple": "linear-gradient(135deg, #667eea 0%, #f093fb 100%)",
         "gradient-ocean": "linear-gradient(135deg, #2E3192 0%, #1BFFFF 100%)",
         "gradient-sunset": "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
         "gradient-mesh": "radial-gradient(at 40% 20%, hsla(217,91%,60%,0.3) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(280,70%,60%,0.3) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(195,70%,60%,0.3) 0px, transparent 50%)",
->>>>>>> feature/settings-management
       },
       boxShadow: {
         glow: "var(--shadow-glow)",
         success: "var(--shadow-success)",
         glass: "var(--shadow-glass)",
-<<<<<<< HEAD
-=======
         "glow-purple": "0 0 20px rgba(168, 85, 247, 0.4)",
         "glow-blue": "0 0 20px rgba(59, 130, 246, 0.4)",
         "elevated": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
         "inner-glow": "inset 0 2px 4px 0 rgba(255, 255, 255, 0.06)",
->>>>>>> feature/settings-management
       },
       transitionTimingFunction: {
         smooth: "var(--transition-smooth)",
@@ -152,28 +140,6 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-<<<<<<< HEAD
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
-        },
-        "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
-        },
-      },
-      animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-      },
-=======
           from: { height: "0" },
           to: { height: "var(--radix-accordion-content-height)" },
         },
@@ -225,7 +191,6 @@ export default {
         "2xl": "24px",
         "3xl": "40px",
       },
->>>>>>> feature/settings-management
     },
   },
   plugins: [require("tailwindcss-animate")],

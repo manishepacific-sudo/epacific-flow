@@ -66,17 +66,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Fetch profile with role
           try {
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('*')
               .eq('user_id', session.user.id)
-              .maybeSingle();
+              .single();
             
-            if (mounted) {
+            if (profileError) {
+              console.error('Failed to fetch user profile:', profileError);
+              // Only clear profile if it's a not found error
+              if (profileError.code === 'PGRST116') {
+                setProfile(null);
+              }
+              // Keep existing profile for other types of errors
+            } else if (mounted && profile) {
               setProfile(profile);
             }
           } catch (error) {
-            // Error handled silently - profile will remain null
+            console.error('Unexpected error fetching profile:', error);
           }
         } else {
           setUser(null);
@@ -125,17 +132,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setTimeout(async () => {
             if (!mounted) return;
             try {
-              const { data: profile } = await supabase
+              const { data: profile, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('user_id', session.user.id)
-                .maybeSingle();
+                .single();
               
-              if (mounted) {
+              if (profileError) {
+                console.error('Failed to fetch user profile on auth change:', profileError);
+                // Only clear profile if it's a not found error
+                if (profileError.code === 'PGRST116') {
+                  setProfile(null);
+                }
+                // Keep existing profile for other types of errors
+              } else if (mounted && profile) {
                 setProfile(profile);
               }
             } catch (error) {
-              // Error handled silently - profile will remain null
+              console.error('Unexpected error fetching profile on auth change:', error);
             }
           }, 0);
         }

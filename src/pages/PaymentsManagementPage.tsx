@@ -1,12 +1,3 @@
-<<<<<<< HEAD
-import { useState, useEffect } from "react";
-import { CreditCard, CheckCircle2, XCircle, Clock, Eye } from "lucide-react";
-import Layout from "@/components/Layout";
-import { GlassCard } from "@/components/ui/glass-card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-=======
 import { useState, useEffect, useCallback } from "react";
 import { CreditCard, CheckCircle2, XCircle, Clock, Eye, Download, Edit, User, Building, Calendar, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
@@ -19,7 +10,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
->>>>>>> feature/settings-management
 import SearchFilterExport, { FilterConfig } from "@/components/shared/SearchFilterExport";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,22 +23,12 @@ interface Payment {
   method: string;
   proof_url: string;
   status: string;
-<<<<<<< HEAD
-  created_at: string;
-  user_id: string;
-  report_id: string;
-  admin_notes?: string;
-  rejection_message?: string;
-  phonepe_transaction_id?: string;
-  updated_at: string;
-=======
   phonepe_transaction_id?: string;
   updated_at: string;
   created_at: string;
   user_id: string;
   rejection_message?: string;
   admin_notes?: string;
->>>>>>> feature/settings-management
   profiles?: {
     full_name: string;
     email: string;
@@ -65,9 +45,6 @@ export default function PaymentsManagementPage() {
   
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
-  const [processingPayments, setProcessingPayments] = useState<Set<string>>(new Set());
-=======
     
   const [processingPayments, setProcessingPayments] = useState<Set<string>>(new Set());
 
@@ -104,7 +81,6 @@ export default function PaymentsManagementPage() {
     }
   }, [toast]);
   const isMobile = useIsMobile();
->>>>>>> feature/settings-management
   const [searchValue, setSearchValue] = useState('');
   const [filters, setFilters] = useState({
     role: 'all',
@@ -129,74 +105,6 @@ export default function PaymentsManagementPage() {
     ]
   };
 
-<<<<<<< HEAD
-  useEffect(() => {
-    fetchPayments();
-  }, []);
-
-  const fetchPayments = async () => {
-    try {
-      setLoading(true);
-      
-      // Try edge function first
-      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('get-payments', {
-        body: { admin_email: profile?.email }
-      });
-
-      let paymentsData;
-      if (edgeError) {
-        // Fallback to direct query with profiles relationship
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('payments')
-          .select(`
-            *,
-            profiles (
-              full_name,
-              email,
-              mobile_number,
-              center_address,
-              registrar
-            )
-          `)
-          .order('created_at', { ascending: false });
-
-        if (fallbackError) {
-          // If profiles relationship still fails, fetch payments only
-          const { data: paymentsOnly, error: paymentsError } = await supabase
-            .from('payments')
-            .select('*')
-            .order('created_at', { ascending: false });
-          
-          if (paymentsError) throw paymentsError;
-          paymentsData = paymentsOnly || [];
-        } else {
-          paymentsData = fallbackData || [];
-        }
-      } else {
-        paymentsData = edgeData?.payments || [];
-      }
-
-      setPayments(paymentsData);
-    } catch (error: any) {
-      console.error('Error fetching payments:', error);
-      toast({
-        title: "Error loading payments",
-        description: error.message || "Failed to load payments",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePaymentAction = async (paymentId: string, action: 'approved' | 'rejected', notes?: string) => {
-    setProcessingPayments(prev => new Set(prev).add(paymentId));
-    
-    try {
-      const updateData: any = { status: action };
-      if (notes && action === 'rejected') {
-        updateData.admin_notes = notes;
-=======
 
 
   const handlePaymentAction = async (paymentId: string, action: 'approved' | 'rejected', notes?: string) => {
@@ -213,7 +121,6 @@ export default function PaymentsManagementPage() {
       const updateData: UpdateData = { status: action };
       if (action === 'rejected') {
         updateData.rejection_message = notes || null;
->>>>>>> feature/settings-management
       }
 
       const { error } = await supabase
@@ -230,12 +137,8 @@ export default function PaymentsManagementPage() {
       });
 
       fetchPayments();
-<<<<<<< HEAD
-    } catch (error: any) {
-=======
     } catch (err: unknown) {
       const error = err as Error;
->>>>>>> feature/settings-management
       console.error('Payment action error:', error);
       toast({
         title: "Action failed",
@@ -251,8 +154,6 @@ export default function PaymentsManagementPage() {
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleDownloadProof = async (proofPath: string, paymentId: string) => {
     try {
       const { data, error } = await supabase.storage
@@ -334,7 +235,6 @@ export default function PaymentsManagementPage() {
     }
   };
 
->>>>>>> feature/settings-management
   const viewProof = async (proofPath: string) => {
     try {
       // First try to create a signed URL directly
@@ -358,14 +258,9 @@ export default function PaymentsManagementPage() {
       // Open the file in a new tab
       window.open(data.signedUrl, '_blank');
       
-<<<<<<< HEAD
-    } catch (error: any) {
-      console.error('View proof error:', error);
-=======
     } catch (error: unknown) {
       const err = error as Error;
       console.error('View proof error:', err);
->>>>>>> feature/settings-management
       toast({
         title: "View failed",
         description: "Unable to view the payment proof. Please try again or contact support if the issue persists.",
@@ -502,13 +397,8 @@ export default function PaymentsManagementPage() {
   };
 
   return (
-<<<<<<< HEAD
-    <Layout role={role}>
-      <div className="space-y-6">
-=======
     <Layout role={role as 'admin' | 'manager' | 'user'}>
       <div className={cn("space-y-6", isMobile && "pb-20")}>
->>>>>>> feature/settings-management
         {/* Header */}
         <div>
           <h2 className="text-2xl font-bold">Payments Management</h2>
@@ -558,20 +448,6 @@ export default function PaymentsManagementPage() {
                   {payments.length === 0 ? 'No payments found' : 'No payments match the current filters'}
                 </p>
               </div>
-<<<<<<< HEAD
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Method</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Transaction ID</TableHead>
-                        <TableHead>Submitted</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-=======
             ) : isMobile ? (
               <motion.div
                 className="grid grid-cols-1 gap-4"
@@ -748,34 +624,12 @@ export default function PaymentsManagementPage() {
                       <TableHead>Date</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
->>>>>>> feature/settings-management
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPayments.map((payment) => (
                       <TableRow key={payment.id}>
                         <TableCell>
-<<<<<<< HEAD
-                          <div>
-                            <p className="font-medium">
-                              {payment.profiles?.full_name || 'Unknown User'}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {payment.profiles?.email || `User ID: ${payment.user_id.slice(0, 8)}...`}
-                            </p>
-                            {payment.profiles?.registrar && (
-                              <p className="text-xs text-muted-foreground">Registrar: {payment.profiles.registrar}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-medium">₹{payment.amount?.toLocaleString()}</span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {payment.method}
-                          </Badge>
-=======
                           <div className="flex items-center gap-3">
                             <Avatar className={cn("h-8 w-8", getAmountGradient(payment.status))}>
                               <AvatarFallback className="text-white text-sm font-bold">
@@ -808,36 +662,11 @@ export default function PaymentsManagementPage() {
                         </TableCell>
                         <TableCell>
                           {format(new Date(payment.created_at), 'MMM dd, yyyy')}
->>>>>>> feature/settings-management
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(payment.status)}
                         </TableCell>
                         <TableCell>
-<<<<<<< HEAD
-                          <span className="text-sm font-mono">
-                            {payment.phonepe_transaction_id || 'N/A'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {format(new Date(payment.created_at), 'MMM dd, yyyy')}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {payment.proof_url ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => viewProof(payment.proof_url)}
-                                title="View payment proof"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">No proof uploaded</span>
-=======
                           <div className="flex items-center justify-end gap-2">
                             {payment.proof_url ? (
                               <>
@@ -869,24 +698,10 @@ export default function PaymentsManagementPage() {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
->>>>>>> feature/settings-management
                             )}
                             {payment.status === 'pending' && (
                               <>
                                 <Button
-<<<<<<< HEAD
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handlePaymentAction(payment.id, 'approved')}
-                                  disabled={processingPayments.has(payment.id)}
-                                >
-                                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                                  Approve
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-=======
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handlePaymentAction(payment.id, 'approved')}
@@ -898,21 +713,14 @@ export default function PaymentsManagementPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
->>>>>>> feature/settings-management
                                   onClick={() => {
                                     const notes = prompt("Rejection reason (optional):");
                                     handlePaymentAction(payment.id, 'rejected', notes || undefined);
                                   }}
                                   disabled={processingPayments.has(payment.id)}
-<<<<<<< HEAD
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-=======
                                   className="text-destructive"
                                 >
                                   <XCircle className="h-4 w-4" />
->>>>>>> feature/settings-management
                                 </Button>
                               </>
                             )}
@@ -922,11 +730,7 @@ export default function PaymentsManagementPage() {
                     ))}
                   </TableBody>
                 </Table>
-<<<<<<< HEAD
-              </div>
-=======
               </motion.div>
->>>>>>> feature/settings-management
             )}
           </div>
         </GlassCard>

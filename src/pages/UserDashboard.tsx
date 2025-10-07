@@ -1,26 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-<<<<<<< HEAD
-import { 
-  FileText, 
-  CreditCard, 
-  Camera, 
-=======
 import {
   FileText,
   CreditCard,
   Camera,
->>>>>>> feature/settings-management
   DollarSign,
   Clock,
   CheckCircle,
   Upload,
-<<<<<<< HEAD
-  Calendar
-} from "lucide-react";
-import Layout from "@/components/Layout";
-import { GlassCard } from "@/components/ui/glass-card";
-=======
   Calendar,
   Eye,
   Download,
@@ -29,7 +16,6 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
->>>>>>> feature/settings-management
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -37,9 +23,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-<<<<<<< HEAD
-=======
 import { useIsMobile } from "@/hooks/use-mobile";
+import { downloadFileFromStorage } from "@/utils/fileDownload";
 
 interface Report {
   id: string;
@@ -47,6 +32,7 @@ interface Report {
   title: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+  attachment_url: string;
 }
 
 interface Payment {
@@ -57,6 +43,7 @@ interface Payment {
   method: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+  proof_url?: string;
 }
 
 interface Attendance {
@@ -66,93 +53,11 @@ interface Attendance {
   status: 'pending' | 'approved' | 'rejected';
   photo_url?: string;
 }
->>>>>>> feature/settings-management
 
 export default function UserDashboard() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { toast } = useToast();
-<<<<<<< HEAD
-  const [reports, setReports] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user) {
-      fetchUserData();
-
-      // Set up real-time subscriptions for reports and payments
-      const reportsChannel = supabase
-        .channel('user-reports')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'reports',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            fetchUserData(); // Refresh data when reports change
-          }
-        )
-        .subscribe();
-
-      const paymentsChannel = supabase
-        .channel('user-payments')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'payments',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            fetchUserData(); // Refresh data when payments change
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(reportsChannel);
-        supabase.removeChannel(paymentsChannel);
-      };
-    }
-  }, [user]);
-
-  const fetchUserData = async () => {
-    try {
-      const [reportsRes, paymentsRes] = await Promise.all([
-        supabase
-          .from('reports')
-          .select('*')
-          .eq('user_id', user?.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('payments')
-          .select('*')
-          .eq('user_id', user?.id)
-          .order('created_at', { ascending: false })
-      ]);
-
-      if (reportsRes.error) throw reportsRes.error;
-      if (paymentsRes.error) throw paymentsRes.error;
-
-      setReports(reportsRes.data || []);
-      setPayments(paymentsRes.data || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast({
-        title: "Error loading data",
-        description: "Failed to load dashboard data",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-=======
 
   const [reports, setReports] = useState<Report[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -165,36 +70,64 @@ export default function UserDashboard() {
     const fetchUserData = async () => {
       try {
         setLoading(true);
-        const [reportsRes, paymentsRes, attendanceRes] = await Promise.all([
+
+        // First check if user profile is loaded
+        if (!user?.id) {
+          throw new Error('User ID not available');
+        }
+
+        // Add limit and proper error handling for each query
+        const [reportsRes, paymentsRes, attendanceRes] = await Promise.allSettled([
           supabase
             .from('reports')
             .select('*')
             .eq('user_id', user.id)
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .limit(50),
           supabase
             .from('payments')
             .select('*')
             .eq('user_id', user.id)
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .limit(50),
           supabase
             .from('attendance')
             .select('*')
             .eq('user_id', user.id)
             .order('attendance_date', { ascending: false })
+            .limit(50)
         ]);
 
-        if (reportsRes.error) throw reportsRes.error;
-        if (paymentsRes.error) throw paymentsRes.error;
-        if (attendanceRes.error) throw attendanceRes.error;
+        // Handle individual query results
+        if (reportsRes.status === 'fulfilled' && !reportsRes.value.error) {
+          setReports(reportsRes.value.data || []);
+        } else if (reportsRes.status === 'fulfilled') {
+          console.error('Reports fetch error:', reportsRes.value.error);
+        }
 
-        setReports(reportsRes.data || []);
-        setPayments(paymentsRes.data || []);
-        setAttendance(attendanceRes.data || []);
+        if (paymentsRes.status === 'fulfilled' && !paymentsRes.value.error) {
+          setPayments(paymentsRes.value.data || []);
+        } else if (paymentsRes.status === 'fulfilled') {
+          console.error('Payments fetch error:', paymentsRes.value.error);
+        }
+
+        if (attendanceRes.status === 'fulfilled' && !attendanceRes.value.error) {
+          setAttendance(attendanceRes.value.data || []);
+        } else if (attendanceRes.status === 'fulfilled') {
+          console.error('Attendance fetch error:', attendanceRes.value.error);
+        }
+
+        // Show error only if all queries failed
+        if ([reportsRes, paymentsRes, attendanceRes].every(res => 
+          res.status === 'rejected' || (res.status === 'fulfilled' && res.value.error)
+        )) {
+          throw new Error('Failed to fetch any dashboard data');
+        }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching dashboard data:', error);
         toast({
           title: "Error loading data",
-          description: "Failed to load dashboard data",
+          description: error instanceof Error ? error.message : "Failed to load dashboard data",
           variant: "destructive"
         });
       } finally {
@@ -251,8 +184,71 @@ export default function UserDashboard() {
       supabase.removeChannel(paymentsChannel);
       supabase.removeChannel(attendanceChannel);
     };
-  }, [user, toast]);
->>>>>>> feature/settings-management
+  }, [user?.id, toast]); // Explicitly depend on user.id instead of the whole user object
+
+  // Handle report download
+  const handleReportDownload = async (report: Report) => {
+    try {
+      if (!report.attachment_url) {
+        toast({
+          title: "Error",
+          description: "No attachment available for this report",
+          variant: "destructive"
+        });
+        return;
+      }
+      await downloadFileFromStorage('reports', report.attachment_url);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Failed to download report",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle report/proof view
+  const handleView = async (url?: string) => {
+    if (!url) {
+      toast({
+        title: "Error",
+        description: "No file available to view",
+        variant: "destructive"
+      });
+      return;
+    }
+    try {
+      // First try to get a public URL
+      const { data: publicUrlData } = await supabase.storage
+        .from('report-attachments')
+        .getPublicUrl(url);
+
+      if (publicUrlData?.publicUrl) {
+        // For public bucket, use public URL
+        window.open(publicUrlData.publicUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      // Fallback to signed URL if public URL fails
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from('report-attachments')
+        .createSignedUrl(url, 3600); // URL valid for 1 hour
+
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        throw new Error(signedUrlError?.message || 'Could not generate URL');
+      }
+
+      window.open(signedUrlData.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error viewing file:', error);
+      toast({
+        title: "Error",
+        description: "Could not open the file for viewing. Please check your permissions.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const quickActions = [
     {
@@ -284,8 +280,6 @@ export default function UserDashboard() {
     r.status === 'approved' && !payments.some(p => p.report_id === r.id && p.status === 'approved')
   ).length;
   const totalPendingAmount = approvedReportsWithoutPayment * 25000;
-<<<<<<< HEAD
-=======
 
   // Calculate monthly attendance metrics
   const currentDate = new Date();
@@ -304,7 +298,6 @@ export default function UserDashboard() {
   const attendancePercentage = totalWorkingDays > 0 
     ? Math.round((monthlyAttendanceCount / totalWorkingDays) * 100) 
     : 0;
->>>>>>> feature/settings-management
   
   const dashboardCards = [
     {
@@ -323,15 +316,9 @@ export default function UserDashboard() {
     },
     {
       title: "Monthly Attendance",
-<<<<<<< HEAD
-      value: 0, // Placeholder for now
-      icon: Calendar,
-      trend: "0% this month",
-=======
       value: monthlyAttendanceCount,
       icon: Calendar,
       trend: `${attendancePercentage}% this month`,
->>>>>>> feature/settings-management
       color: "text-secondary",
     },
     {
@@ -345,17 +332,11 @@ export default function UserDashboard() {
     
   ];
 
-<<<<<<< HEAD
-  return (
-    <Layout role="user">
-      <div className="space-y-8 max-w-7xl mx-auto">
-=======
   const isMobile = useIsMobile();
 
   return (
     <Layout role={profile?.role}>
       <div className={cn("space-y-8 max-w-7xl mx-auto", isMobile && "pb-20")}>
->>>>>>> feature/settings-management
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -374,25 +355,6 @@ export default function UserDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {dashboardCards.map((card, index) => (
             <motion.div
-<<<<<<< HEAD
-              key={card.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <GlassCard className="hover-glow p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-1">{card.title}</p>
-                    <p className="text-2xl font-bold mb-1">{card.value}</p>
-                    <p className="text-xs text-muted-foreground">{card.trend}</p>
-                  </div>
-                  <div className={`p-3 rounded-lg bg-accent ${card.color}`}>
-                    <card.icon className="h-5 w-5" />
-                  </div>
-                </div>
-              </GlassCard>
-=======
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
@@ -411,170 +373,10 @@ export default function UserDashboard() {
                 </div>
                 <p className="text-sm text-muted-foreground mt-3">{card.trend}</p>
               </div>
->>>>>>> feature/settings-management
             </motion.div>
           ))}
         </div>
 
-<<<<<<< HEAD
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <h2 className="text-xl font-semibold mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {quickActions.map((action, index) => (
-              <motion.div
-                key={action.title}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.5 + index * 0.1 }}
-              >
-                <GlassCard 
-                  className="hover-glow cursor-pointer text-center p-6 transition-all duration-300"
-                  onClick={action.action}
-                >
-                  <div className={`w-12 h-12 ${action.color} rounded-lg flex items-center justify-center mx-auto mb-4`}>
-                    <action.icon className="h-6 w-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold mb-2">{action.title}</h3>
-                  <p className="text-sm text-muted-foreground">{action.description}</p>
-                </GlassCard>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          {/* Recent Reports */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6 }}
-          >
-            <GlassCard className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Recent Reports</h3>
-                  <Button variant="ghost" size="sm" onClick={() => navigate("/upload/report")}>
-                    View All
-                </Button>
-              </div>
-              <div className="space-y-3">
-                {loading ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  </div>
-                ) : reports.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No reports submitted yet
-                  </div>
-                ) : (
-                  reports.slice(0, 3).map((report) => (
-                    <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <div>
-                          <p className="font-medium text-sm">{report.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(report.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant={report.status === 'approved' ? 'default' : 'secondary'}
-                          className={`text-xs ${report.status === 'approved' ? 'bg-success' : ''}`}
-                        >
-                          {report.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </GlassCard>
-          </motion.div>
-
-          {/* Recent Payments */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.7 }}
-          >
-            <GlassCard className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Payment Status</h3>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/payments")}>
-                  View All
-                </Button>
-              </div>
-              <div className="space-y-3">
-                {loading ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  </div>
-                ) : payments.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No payments submitted yet
-                  </div>
-                ) : (
-                  payments.slice(0, 3).map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <CreditCard className="h-4 w-4 text-warning" />
-                        <div>
-                          <p className="font-medium text-sm capitalize">{payment.method} Payment</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(payment.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">₹{payment.amount.toLocaleString()}</span>
-                        <Badge 
-                          variant={payment.status === 'approved' ? 'default' : 'secondary'}
-                          className={`text-xs ${payment.status === 'approved' ? 'bg-success' : ''}`}
-                        >
-                          {payment.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </GlassCard>
-          </motion.div>
-        </div>
-
-        {/* Attendance Progress */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
-          <GlassCard className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Monthly Attendance Progress</h3>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-success" />
-                <span className="text-sm text-muted-foreground">
-                  0/20 days
-                </span>
-              </div>
-            </div>
-            <Progress 
-              value={0} 
-              className="h-3 mb-2"
-            />
-            <p className="text-sm text-muted-foreground">
-              No attendance records yet
-            </p>
-          </GlassCard>
-        </motion.div>
-=======
         {/* Reports and Payments Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Reports Section */}
@@ -619,11 +421,21 @@ export default function UserDashboard() {
                             </Badge>
                           </div>
                           <div className="flex gap-2 mt-4">
-                            <Button variant="outline" size="sm" className="flex-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={() => handleView(report.attachment_url)}
+                            >
                               <Eye className="h-4 w-4 mr-2" />
                               View
                             </Button>
-                            <Button variant="outline" size="sm" className="flex-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={() => handleReportDownload(report)}
+                            >
                               <Download className="h-4 w-4 mr-2" />
                               Download
                             </Button>
@@ -652,10 +464,18 @@ export default function UserDashboard() {
                               {report.status}
                             </Badge>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="icon">
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => handleView(report.attachment_url)}
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon">
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => handleReportDownload(report)}
+                              >
                                 <Download className="h-4 w-4" />
                               </Button>
                             </div>
@@ -711,9 +531,14 @@ export default function UserDashboard() {
                             </Badge>
                           </div>
                           <div className="flex gap-2 mt-4">
-                            <Button variant="outline" size="sm" className="flex-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={() => handleView(payment.proof_url)}
+                            >
                               <Eye className="h-4 w-4 mr-2" />
-                              View
+                              View Proof
                             </Button>
                           </div>
                         </motion.div>
@@ -739,7 +564,11 @@ export default function UserDashboard() {
                             <Badge variant={payment.status === 'approved' ? 'default' : payment.status === 'rejected' ? 'destructive' : 'secondary'}>
                               {payment.status}
                             </Badge>
-                            <Button variant="ghost" size="icon">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleView(payment.proof_url)}
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
                           </div>
@@ -799,7 +628,6 @@ export default function UserDashboard() {
             </p>
           </CardContent>
         </Card>
->>>>>>> feature/settings-management
       </div>
     </Layout>
   );

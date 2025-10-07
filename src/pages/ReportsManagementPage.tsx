@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-import { useState, useEffect } from "react";
-import { FileText, CheckCircle2, XCircle, Clock, Eye, Download } from "lucide-react";
-import Layout from "@/components/Layout";
-import { GlassCard } from "@/components/ui/glass-card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import SearchFilterExport, { FilterConfig } from "@/components/shared/SearchFilterExport";
-import { useAuth } from "@/components/AuthProvider";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import * as XLSX from 'xlsx';
-=======
 import { useState, useEffect, useCallback } from "react";
 import { FileText, CheckCircle2, XCircle, Clock, Eye, Download, Edit, Trash2, User, Building, Calendar, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,7 +24,6 @@ interface Profile {
   center_address: string;
   registrar: string;
 }
->>>>>>> feature/settings-management
 
 interface Report {
   id: string;
@@ -47,25 +31,12 @@ interface Report {
   description: string;
   amount: number;
   attachment_url: string;
-<<<<<<< HEAD
-  status: string;
-=======
   status: 'pending' | 'approved' | 'rejected';
->>>>>>> feature/settings-management
   created_at: string;
   user_id: string;
   manager_notes?: string;
   rejection_message?: string;
   updated_at: string;
-<<<<<<< HEAD
-  profiles?: {
-    full_name: string;
-    email: string;
-    mobile_number: string;
-    center_address: string;
-    registrar: string;
-  } | null;
-=======
   profiles?: Profile | null;
 }
 
@@ -93,46 +64,29 @@ interface ReportData {
   updated_at: string;
   user_id: string;
   profiles?: Profile | null;
->>>>>>> feature/settings-management
 }
 
 export default function ReportsManagementPage() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const role = profile?.role as 'admin' | 'manager';
-<<<<<<< HEAD
-  
-=======
   const isMobile = useIsMobile();
   
   // State management
->>>>>>> feature/settings-management
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingReports, setProcessingReports] = useState<Set<string>>(new Set());
   const [searchValue, setSearchValue] = useState('');
-<<<<<<< HEAD
-  const [filters, setFilters] = useState({
-=======
   const [filters, setFilters] = useState<Filters>({
->>>>>>> feature/settings-management
     role: 'all',
     registrar: 'all',
     status: 'all',
     approval: 'all',
-<<<<<<< HEAD
-    dateRange: { from: null as Date | null, to: null as Date | null }
-  });
-
-  const filterConfig: FilterConfig = {
-    statuses: ['pending', 'approved', 'rejected'],
-=======
     dateRange: { from: null, to: null }
   });
 
   const filterConfig: FilterConfig = {
     statuses: ['pending', 'approved', 'rejected'] as const,
->>>>>>> feature/settings-management
     additionalFilters: [
       {
         key: 'approval',
@@ -146,15 +100,7 @@ export default function ReportsManagementPage() {
     ]
   };
 
-<<<<<<< HEAD
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
-  const fetchReports = async () => {
-=======
   const fetchReports = useCallback(async () => {
->>>>>>> feature/settings-management
     try {
       setLoading(true);
       
@@ -163,11 +109,7 @@ export default function ReportsManagementPage() {
         body: { admin_email: profile?.email }
       });
 
-<<<<<<< HEAD
-      let reportsData;
-=======
       let reportsData: Report[];
->>>>>>> feature/settings-management
       if (edgeError) {
         // Fallback to direct query with profiles relationship
         const { data: fallbackData, error: fallbackError } = await supabase
@@ -192,22 +134,6 @@ export default function ReportsManagementPage() {
             .order('created_at', { ascending: false });
           
           if (reportsError) throw reportsError;
-<<<<<<< HEAD
-          reportsData = reportsOnly || [];
-        } else {
-          reportsData = fallbackData || [];
-        }
-      } else {
-        reportsData = edgeData?.reports || [];
-      }
-
-      setReports(reportsData);
-    } catch (error: any) {
-      console.error('Error fetching reports:', error);
-      toast({
-        title: "Error loading reports",
-        description: error.message || "Failed to load reports",
-=======
           reportsData = (reportsOnly || []).map((r: ReportData) => ({
             ...r,
             status: r.status as 'pending' | 'approved' | 'rejected'
@@ -231,120 +157,11 @@ export default function ReportsManagementPage() {
       toast({
         title: "Error loading reports",
         description: (error as Error).message || "Failed to load reports",
->>>>>>> feature/settings-management
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
-<<<<<<< HEAD
-  };
-
-  const handleReportAction = async (reportId: string, action: 'approved' | 'rejected', notes?: string) => {
-    setProcessingReports(prev => new Set(prev).add(reportId));
-    
-    try {
-      const updateData: any = { status: action };
-      if (notes && action === 'rejected') {
-        updateData.manager_notes = notes;
-      }
-
-      const { error } = await supabase
-        .from('reports')
-        .update(updateData)
-        .eq('id', reportId);
-
-      if (error) throw error;
-
-      toast({
-        title: `Report ${action}`,
-        description: `Report has been ${action} successfully.`,
-        variant: action === 'approved' ? 'default' : 'destructive'
-      });
-
-      fetchReports();
-    } catch (error: any) {
-      console.error('Report action error:', error);
-      toast({
-        title: "Action failed",
-        description: error.message || `Failed to ${action} report`,
-        variant: "destructive"
-      });
-    } finally {
-      setProcessingReports(prev => {
-        const next = new Set(prev);
-        next.delete(reportId);
-        return next;
-      });
-    }
-  };
-
-  const downloadFile = async (filePath: string, fileName: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('report-attachments')
-        .download(filePath);
-
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Download started",
-        description: `The file "${fileName}" is being downloaded`,
-      });
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      toast({
-        title: "Download failed",
-        description: "Failed to download the report file",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const filteredReports = reports.filter(report => {
-    // Search filter
-    if (searchValue) {
-      const searchLower = searchValue.toLowerCase();
-      const matchesSearch = (
-        report.title?.toLowerCase().includes(searchLower) ||
-        report.description?.toLowerCase().includes(searchLower) ||
-        report.user_id?.toLowerCase().includes(searchLower) ||
-        report.profiles?.full_name?.toLowerCase().includes(searchLower) ||
-        report.profiles?.email?.toLowerCase().includes(searchLower) ||
-        report.profiles?.mobile_number?.includes(searchValue) ||
-        report.profiles?.center_address?.toLowerCase().includes(searchLower) ||
-        report.profiles?.registrar?.toLowerCase().includes(searchLower)
-      );
-      if (!matchesSearch) return false;
-    }
-
-    // Status filter
-    if (filters.status !== 'all' && report.status !== filters.status) return false;
-    if (filters.approval !== 'all' && report.status !== filters.approval) return false;
-
-    // Registrar filter
-    if (filters.registrar !== 'all' && report.profiles?.registrar !== filters.registrar) return false;
-
-    // Date range filter
-    if (filters.dateRange.from) {
-      const reportDate = new Date(report.created_at);
-      if (reportDate < filters.dateRange.from) return false;
-      if (filters.dateRange.to && reportDate > filters.dateRange.to) return false;
-    }
-
-    return true;
-  });
-
-=======
   }, [profile?.email, toast]);
 
   const processReports = (reports: Report[]) => {
@@ -423,7 +240,6 @@ export default function ReportsManagementPage() {
     alert(details);
   };
 
->>>>>>> feature/settings-management
   const exportToExcel = (type: 'all' | 'filtered' | 'active' | 'inactive' | 'date-range') => {
     let dataToExport: Report[] = [];
     let filename = 'reports-export';
@@ -465,30 +281,17 @@ export default function ReportsManagementPage() {
       'Updated Date': format(new Date(report.updated_at), 'yyyy-MM-dd HH:mm:ss')
     }));
 
-<<<<<<< HEAD
-=======
     // Create and style the worksheet
->>>>>>> feature/settings-management
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Reports');
 
-<<<<<<< HEAD
-=======
     // Set column widths
->>>>>>> feature/settings-management
     const colWidths = [
       { wch: 25 }, // Title
       { wch: 35 }, // Description
       { wch: 20 }, // User Name
       { wch: 25 }, // User Email
-<<<<<<< HEAD
-      { wch: 15 }, // Registrar
-      { wch: 12 }, // Amount
-      { wch: 10 }, // Status
-      { wch: 20 }, // Manager Notes
-      { wch: 20 }, // Rejection Message
-=======
       { wch: 25 }, // Center Address
       { wch: 15 }, // Registrar
       { wch: 15 }, // Mobile Number
@@ -496,20 +299,10 @@ export default function ReportsManagementPage() {
       { wch: 10 }, // Status
       { wch: 25 }, // Manager Notes
       { wch: 25 }, // Rejection Message
->>>>>>> feature/settings-management
       { wch: 20 }, // Created Date
       { wch: 20 }  // Updated Date
     ];
     ws['!cols'] = colWidths;
-<<<<<<< HEAD
-
-    XLSX.writeFile(wb, `${filename}.xlsx`);
-    
-    toast({
-      title: "Export completed",
-      description: `Exported ${dataToExport.length} reports to ${filename}.xlsx`,
-    });
-=======
     
     // Add header styling
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:Z1');
@@ -635,7 +428,6 @@ export default function ReportsManagementPage() {
       default:
         return 'bg-gradient-to-br from-blue-500 to-cyan-600';
     }
->>>>>>> feature/settings-management
   };
 
   const getStatusBadge = (status: string) => {
@@ -666,155 +458,6 @@ export default function ReportsManagementPage() {
 
   return (
     <Layout role={role}>
-<<<<<<< HEAD
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h2 className="text-2xl font-bold">Reports Management</h2>
-          <p className="text-muted-foreground">Review and manage submitted reports</p>
-        </div>
-
-        {/* Search, Filter, Export */}
-        <SearchFilterExport
-          searchValue={searchValue}
-          onSearchChange={setSearchValue}
-          filters={filters}
-          onFiltersChange={setFilters}
-          filterConfig={filterConfig}
-          onRefresh={fetchReports}
-          onExport={exportToExcel}
-          exportOptions={{
-            all: 'All Reports',
-            filtered: 'Current Filter Results',
-            active: 'Approved Reports',
-            inactive: 'Rejected Reports',
-            dateRange: 'Date Range Results'
-          }}
-          isLoading={loading}
-        />
-
-        {/* Reports Table */}
-        <GlassCard>
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="space-y-1">
-                <h3 className="text-lg font-semibold">Reports</h3>
-                <p className="text-sm text-muted-foreground">
-                  Showing {filteredReports.length} of {reports.length} reports
-                </p>
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading reports...</p>
-              </div>
-            ) : filteredReports.length === 0 ? (
-              <div className="text-center py-8">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">
-                  {reports.length === 0 ? 'No reports found' : 'No reports match the current filters'}
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Report</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredReports.map((report) => (
-                      <TableRow key={report.id}>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <p className="font-medium">{report.title}</p>
-                            <p className="text-sm text-muted-foreground line-clamp-2">
-                              {report.description}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">
-                              {report.profiles?.full_name || 'Unknown User'}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {report.profiles?.email || `User ID: ${report.user_id.slice(0, 8)}...`}
-                            </p>
-                            {report.profiles?.registrar && (
-                              <p className="text-xs text-muted-foreground">Registrar: {report.profiles.registrar}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-medium">
-                            ₹{report.amount?.toLocaleString() || 'N/A'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(report.status)}
-                            {getStatusBadge(report.status)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-muted-foreground">
-                            {format(new Date(report.created_at), 'MMM dd, yyyy')}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {report.attachment_url && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => downloadFile(report.attachment_url, `${report.title}.pdf`)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {report.status === 'pending' && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleReportAction(report.id, 'approved')}
-                                  disabled={processingReports.has(report.id)}
-                                >
-                                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                                  Approve
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    const notes = prompt("Rejection reason (optional):");
-                                    handleReportAction(report.id, 'rejected', notes || undefined);
-                                  }}
-                                  disabled={processingReports.has(report.id)}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-=======
       <div className={cn("container max-w-7xl mx-auto px-4 py-6 space-y-8", isMobile && "pb-20")}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between">
@@ -1005,14 +648,9 @@ export default function ReportsManagementPage() {
                 </motion.div>
               )}
             </AnimatePresence>
->>>>>>> feature/settings-management
           </div>
         </GlassCard>
       </div>
     </Layout>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> feature/settings-management

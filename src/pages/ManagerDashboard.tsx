@@ -1,29 +1,10 @@
-<<<<<<< HEAD
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { 
-=======
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
->>>>>>> feature/settings-management
   BarChart3,
   Users,
   FileText,
   CreditCard,
-<<<<<<< HEAD
-  CheckCircle2,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  TrendingUp,
-  Bell
-} from "lucide-react";
-import Layout from "@/components/Layout";
-import { GlassCard } from "@/components/ui/glass-card";
-import { Button } from "@/components/ui/custom-button";
-import { Badge } from "@/components/ui/badge";
-=======
   XCircle,
   AlertTriangle,
   TrendingUp,
@@ -41,16 +22,12 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
->>>>>>> feature/settings-management
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-<<<<<<< HEAD
-=======
 import { cn } from "@/lib/utils";
->>>>>>> feature/settings-management
 
 interface DashboardStats {
   totalUsers: number;
@@ -80,15 +57,6 @@ interface Payment {
 }
 
 export default function ManagerDashboard() {
-<<<<<<< HEAD
-  const { user, profile } = useAuth();
-  const { toast } = useToast();
-  
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Data states
-=======
   // auth + toast
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -97,28 +65,17 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
->>>>>>> feature/settings-management
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     pendingReports: 0,
     pendingPayments: 0,
     approvedThisMonth: 0
   });
-<<<<<<< HEAD
-=======
 
->>>>>>> feature/settings-management
   const [reports, setReports] = useState<Report[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [testingNotifications, setTestingNotifications] = useState(false);
 
-<<<<<<< HEAD
-  useEffect(() => {
-    if (user && profile?.role === 'manager') {
-      fetchDashboardData();
-    }
-  }, [user, profile]);
-=======
   const isMobile = useIsMobile();
 
   // fetch dashboard data (useCallback so it can be safely used in deps)
@@ -200,28 +157,11 @@ export default function ManagerDashboard() {
       fetchDashboardData();
     }
   }, [user, profile?.role, fetchDashboardData]);
->>>>>>> feature/settings-management
 
   const handleTestNotifications = async () => {
     setTestingNotifications(true);
     try {
       const { notifyReportApproved, notifyPaymentApproved } = await import("@/utils/notifications");
-<<<<<<< HEAD
-      const userId = '1c601c4f-056f-4328-b1ca-153c10abfb03';
-      
-      await notifyReportApproved(userId, 'Monthly Report');
-      await notifyPaymentApproved(userId, 1750);
-      
-      toast({
-        title: "Test Notifications Created",
-        description: "Test notifications have been created. Check the notification bell or switch to user view to see them.",
-      });
-    } catch (error) {
-      console.error('Error creating test notifications:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create test notifications: " + (error instanceof Error ? error.message : 'Unknown error'),
-=======
       const userId = "1c601c4f-056f-4328-b1ca-153c10abfb03";
 
       await notifyReportApproved(userId, "Monthly Report");
@@ -236,7 +176,6 @@ export default function ManagerDashboard() {
       toast({
         title: "Error",
         description: "Failed to create test notifications: " + (err instanceof Error ? err.message : "Unknown error"),
->>>>>>> feature/settings-management
         variant: "destructive"
       });
     } finally {
@@ -244,81 +183,7 @@ export default function ManagerDashboard() {
     }
   };
 
-<<<<<<< HEAD
-  const fetchDashboardData = async () => {
-    if (!profile?.email) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [usersRes, reportsRes, paymentsRes] = await Promise.all([
-        supabase.functions.invoke('get-users', {
-          body: { admin_email: profile?.email }
-        }),
-        supabase.functions.invoke('get-reports', {
-          body: { admin_email: profile?.email }
-        }),
-        supabase.functions.invoke('get-payments', {
-          body: { admin_email: profile?.email }
-        })
-      ]);
-
-      let usersData, reportsData, paymentsData;
-
-      if (usersRes.error || reportsRes.error || paymentsRes.error) {
-        console.log('Edge functions failed, using fallback queries');
-        const [fallbackUsersRes, fallbackReportsRes, fallbackPaymentsRes] = await Promise.all([
-          supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-          supabase.from('reports').select('*, profiles(full_name)').order('created_at', { ascending: false }),
-          supabase.from('payments').select('*, profiles(full_name)').order('created_at', { ascending: false })
-        ]);
-
-        usersData = fallbackUsersRes.data || [];
-        reportsData = fallbackReportsRes.data || [];
-        paymentsData = fallbackPaymentsRes.data || [];
-      } else {
-        usersData = usersRes.data?.users || [];
-        reportsData = reportsRes.data?.reports || [];
-        paymentsData = paymentsRes.data?.payments || [];
-      }
-
-      setReports(reportsData.slice(0, 5));
-      setPayments(paymentsData.slice(0, 5));
-
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      const approvedThisMonth = reportsData.filter((report: any) => {
-        const reportDate = new Date(report.created_at);
-        return report.status === 'approved' && 
-               reportDate.getMonth() === currentMonth && 
-               reportDate.getFullYear() === currentYear;
-      }).length;
-
-      setStats({
-        totalUsers: usersData.length,
-        pendingReports: reportsData.filter((r: any) => r.status === 'pending').length,
-        pendingPayments: paymentsData.filter((p: any) => p.status === 'pending').length,
-        approvedThisMonth
-      });
-
-    } catch (error: any) {
-      console.error('Dashboard data fetch error:', error);
-      setError(error.message || 'Failed to load dashboard data');
-      toast({
-        title: "Error loading data",
-        description: error.message || "Failed to load dashboard data. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-=======
   // Loading state
->>>>>>> feature/settings-management
   if (loading) {
     return (
       <Layout role="manager">
@@ -338,10 +203,7 @@ export default function ManagerDashboard() {
     );
   }
 
-<<<<<<< HEAD
-=======
   // Error state
->>>>>>> feature/settings-management
   if (error) {
     return (
       <Layout role="manager">
@@ -359,10 +221,7 @@ export default function ManagerDashboard() {
     );
   }
 
-<<<<<<< HEAD
-=======
   // Stats cards
->>>>>>> feature/settings-management
   const statsCards = [
     {
       title: "Total Users",
@@ -400,11 +259,7 @@ export default function ManagerDashboard() {
 
   return (
     <Layout role="manager">
-<<<<<<< HEAD
-      <div className="space-y-6">
-=======
       <div className={cn("space-y-6", isMobile && "pb-20")}>
->>>>>>> feature/settings-management
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -418,52 +273,20 @@ export default function ManagerDashboard() {
                 Overview of system activity and pending tasks
               </p>
             </div>
-<<<<<<< HEAD
-            <Button 
-              variant="outline" 
-=======
             <Button
               variant="outline"
->>>>>>> feature/settings-management
               onClick={handleTestNotifications}
               disabled={testingNotifications}
               className="flex items-center gap-2"
             >
               <Bell className="h-4 w-4" />
-<<<<<<< HEAD
-              {testingNotifications ? 'Creating...' : 'Test Notifications'}
-=======
               {testingNotifications ? "Creating..." : "Test Notifications"}
->>>>>>> feature/settings-management
             </Button>
           </div>
         </motion.div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-<<<<<<< HEAD
-          {statsCards.map((card, index) => (
-            <motion.div
-              key={card.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <GlassCard className="p-6 hover-glow">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
-                    <p className="text-3xl font-bold">{card.value}</p>
-                    <p className="text-xs text-muted-foreground">{card.trend}</p>
-                  </div>
-                  <div className={`p-3 rounded-full ${card.bgColor}`}>
-                    <card.icon className={`h-6 w-6 ${card.color}`} />
-                  </div>
-                </div>
-              </GlassCard>
-            </motion.div>
-          ))}
-=======
           {statsCards.map((card, index) => {
             const Icon = card.icon;
             return (
@@ -490,70 +313,11 @@ export default function ManagerDashboard() {
               </motion.div>
             );
           })}
->>>>>>> feature/settings-management
         </div>
 
         {/* Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Reports */}
-<<<<<<< HEAD
-          <GlassCard className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Recent Reports</h3>
-              <Badge variant="secondary">{reports.length}</Badge>
-            </div>
-            <div className="space-y-3">
-              {reports.slice(0, 5).map((report) => (
-                <div key={report.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                  <div className="space-y-1">
-                    <p className="font-medium text-sm">{report.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {report.profiles?.full_name} • {format(new Date(report.created_at), 'MMM dd')}
-                    </p>
-                  </div>
-                  <Badge 
-                    variant={report.status === 'approved' ? 'default' : 
-                            report.status === 'rejected' ? 'destructive' : 'secondary'}
-                  >
-                    {report.status}
-                  </Badge>
-                </div>
-              ))}
-              {reports.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">No recent reports</p>
-              )}
-            </div>
-          </GlassCard>
-
-          {/* Recent Payments */}
-          <GlassCard className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Recent Payments</h3>
-              <Badge variant="secondary">{payments.length}</Badge>
-            </div>
-            <div className="space-y-3">
-              {payments.slice(0, 5).map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between p-3 glass-button rounded-lg">
-                  <div className="space-y-1">
-                    <p className="font-medium text-sm">₹{payment.amount.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {payment.profiles?.full_name} • {format(new Date(payment.created_at), 'MMM dd')}
-                    </p>
-                  </div>
-                  <Badge 
-                    variant={payment.status === 'approved' ? 'default' : 
-                            payment.status === 'rejected' ? 'destructive' : 'secondary'}
-                  >
-                    {payment.status}
-                  </Badge>
-                </div>
-              ))}
-              {payments.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">No recent payments</p>
-              )}
-            </div>
-          </GlassCard>
-=======
           <Card variant="default" className="overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Recent Reports</CardTitle>
@@ -842,13 +606,8 @@ export default function ManagerDashboard() {
               )}
             </CardContent>
           </Card>
->>>>>>> feature/settings-management
         </div>
       </div>
     </Layout>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> feature/settings-management

@@ -40,7 +40,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 async function handleGet(req: Request, userId: string) {
   const url = new URL(req.url)
   const category = url.searchParams.get('category')
-  const keys = url.searchParams.get('keys')?.split(',')
+  const keys = url.searchParams.get('keys')?.split(',').filter(Boolean)
 
   let query = supabase
     .from('system_settings')
@@ -57,8 +57,13 @@ async function handleGet(req: Request, userId: string) {
   const { data, error } = await query
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+    return new Response(JSON.stringify({ 
+      error: 'Failed to fetch settings',
+      details: error.message,
+      category,
+      keys
+    }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
@@ -73,7 +78,11 @@ async function handlePost(payload: CreateSettingPayload, userId: string) {
   const { category, key, value } = payload
 
   if (!category || !key) {
-    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+    return new Response(JSON.stringify({ 
+      error: 'Missing required fields for creating setting',
+      required: ['category', 'key'],
+      provided: { category: !!category, key: !!key }
+    }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
@@ -92,8 +101,13 @@ async function handlePost(payload: CreateSettingPayload, userId: string) {
     .single()
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+    return new Response(JSON.stringify({ 
+      error: 'Failed to create setting',
+      details: error.message,
+      category,
+      key
+    }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
@@ -108,7 +122,11 @@ async function handlePut(payload: UpdateSettingPayload, userId: string) {
   const { category, key, value, description } = payload
 
   if (!category || !key) {
-    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+    return new Response(JSON.stringify({ 
+      error: 'Missing required fields for updating setting',
+      required: ['category', 'key'],
+      provided: { category: !!category, key: !!key }
+    }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
@@ -131,13 +149,16 @@ async function handlePut(payload: UpdateSettingPayload, userId: string) {
     .single()
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+    return new Response(JSON.stringify({
+      error: 'Failed to update setting',
+      details: error.message,
+      category,
+      key
+    }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
-  }
-
-  return new Response(JSON.stringify({ data }), {
+  }  return new Response(JSON.stringify({ data }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   })
@@ -149,10 +170,11 @@ async function handleDelete(req: Request, userId: string) {
   const key = url.searchParams.get('key')
 
   if (!category || !key) {
-    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return new Response(JSON.stringify({
+      error: 'Missing required fields for deleting setting',
+      required: ['category', 'key'],
+      provided: { category: !!category, key: !!key }
+    }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
   // First check if the setting exists
@@ -163,10 +185,11 @@ async function handleDelete(req: Request, userId: string) {
     .maybeSingle()
 
   if (!existingSettings) {
-    return new Response(JSON.stringify({ error: 'Setting not found' }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return new Response(JSON.stringify({
+      error: 'Setting not found',
+      category,
+      key
+    }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
   const { error } = await supabase
@@ -175,10 +198,12 @@ async function handleDelete(req: Request, userId: string) {
     .match({ category, key })
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return new Response(JSON.stringify({
+      error: 'Failed to delete setting',
+      details: error.message,
+      category,
+      key
+    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
   // Log the deletion event with the acting admin's ID
@@ -219,25 +244,19 @@ serve(async (req) => {
       })
     }
 
-    // Check if user is an admin (in either profiles or user_roles)
-    const [profilesResponse, userRolesResponse] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle(),
-      supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle()
-    ])
-
-    // User is admin if they have admin role in either table
-    const isAdmin = (profilesResponse.data?.role === 'admin' || userRolesResponse.data?.role === 'admin')
-
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: 'Forbidden: Admin access required' }), {
+    // WARNING: Using get_current_user_role() with service-role client may cause auth.uid() to be NULL
+    // Consider using get_user_role() with explicit user.id if 403 errors occur
+    const { data: role, error: roleErr } = await supabase.rpc('get_current_user_role');
+    if (roleErr) {
+      return new Response(JSON.stringify({
+        error: 'Failed to resolve current user role',
+        details: roleErr.message,
+      }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (role !== 'admin') {
+      return new Response(JSON.stringify({ 
+        error: 'Forbidden: Admin role required. User does not have admin privileges in user_roles table.'
+      }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })

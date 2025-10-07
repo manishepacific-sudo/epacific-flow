@@ -1,0 +1,119 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+// Type definitions for settings
+type SettingKey = 'session.timeout.duration' | 'session.timeout.warning' | 'payments.methods' | 'payments.bank.details';
+
+type PaymentMethod = {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  color?: string;
+};
+
+type BankDetails = {
+  accountName: string;
+  accountNumber: string;
+  ifscCode: string;
+  bankName: string;
+};
+
+type SettingTypeMap = {
+  'session.timeout.duration': number;
+  'session.timeout.warning': number;
+  'payments.methods': PaymentMethod[];
+  'payments.bank.details': BankDetails;
+};
+
+// Default values map
+export const DEFAULT_SETTINGS: SettingTypeMap = {
+  'session.timeout.duration': 15, // 15 minutes
+  'session.timeout.warning': 2,   // 2 minutes
+  'payments.methods': [{
+    id: "razorpay",
+    name: "Razorpay",
+    description: "Pay securely via Razorpay",
+    enabled: true,
+    color: "bg-blue-500"
+  }, {
+    id: "offline",
+    name: "Offline Payment",
+    description: "Pay via bank transfer",
+    enabled: true,
+    color: "bg-green-500"
+  }],
+  'payments.bank.details': {
+    accountName: "Epacific Services",
+    accountNumber: "1234567890",
+    ifscCode: "EPAC0001234",
+    bankName: "Demo Bank"
+  }
+};
+
+/**
+ * Hook for fetching multiple settings at once.
+ * - Uses sorted keys for stable cache keys
+ * - Returns defaults on errors for stable UX
+ * - Properly normalizes values based on setting type
+ */
+export function useSettingsBatch<K extends SettingKey>(keys: K[]) {
+  // Sort keys for stable cache key and payload
+  const sortedKeys = [...keys].sort();
+
+  return useQuery<Pick<SettingTypeMap, K>, Error>({
+    queryKey: ['settings', 'batch', ...sortedKeys],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('manage-settings', {
+          body: { 
+            action: 'get',
+            payload: { keys: sortedKeys }
+          }
+        });
+
+        // Log error but return defaults
+        if (error) {
+          console.debug(`[useSettingsBatch] Falling back to defaults due to error:`, error);
+          return sortedKeys.reduce((acc, key) => {
+            acc[key] = DEFAULT_SETTINGS[key];
+            return acc;
+          }, {} as Pick<SettingTypeMap, K>);
+        }
+
+        // Handle nested data structure from Supabase Functions
+        const settingsArray = (data?.data ?? []) as Array<{key: SettingKey, value: unknown}>;
+        
+        // Transform array into map with proper value handling
+        const values = settingsArray.reduce((acc, setting) => {
+          if (setting.key === 'session.timeout.duration' || setting.key === 'session.timeout.warning') {
+            // Normalize timeout/warning values to numbers
+            acc[setting.key] = typeof setting.value === 'object' && setting.value 
+              ? (setting.value as { minutes: number }).minutes 
+              : typeof setting.value === 'number' 
+                ? setting.value 
+                : DEFAULT_SETTINGS[setting.key];
+          } else if (setting.key === 'payments.methods' || setting.key === 'payments.bank.details') {
+            // Cast other settings to their expected types
+            acc[setting.key] = setting.value as SettingTypeMap[typeof setting.key];
+          }
+          return acc;
+        }, {} as Partial<SettingTypeMap>);
+
+        // Return requested settings with fallbacks
+        return sortedKeys.reduce((acc, key) => {
+          acc[key] = (values[key] ?? DEFAULT_SETTINGS[key]) as SettingTypeMap[K];
+          return acc;
+        }, {} as Pick<SettingTypeMap, K>);
+      } catch (err) {
+        // Log error but return defaults for stable UX
+        console.debug(`[useSettingsBatch] Falling back to defaults due to exception:`, err);
+        return sortedKeys.reduce((acc, key) => {
+          acc[key] = DEFAULT_SETTINGS[key];
+          return acc;
+        }, {} as Pick<SettingTypeMap, K>);
+      }
+    },
+    refetchOnWindowFocus: false
+  });
+}

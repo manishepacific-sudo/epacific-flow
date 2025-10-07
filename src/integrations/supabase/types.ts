@@ -1,11 +1,8 @@
-<<<<<<< HEAD
-=======
 // Convenience types for system settings
 export type SystemSetting = Tables<'system_settings'>
 export type SystemSettingInsert = TablesInsert<'system_settings'>
 export type SystemSettingUpdate = TablesUpdate<'system_settings'>
 
->>>>>>> feature/settings-management
 export type Json =
   | string
   | number
@@ -51,9 +48,6 @@ export type Database = {
           user_data?: Json
         }
         Relationships: []
-<<<<<<< HEAD
-      }
-=======
     },
         attendance: {
           Row: {
@@ -105,7 +99,6 @@ export type Database = {
             },
           ]
         }
->>>>>>> feature/settings-management
       notifications: {
         Row: {
           created_at: string
@@ -330,8 +323,6 @@ export type Database = {
         }
         Relationships: []
       }
-<<<<<<< HEAD
-=======
       system_settings: {
         Row: {
           id: string
@@ -362,7 +353,6 @@ export type Database = {
         }
         Relationships: []
       }
->>>>>>> feature/settings-management
       user_roles: {
         Row: {
           assigned_at: string | null

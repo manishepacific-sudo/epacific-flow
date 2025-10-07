@@ -19,10 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { notifyReportRejected } from "@/utils/notifications";
-<<<<<<< HEAD
-=======
 import { downloadFileFromStorage } from '@/utils/fileDownload';
->>>>>>> feature/settings-management
 
 interface Report {
   id: string;
@@ -139,46 +136,6 @@ export default function ManagerReportApproval() {
     }
   };
 
-<<<<<<< HEAD
-  const downloadFile = async (filePath: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('report-attachments')
-        .download(filePath);
-
-      if (error) throw error;
-
-      // Get the file extension to determine the proper filename
-      const fileName = filePath.split('/').pop() || 'report';
-      
-      // Force download by creating a temporary URL and triggering download
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      
-      // Force the download attribute to ensure it downloads instead of opening
-      a.setAttribute('download', fileName);
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      
-      // Trigger download
-      a.click();
-      
-      // Clean up immediately
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Download started",
-        description: `The report file "${fileName}" is being downloaded`,
-      });
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      toast({
-        title: "Download failed",
-        description: "Failed to download the report file",
-=======
   const handleDownloadReport = async (filePath: string, customName: string) => {
     try {
       await downloadFileFromStorage('report-attachments', filePath, customName);
@@ -190,7 +147,6 @@ export default function ManagerReportApproval() {
       toast({
         title: "Download Failed",
         description: err.message || 'Failed to download report',
->>>>>>> feature/settings-management
         variant: "destructive"
       });
     }
@@ -283,11 +239,7 @@ export default function ManagerReportApproval() {
                         <Button
                           variant="outline"
                           size="sm"
-<<<<<<< HEAD
-                          onClick={() => downloadFile(report.attachment_url)}
-=======
                           onClick={() => handleDownloadReport(report.attachment_url, report.title)}
->>>>>>> feature/settings-management
                           className="flex items-center gap-2"
                         >
                           <Download className="h-4 w-4" />

@@ -48,9 +48,4 @@ const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
 );
 GlassCard.displayName = "GlassCard";
 
-<<<<<<< HEAD
-=======
-export { GlassCard };
-
->>>>>>> feature/settings-management
 export { GlassCard };

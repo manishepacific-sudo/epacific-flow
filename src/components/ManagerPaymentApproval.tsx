@@ -19,10 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { notifyPaymentRejected } from "@/utils/notifications";
-<<<<<<< HEAD
-=======
 import { downloadFileFromStorage } from '@/utils/fileDownload';
->>>>>>> feature/settings-management
 
 interface Payment {
   id: string;
@@ -207,24 +204,6 @@ export default function ManagerPaymentApproval() {
         setTimeout(() => URL.revokeObjectURL(objectUrl), 300000); // 5 minutes
       } else {
         // For other file types, force download
-<<<<<<< HEAD
-        const link = document.createElement('a');
-        link.href = objectUrl;
-        link.download = fileName;
-        link.style.display = 'none';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up object URL immediately for downloads
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-        
-        toast({
-          title: "Download started",
-          description: "The payment proof is being downloaded",
-        });
-=======
         try {
       await downloadFileFromStorage('payment-proofs', filePath);
       toast({
@@ -238,7 +217,6 @@ export default function ManagerPaymentApproval() {
         variant: "destructive"
       });
     }
->>>>>>> feature/settings-management
       }
     } catch (error) {
       console.error('Error viewing proof file:', error);

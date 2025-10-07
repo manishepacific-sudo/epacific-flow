@@ -100,11 +100,8 @@ verify_jwt = true
 [functions.setup-password]
 verify_jwt = false
 
-<<<<<<< HEAD
-=======
 [functions.manage-settings]
 verify_jwt = true
 
->>>>>>> feature/settings-management
 [functions.create-test-notifications]
 verify_jwt = false

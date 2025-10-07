@@ -16,11 +16,8 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-<<<<<<< HEAD
-=======
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
->>>>>>> feature/settings-management
 
 interface LocationState {
   loading: boolean;
@@ -39,15 +36,12 @@ export default function AttendancePage() {
     address: null,
   });
   const { toast } = useToast();
-<<<<<<< HEAD
-=======
   const { user } = useAuth();
 
   const resetForm = () => {
     setPhoto(null);
     setUploading(false);
   };
->>>>>>> feature/settings-management
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const selectedFile = acceptedFiles[0];
@@ -148,8 +142,6 @@ export default function AttendancePage() {
   }, []);
 
   const handleSubmit = async () => {
-<<<<<<< HEAD
-=======
     if (!user) {
       toast({
         title: "Authentication required",
@@ -159,7 +151,6 @@ export default function AttendancePage() {
       return;
     }
 
->>>>>>> feature/settings-management
     if (!photo) {
       toast({
         title: "Photo required",
@@ -169,19 +160,6 @@ export default function AttendancePage() {
       return;
     }
 
-<<<<<<< HEAD
-    setUploading(true);
-    
-    // Simulate upload
-    setTimeout(() => {
-      toast({
-        title: "Attendance submitted",
-        description: "Your attendance has been sent for manager approval",
-      });
-      setUploading(false);
-      setPhoto(null);
-    }, 2000);
-=======
     if (!location.coordinates) {
       toast({
         title: "Location required",
@@ -242,7 +220,6 @@ export default function AttendancePage() {
     } finally {
       setUploading(false);
     }
->>>>>>> feature/settings-management
   };
 
   const getCurrentDateTime = () => {
@@ -456,11 +433,7 @@ export default function AttendancePage() {
           <p className="text-center text-xs text-muted-foreground mt-3">
             Your attendance will be reviewed by a manager within 2 hours
           </p>
-<<<<<<< HEAD
-        </motion.div>
-=======
         </motion.div>   
->>>>>>> feature/settings-management
       </div>
     </Layout>
   );

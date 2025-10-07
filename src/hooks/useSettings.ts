@@ -1,6 +1,5 @@
-import { useQuery, UseQueryResult } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/components/AuthProvider";
 
 // Type definitions for settings
 type SettingKey = 'session.timeout.duration' | 'session.timeout.warning' | 'payments.methods' | 'payments.bank.details';
@@ -32,7 +31,7 @@ type SettingTypeMap = {
 };
 
 // Default values map
-export const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS: SettingTypeMap = {
   'session.timeout.duration': 15, // 15 minutes
   'session.timeout.warning': 2,   // 2 minutes
   'payments.methods': [{
@@ -47,14 +46,14 @@ export const DEFAULT_SETTINGS = {
     description: "Pay via bank transfer",
     enabled: true,
     color: "bg-green-500"
-  }] as const,
+  }],
   'payments.bank.details': {
     accountName: "Epacific Services",
     accountNumber: "1234567890",
     ifscCode: "EPAC0001234",
     bankName: "Demo Bank"
-  } as const
-} as const;
+  }
+};
 
 // Default colors by payment method ID
 const DEFAULT_METHOD_COLORS: Record<string, string> = {
@@ -65,14 +64,17 @@ const DEFAULT_METHOD_COLORS: Record<string, string> = {
 // Main settings hook with type safety and fallbacks
 // Batch settings hook for efficient fetching
 export function useSettingsBatch<K extends SettingKey>(keys: K[]) {
+  // Sort keys for stable cache key
+  const sortedKeys = [...keys].sort();
+
   return useQuery<Pick<SettingTypeMap, K>, Error>({
-    queryKey: ['settings', 'batch', ...keys],
+    queryKey: ['settings', 'batch', ...sortedKeys],
     queryFn: async () => {
       try {
         const { data, error } = await supabase.functions.invoke('manage-settings', {
           body: { 
             action: 'get',
-            payload: { keys }
+            payload: { keys: sortedKeys }
           }
         });
 
@@ -84,9 +86,24 @@ export function useSettingsBatch<K extends SettingKey>(keys: K[]) {
           }, {} as Pick<SettingTypeMap, K>);
         }
 
-        const values = (data?.data ?? {}) as BatchSettingsResponse;
+        const settingsArray = (data?.data ?? []) as Array<{key: SettingKey, value: unknown}>;
+        const values = settingsArray.reduce((acc, setting) => {
+          if (setting.key === 'session.timeout.duration' || setting.key === 'session.timeout.warning') {
+            // Normalize timeout/warning values to numbers
+            acc[setting.key] = typeof setting.value === 'object' && setting.value 
+              ? (setting.value as { minutes: number }).minutes 
+              : typeof setting.value === 'number' 
+                ? setting.value 
+                : DEFAULT_SETTINGS[setting.key];
+          } else if (setting.key === 'payments.methods' || setting.key === 'payments.bank.details') {
+            // Cast other settings to their expected types
+            acc[setting.key] = setting.value as SettingTypeMap[typeof setting.key];
+          }
+          return acc;
+        }, {} as Partial<SettingTypeMap>);
+        
         return keys.reduce((acc, key) => {
-          acc[key] = values[key] ?? DEFAULT_SETTINGS[key];
+          acc[key] = (values[key] ?? DEFAULT_SETTINGS[key]) as SettingTypeMap[K];
           return acc;
         }, {} as Pick<SettingTypeMap, K>);
       } catch (err) {

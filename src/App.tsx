@@ -19,7 +19,6 @@ import TokenTest from "./pages/TokenTest";
 import ResetPassword from "./pages/ResetPassword";
 import InviteTokenDebug from "./pages/InviteTokenDebug";
 import { UserProfilePage } from "./pages/UserProfilePage";
-
 const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
@@ -30,9 +29,9 @@ const ReportUpload = lazy(() => import("./pages/ReportUpload"));
 const EnhancedPaymentPage = lazy(() => import("./pages/EnhancedPaymentPage"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
 const AttendancePage = lazy(() => import("./pages/AttendancePage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 const AttendanceManagementPage = lazy(() => import("./pages/AttendanceManagementPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Create role-guarded components
 const GuardedUserDashboard = withRoleGuard(UserDashboard, 'user');
@@ -70,76 +69,81 @@ const App = () => {
                     <Routes>
                       {/* Public routes - no authentication required */}
                       <Route path="/login" element={<Login />} />
-                      <Route path="/set-password" element={<SetPasswordPage />} />
-                      <Route path="/debug-invite" element={<InviteTokenDebug />} />
-                      <Route path="/test-token" element={
-                        <div style={{ padding: '20px', fontFamily: 'monospace' }}>
-                          <h1>Direct Token Test</h1>
-                          <p>URL: {window.location.href}</p>
-                          <p>Token: {new URLSearchParams(window.location.search).get('token') || 'MISSING'}</p>
-                        </div>
-                      } />
-                      <Route path="/reset-password" element={<ResetPassword />} />
-                      <Route path="/handle-invite" element={<HandleInvite />} />
-                      <Route path="/auth-bridge" element={<HandleInvite />} />
-                    
-                      {/* Protected routes - require authentication */}
-                      <Route path="/dashboard/*" element={
-                        <>
-                          <InviteRedirectHandler />
-                          <Routes>
-                            <Route path="/user" element={<GuardedUserDashboard />} />
-                            <Route path="/admin" element={<GuardedAdminDashboard />} />
-                            <Route path="/manager" element={<GuardedManagerDashboard />} />
-                          </Routes>
-                        </>
-                      } />
-                      
-                      <Route path="/user-management" element={<GuardedUserManagement />} />
-                      <Route path="/reports-management" element={<GuardedReportsManagement />} />
-                      <Route path="/payments-management" element={<GuardedPaymentsManagement />} />
-                      <Route path="/attendance-management" element={<GuardedAttendanceManagement />} />
-                      <Route path="/settings" element={<GuardedSettingsPage />} />
-                      <Route path="/upload/report" element={<GuardedReportUpload />} />
-                      
-                      <Route path="/payment/:id" element={
-                        <ProtectedRoute>
-                          <EnhancedPaymentPage />
-                        </ProtectedRoute>
-                      } />
-                      
-                      <Route path="/payments" element={
-                        <ProtectedRoute>
-                          <PaymentsPage />
-                        </ProtectedRoute>
-                      } />
-                      
-                      <Route path="/attendance" element={
-                        <ProtectedRoute>
-                          <AttendancePage />
-                        </ProtectedRoute>
-                      } />
-                      
-                      <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
-                      
-                      {/* Root redirect and 404 */}
-                      <Route path="/" element={
-                        <>
-                          <InviteRedirectHandler />
-                          <AuthRedirect />
-                        </>
-                      } />
-                      
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </ErrorBoundary>
-              </AuthProvider>
-            </BrowserRouter>
-          </TooltipProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+                <Route path="/set-password" element={<SetPasswordPage />} />
+                <Route path="/debug-invite" element={<InviteTokenDebug />} />
+                <Route path="/test-token" element={
+                  <div style={{ padding: '20px', fontFamily: 'monospace' }}>
+                    <h1>Direct Token Test</h1>
+                    <p>URL: {window.location.href}</p>
+                    <p>Token: {new URLSearchParams(window.location.search).get('token') || 'MISSING'}</p>
+                  </div>
+                } />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/handle-invite" element={<HandleInvite />} />
+                <Route path="/auth-bridge" element={<HandleInvite />} />
+              
+              {/* Protected routes - require authentication */}
+              <Route path="/dashboard/*" element={
+                <>
+                  <InviteRedirectHandler />
+                  <Routes>
+                    <Route path="/user" element={<GuardedUserDashboard />} />
+                    <Route path="/admin" element={<GuardedAdminDashboard />} />
+                    <Route path="/manager" element={<GuardedManagerDashboard />} />
+                  </Routes>
+                </>
+              } />
+              
+              <Route path="/user-management" element={<GuardedUserManagement />} />
+              
+              <Route path="/reports-management" element={<GuardedReportsManagement />} />
+              
+              <Route path="/payments-management" element={<GuardedPaymentsManagement />} />
+              
+              <Route path="/attendance-management" element={<GuardedAttendanceManagement />} />
+              
+              <Route path="/settings" element={<GuardedSettingsPage />} />
+              
+              <Route path="/upload/report" element={<GuardedReportUpload />} />
+              
+              <Route path="/payment/:id" element={
+                <ProtectedRoute>
+                  <EnhancedPaymentPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/payments" element={
+                <ProtectedRoute>
+                  <PaymentsPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/attendance" element={
+                <ProtectedRoute>
+                  <AttendancePage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
+              
+              {/* Root redirect and 404 */}
+              <Route path="/" element={
+                <>
+                  <InviteRedirectHandler />
+                  <AuthRedirect />
+                </>
+              } />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </AuthProvider>
+    </BrowserRouter>
+  </TooltipProvider>
+</ThemeProvider>
+</QueryClientProvider>
+</ErrorBoundary>
   );
 };
 
