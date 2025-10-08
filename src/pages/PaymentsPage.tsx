@@ -113,21 +113,21 @@ export default function PaymentsPage() {
 
       if (paymentsError) throw paymentsError;
 
-      // Process pending reports (approved reports without completed payments)
+      // Process pending reports (approved reports without any payment submission)
       const pendingReportsWithPaymentStatus = await Promise.all(
         (reportsData || []).map(async (report) => {
-          const hasCompletedPayment = (paymentsData || []).some(
-            payment => payment.report_id === report.id && payment.status === 'approved'
+          const hasAnyPayment = (paymentsData || []).some(
+            payment => payment.report_id === report.id
           );
           
           return {
             ...report,
-            hasPayment: hasCompletedPayment
+            hasPayment: hasAnyPayment
           } as PendingReport;
         })
       );
 
-      // Filter to get reports that need payment
+      // Filter to get reports that need payment (no payment submitted yet)
       const pending = pendingReportsWithPaymentStatus.filter(report => !report.hasPayment);
       
       setPendingReports(pending);
