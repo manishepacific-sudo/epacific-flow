@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { FileText, CheckCircle2, XCircle, Clock, Eye, Download, Edit, Trash2, User, Building, Calendar, RefreshCw } from "lucide-react";
+import { FileText, CheckCircle2, XCircle, Clock, Download, Edit, Trash2, User, Building, Calendar, RefreshCw, Check, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -16,6 +16,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
+import { downloadFileFromStorage } from '@/utils/fileDownload';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 interface Profile {
   full_name: string;
@@ -84,6 +88,9 @@ export default function ReportsManagementPage() {
     approval: 'all',
     dateRange: { from: null, to: null }
   });
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [managerNotes, setManagerNotes] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   const filterConfig: FilterConfig = {
     statuses: ['pending', 'approved', 'rejected'] as const,
@@ -226,18 +233,65 @@ export default function ReportsManagementPage() {
     setFilters(newFilters);
   }, []);
 
-  const handleViewReport = (report: Report) => {
-    const details = `
-      Title: ${report.title}
-      Description: ${report.description}
-      Amount: ₹${report.amount?.toLocaleString()}
-      Status: ${report.status}
-      User: ${report.profiles?.full_name || 'Unknown'}
-      Submitted: ${format(new Date(report.created_at), 'MMM dd, yyyy HH:mm')}
-      ${report.manager_notes ? `\nManager Notes: ${report.manager_notes}` : ''}
-      ${report.rejection_message ? `\nRejection Message: ${report.rejection_message}` : ''}
-    `;
-    alert(details);
+  // Approve report
+  const handleApprove = async (reportId: string) => {
+    try {
+      setActionLoading(true);
+      const { error } = await supabase
+        .from('reports')
+        .update({ 
+          status: 'approved',
+          manager_notes: managerNotes,
+          rejection_message: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      toast({ title: 'Report Approved', description: 'The report has been approved successfully' });
+      await fetchReports();
+      setSelectedReport(null);
+      setManagerNotes('');
+    } catch (error: unknown) {
+      console.error('Approve error:', error);
+      toast({ title: 'Error', description: 'Failed to approve report', variant: 'destructive' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Reject report
+  const handleReject = async (reportId: string) => {
+    if (!managerNotes.trim()) {
+      toast({ title: 'Notes Required', description: 'Please provide notes for rejection', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const { error } = await supabase
+        .from('reports')
+        .update({ 
+          status: 'rejected',
+          rejection_message: managerNotes,
+          manager_notes: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      toast({ title: 'Report Rejected', description: 'The report has been rejected' });
+      await fetchReports();
+      setSelectedReport(null);
+      setManagerNotes('');
+    } catch (error: unknown) {
+      console.error('Reject error:', error);
+      toast({ title: 'Error', description: 'Failed to reject report', variant: 'destructive' });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const exportToExcel = (type: 'all' | 'filtered' | 'active' | 'inactive' | 'date-range') => {
@@ -371,24 +425,15 @@ export default function ReportsManagementPage() {
 
   const handleDownloadReport = async (reportUrl: string, reportTitle: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('report-uploads')
-        .createSignedUrl(reportUrl, 300); // 5 minutes expiry
-
-      if (error) throw error;
-
-      if (data?.signedUrl) {
-        const link = document.createElement('a');
-        link.href = data.signedUrl;
-        link.download = reportTitle || 'download';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      await downloadFileFromStorage('report-attachments', reportUrl, reportTitle || undefined);
+      toast({
+        title: "Success",
+        description: "Report downloaded successfully",
+      });
     } catch (error: unknown) {
       console.error('Download error:', error);
       toast({
-        title: "Download failed",
+        title: "Download Failed",
         description: (error as Error).message || "Failed to download report.",
         variant: "destructive"
       });
@@ -540,28 +585,52 @@ export default function ReportsManagementPage() {
                             <AvatarFallback>{report.profiles?.full_name?.[0] || "U"}</AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
-                            <CardTitle className="text-base font-semibold line-clamp-1">{report.title}</CardTitle>
+                            <CardTitle className="text-base font-semibold line-clamp-1 break-words">{report.title}</CardTitle>
                             <div className="text-xs text-muted-foreground line-clamp-1">{report.profiles?.full_name || "Unknown"}</div>
                           </div>
                           {getStatusIcon(report.status)}
                         </CardHeader>
-                        <CardContent className="flex-1 py-2">
-                          <div className="text-sm line-clamp-2 mb-2">{report.description}</div>
+                        <CardContent className="flex-1 py-2 overflow-hidden">
+                          <div className="text-sm line-clamp-2 mb-2 break-words overflow-hidden">{report.description}</div>
                           <div className="text-xs text-muted-foreground">Amount: ₹{report.amount?.toLocaleString()}</div>
                         </CardContent>
-                        <CardFooter className="flex gap-2 pt-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleViewReport(report)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" /> View
-                          </Button>
+                        <CardFooter className="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-2">
+                          {report.status === 'pending' ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="flex-1 w-full sm:w-auto bg-success hover:bg-success/90"
+                                onClick={() => {
+                                  setSelectedReport(report);
+                                  setManagerNotes(report.manager_notes || '');
+                                }}
+                              >
+                                <Check className="h-4 w-4 mr-1" /> Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="flex-1 w-full sm:w-auto"
+                                onClick={() => {
+                                  setSelectedReport(report);
+                                  setManagerNotes(report.rejection_message || '');
+                                }}
+                              >
+                                <X className="h-4 w-4 mr-1" /> Reject
+                              </Button>
+                            </>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">
+                              Status: {getStatusBadge(report.status)}
+                            </div>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleDownloadReport(report.attachment_url, report.title)}
                             disabled={!report.attachment_url}
+                            className="w-full sm:w-auto"
                           >
                             <Download className="h-4 w-4 mr-1" /> Download
                           </Button>
@@ -620,23 +689,44 @@ export default function ReportsManagementPage() {
                               </div>
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-2">
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                {report.status === 'pending' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      className="bg-success hover:bg-success/90"
+                                      onClick={() => {
+                                        setSelectedReport(report);
+                                        setManagerNotes(report.manager_notes || '');
+                                      }}
+                                    >
+                                      <Check className="h-4 w-4 mr-1" />
+                                      <span className="hidden sm:inline">Approve</span>
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => {
+                                        setSelectedReport(report);
+                                        setManagerNotes(report.rejection_message || '');
+                                      }}
+                                    >
+                                      <X className="h-4 w-4 mr-1" />
+                                      <span className="hidden sm:inline">Reject</span>
+                                    </Button>
+                                  </>
+                                )}
                                 <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => handleViewReport(report)}
-                                  title="View Report"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
+                                  size="sm"
                                   variant="ghost"
                                   onClick={() => handleDownloadReport(report.attachment_url, report.title)}
                                   disabled={!report.attachment_url}
                                   title="Download Report"
+                                  aria-label={`Download report ${report.title}`}
                                 >
                                   <Download className="h-4 w-4" />
+                                  <span className="hidden sm:inline ml-2">Download</span>
                                 </Button>
                               </div>
                             </TableCell>
@@ -651,6 +741,76 @@ export default function ReportsManagementPage() {
           </div>
         </GlassCard>
       </div>
+      {/* Approve/Reject Dialog */}
+      <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Report Action</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Title</Label>
+                <p className="text-sm">{selectedReport?.title}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Amount</Label>
+                <p className="text-sm">₹{selectedReport?.amount?.toLocaleString()}</p>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Description</Label>
+              <p className="text-sm break-words whitespace-pre-wrap">{selectedReport?.description}</p>
+            </div>
+            <div>
+              <Label htmlFor="manager-notes" className="text-sm font-medium">
+                Manager Notes {selectedReport?.status === 'pending' && '(Required for rejection)'}
+              </Label>
+              <Textarea
+                id="manager-notes"
+                value={managerNotes}
+                onChange={(e) => setManagerNotes(e.target.value)}
+                placeholder="Add notes for approval/rejection..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelectedReport(null);
+                setManagerNotes('');
+              }}
+              disabled={actionLoading}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            {selectedReport?.status === 'pending' && (
+              <>
+                <Button
+                  onClick={() => selectedReport && handleApprove(selectedReport.id)}
+                  disabled={actionLoading}
+                  className="w-full sm:w-auto bg-success hover:bg-success/90"
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  {actionLoading ? 'Approving...' : 'Approve'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => selectedReport && handleReject(selectedReport.id)}
+                  disabled={actionLoading}
+                  className="w-full sm:w-auto"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  {actionLoading ? 'Rejecting...' : 'Reject'}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

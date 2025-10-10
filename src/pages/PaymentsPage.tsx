@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { 
   CreditCard, 
@@ -13,6 +13,10 @@ import {
   Download,
   RefreshCw
 } from "lucide-react";
+import { Upload, AlertCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/custom-button";
@@ -22,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { downloadFileFromStorage } from '@/utils/fileDownload';
 
 interface PaymentRecord {
   id: string;
@@ -31,36 +36,71 @@ interface PaymentRecord {
   status: string;
   proof_url?: string;
   created_at: string;
+  rejection_message?: string;
   report?: {
     title: string;
     description: string;
   };
 }
 
-interface PendingReport {
-  id: string;
-  title: string;
-  description: string;
-  amount: number;
-  status: string;
-  created_at: string;
-  hasPayment: boolean;
-}
+// Note: pendingReports logic removed per recent refactor. Kept type for reference if needed later.
 
 export default function PaymentsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   
-  const [pendingReports, setPendingReports] = useState<PendingReport[]>([]);
+  // pendingPayments holds payment records with status 'pending' or 'rejected'
+  const [pendingPayments, setPendingPayments] = useState<PaymentRecord[]>([]);
   const [recentPayments, setRecentPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("pending");
+  const [resubmitDialogOpen, setResubmitDialogOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
+
+  const fetchPaymentsData = useCallback(async () => {
+    // Fetch payments for the current user and populate states
+    try {
+      setLoading(true);
+      // Fetch all payments for this user, include joined report data as `report`
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          report:report_id (
+            title,
+            description
+          )
+        `)
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (paymentsError) throw paymentsError;
+
+      // Filter pending/rejected payments for the Pending tab
+      const pending = (paymentsData || []).filter((p: PaymentRecord) => p.status === 'pending' || p.status === 'rejected');
+
+      setPendingPayments(pending as PaymentRecord[]);
+      setRecentPayments(paymentsData || []);
+      
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error fetching payments data:', error);
+      toast({
+        title: "Error loading data",
+        description: message || "Failed to load payments information",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, toast]);
 
   useEffect(() => {
     if (user) {
       fetchPaymentsData();
-      
+
       // Set up real-time subscription for payment updates
       const channel = supabase
         .channel('payment-updates')
@@ -82,68 +122,7 @@ export default function PaymentsPage() {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
-
-  const fetchPaymentsData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch approved reports
-      const { data: reportsData, error: reportsError } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
-
-      if (reportsError) throw reportsError;
-
-      // Fetch all payments for this user
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('payments')
-        .select(`
-          *,
-          reports:report_id (
-            title,
-            description
-          )
-        `)
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
-
-      if (paymentsError) throw paymentsError;
-
-      // Process pending reports (approved reports without any payment submission)
-      const pendingReportsWithPaymentStatus = await Promise.all(
-        (reportsData || []).map(async (report) => {
-          const hasAnyPayment = (paymentsData || []).some(
-            payment => payment.report_id === report.id
-          );
-          
-          return {
-            ...report,
-            hasPayment: hasAnyPayment
-          } as PendingReport;
-        })
-      );
-
-      // Filter to get reports that need payment (no payment submitted yet)
-      const pending = pendingReportsWithPaymentStatus.filter(report => !report.hasPayment);
-      
-      setPendingReports(pending);
-      setRecentPayments(paymentsData || []);
-      
-    } catch (error) {
-      console.error('Error fetching payments data:', error);
-      toast({
-        title: "Error loading data",
-        description: "Failed to load payments information",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, fetchPaymentsData]);
 
   const handlePayNow = (reportId: string) => {
     navigate(`/payment/${reportId}`);
@@ -167,15 +146,87 @@ export default function PaymentsPage() {
       if (data?.signedUrl) {
         window.open(data.signedUrl, '_blank');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error('Error loading proof:', error);
       toast({
         title: "Error",
-        description: "Failed to load payment proof. Please try again.",
+        description: message || "Failed to load payment proof. Please try again.",
         variant: "destructive"
       });
     }
   };
+
+  const handleDownloadProof = async (proofUrl: string, reportTitle?: string) => {
+    try {
+      await downloadFileFromStorage('payment-proofs', proofUrl, reportTitle || undefined);
+      toast({
+        title: "Success",
+        description: "Payment proof downloaded successfully",
+      });
+    } catch (error: unknown) {
+      console.error('Download failed:', error);
+      toast({
+        title: "Download Failed",
+        description: (error as Error).message || 'Failed to download payment proof',
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleResubmitProof = (payment: PaymentRecord) => {
+    setSelectedPayment(payment);
+    setResubmitDialogOpen(true);
+  };
+
+  const handleProofFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedPayment) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: 'Invalid file type', description: 'Please upload JPG, PNG, WEBP, or PDF', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max file size is 5MB', variant: 'destructive' });
+      return;
+    }
+
+    setUploadingProof(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}/${selectedPayment.id}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('payment-proofs')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Call edge function to update payment proof
+      const fnResponse = await supabase.functions.invoke('resubmit-payment-proof', {
+        body: { paymentId: selectedPayment.id, proofUrl: fileName }
+      });
+
+      // supabase.functions.invoke may return an object with an 'error' property
+      const maybeError = (fnResponse as unknown) as { error?: unknown };
+      if (maybeError?.error) throw maybeError.error;
+
+      toast({ title: 'Success', description: 'Payment proof resubmitted successfully' });
+      setResubmitDialogOpen(false);
+      setSelectedPayment(null);
+      await fetchPaymentsData();
+    } catch (error: unknown) {
+      console.error('Error resubmitting proof:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      toast({ title: 'Error', description: message || 'Failed to resubmit payment proof', variant: 'destructive' });
+    } finally {
+      setUploadingProof(false);
+    }
+  };
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -203,7 +254,7 @@ export default function PaymentsPage() {
     }
   };
 
-  const totalPendingAmount = pendingReports.reduce((sum, report) => sum + (report.amount || 25000), 0);
+  const totalPendingAmount = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
   const totalPaidAmount = recentPayments
     .filter(payment => payment.status === 'approved')
     .reduce((sum, payment) => sum + payment.amount, 0);
@@ -237,6 +288,42 @@ export default function PaymentsPage() {
             Manage your payments and view transaction history
           </p>
         </motion.div>
+        {/* Resubmit Dialog */}
+        <Dialog open={resubmitDialogOpen} onOpenChange={setResubmitDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Resubmit Payment Proof</DialogTitle>
+              <DialogDescription>Upload a new payment proof document. The payment will be reviewed again by a manager.</DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-4 space-y-4">
+              {selectedPayment && (
+                <div className="p-3 bg-muted rounded-md">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Amount</div>
+                      <div className="text-lg font-bold">₹{selectedPayment.amount.toLocaleString()}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">Report</div>
+                      <div className="font-medium">{selectedPayment.report?.title || 'Report'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <Label>Upload New Proof</Label>
+                <Input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf" onChange={handleProofFileUpload} disabled={uploadingProof} />
+                <p className="text-xs text-muted-foreground mt-1">Accepted formats: JPG, PNG, WEBP, PDF (max 5MB)</p>
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => { setResubmitDialogOpen(false); setSelectedPayment(null); }} disabled={uploadingProof}>Cancel</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Summary Cards */}
         <motion.div
@@ -292,7 +379,7 @@ export default function PaymentsPage() {
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="pending" className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Pending Payments ({pendingReports.length})
+                Pending Payments ({pendingPayments.length})
               </TabsTrigger>
               <TabsTrigger value="history" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
@@ -305,7 +392,7 @@ export default function PaymentsPage() {
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <AlertTriangle className="h-5 w-5 text-warning" />
-                    <h2 className="text-xl font-semibold">Reports Awaiting Payment</h2>
+                    <h2 className="text-xl font-semibold">Pending Payments</h2>
                   </div>
                   <Button variant="outline" size="sm" onClick={fetchPaymentsData}>
                     <RefreshCw className="h-4 w-4 mr-2" />
@@ -313,12 +400,12 @@ export default function PaymentsPage() {
                   </Button>
                 </div>
 
-                {pendingReports.length === 0 ? (
+                {pendingPayments.length === 0 ? (
                   <div className="text-center py-12">
                     <CheckCircle className="h-16 w-16 mx-auto mb-4 text-success" />
                     <h3 className="text-lg font-semibold mb-2">No Pending Payments</h3>
                     <p className="text-muted-foreground">
-                      All your approved reports have been paid for.
+                      You have no pending or rejected payment submissions.
                     </p>
                     <Button 
                       variant="outline" 
@@ -330,67 +417,61 @@ export default function PaymentsPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {pendingReports.map((report, index) => (
+                    {pendingPayments.map((payment, index) => (
                       <motion.div
-                        key={report.id}
+                        key={payment.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
+                        transition={{ delay: index * 0.08 }}
                       >
-                        <GlassCard className="hover-glow p-4">
-                          <div className="space-y-4">
+                        <GlassCard className={`hover-glow p-4 ${payment.status === 'rejected' ? 'border border-destructive/50 bg-destructive/5' : ''}`}>
+                          <div className="space-y-3">
                             <div className="flex items-start justify-between">
                               <div className="min-w-0 flex-1">
-                                <h3 className="font-semibold truncate">{report.title}</h3>
-                                <p className="text-sm text-muted-foreground truncate">
-                                  {report.description}
-                                </p>
+                                <h3 className="font-semibold truncate">{payment.report?.title || 'Report'}</h3>
+                                <p className="text-sm text-muted-foreground truncate">{payment.report?.description}</p>
                               </div>
-                              <Badge variant="default" className="bg-success text-white ml-2">
-                                Approved
-                              </Badge>
+                              <div>{getMethodBadge(payment.method)}</div>
                             </div>
 
-                            <div className="space-y-2">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Submitted:</span>
-                                <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Submitted</p>
+                                <p className="text-xs text-muted-foreground">{new Date(payment.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
                               </div>
-                            </div>
 
-                            <div className="p-3 bg-warning/10 rounded-lg">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">Payment Due:</span>
-                                <span className="text-lg font-bold text-warning">
-                                  ₹{(report.amount || 25000).toLocaleString()}
-                                </span>
+                              <div className="text-right">
+                                <p className="text-lg font-bold">₹{payment.amount.toLocaleString()}</p>
+                                {getStatusBadge(payment.status)}
                               </div>
                             </div>
 
-                            <div className="space-y-2">
-                              <Button 
-                                variant="hero" 
-                                className="w-full"
-                                onClick={() => handlePayNow(report.id)}
-                              >
-                                Pay Now
-                                <ArrowRight className="ml-2 h-4 w-4" />
-                              </Button>
-                              
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="w-full"
-                                onClick={() => {
-                                  toast({
-                                    title: "Report Details",
-                                    description: `Title: ${report.title}\nDescription: ${report.description}`,
-                                  });
-                                }}
-                              >
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </Button>
+                            {payment.status === 'rejected' && payment.rejection_message && (
+                              <div className="flex items-start gap-2 text-destructive text-sm">
+                                <AlertTriangle className="h-4 w-4" />
+                                <div>{payment.rejection_message}</div>
+                              </div>
+                            )}
+
+                            <div className="flex gap-2">
+                              {payment.proof_url && (
+                                <>
+                                  <Button variant="outline" size="sm" onClick={() => handleViewProof(payment.proof_url!)} aria-label={`View proof for ${payment.report?.title || payment.id}`} title={`View proof for ${payment.report?.title || payment.id}`}>
+                                    <Eye className="h-4 w-4" />
+                                    <span className="hidden sm:inline ml-2">View</span>
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => handleDownloadProof(payment.proof_url!, payment.report?.title)} aria-label={`Download proof for ${payment.report?.title || payment.id}`} title={`Download proof for ${payment.report?.title || payment.id}`}>
+                                    <Download className="h-4 w-4" />
+                                    <span className="hidden sm:inline ml-2">Download</span>
+                                  </Button>
+                                </>
+                              )}
+
+                              {payment.status === 'rejected' && (
+                                <Button variant="hero" size="sm" onClick={() => handleResubmitProof(payment)}>
+                                  Resubmit Proof
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </GlassCard>
@@ -466,13 +547,28 @@ export default function PaymentsPage() {
                               
                               <div className="flex gap-2">
                                 {payment.proof_url && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleViewProof(payment.proof_url!)}
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleViewProof(payment.proof_url!)}
+                                      aria-label={`View proof for ${payment.report?.title || payment.id}`}
+                                      title={`View proof for ${payment.report?.title || payment.id}`}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                      <span className="hidden sm:inline ml-2">View</span>
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDownloadProof(payment.proof_url!, payment.report?.title)}
+                                      aria-label={`Download proof for ${payment.report?.title || payment.id}`}
+                                      title={`Download proof for ${payment.report?.title || payment.id}`}
+                                    >
+                                      <Download className="h-4 w-4" />
+                                      <span className="hidden sm:inline ml-2">Download</span>
+                                    </Button>
+                                  </>
                                 )}
                                 
                                 {payment.status === 'rejected' && (

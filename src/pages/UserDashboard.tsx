@@ -12,7 +12,7 @@ import {
   Eye,
   Download,
   RefreshCw,
-  AlertCircle,
+  
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
@@ -26,9 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { downloadFileFromStorage } from "@/utils/fileDownload";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+// Dialog/upload UI removed for dashboard resubmit flow; resubmission now lives on /payments
 
 interface Report {
   id: string;
@@ -68,9 +66,6 @@ export default function UserDashboard() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [resubmitDialogOpen, setResubmitDialogOpen] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
-  const [uploadingProof, setUploadingProof] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -192,7 +187,7 @@ export default function UserDashboard() {
       supabase.removeChannel(paymentsChannel);
       supabase.removeChannel(attendanceChannel);
     };
-  }, [user?.id, toast]); // Explicitly depend on user.id instead of the whole user object
+  }, [user, toast]);
 
   // Handle report download
   const handleReportDownload = async (report: Report) => {
@@ -205,7 +200,7 @@ export default function UserDashboard() {
         });
         return;
       }
-      await downloadFileFromStorage('reports', report.attachment_url);
+  await downloadFileFromStorage('report-attachments', report.attachment_url, report.id);
     } catch (error) {
       console.error('Download error:', error);
       toast({
@@ -258,89 +253,37 @@ export default function UserDashboard() {
     }
   };
 
-  // Handle resubmit proof
-  const handleResubmitProof = (payment: Payment) => {
-    setSelectedPayment(payment);
-    setResubmitDialogOpen(true);
-  };
-
-  // Handle proof file upload
-  const handleProofFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !selectedPayment) return;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload an image (JPG, PNG, WEBP) or PDF file",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please upload a file smaller than 5MB",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setUploadingProof(true);
-
-    try {
-      // Upload to payment-proofs bucket
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}/${selectedPayment.id}_${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('payment-proofs')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Call edge function to update payment
-      const { error: functionError } = await supabase.functions.invoke('resubmit-payment-proof', {
-        body: {
-          paymentId: selectedPayment.id,
-          proofUrl: fileName
-        }
-      });
-
-      if (functionError) {
-        throw functionError;
-      }
-
-      toast({
-        title: "Success",
-        description: "Payment proof resubmitted successfully. It will be reviewed by a manager.",
-      });
-
-      setResubmitDialogOpen(false);
-      setSelectedPayment(null);
-
-      // Refresh data
-      window.location.reload();
-    } catch (error) {
-      console.error('Error resubmitting proof:', error);
+  // View payment proof from payment-proofs bucket
+  const handleViewPaymentProof = async (proofUrl?: string) => {
+    if (!proofUrl) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to resubmit payment proof",
+        description: "No file available to view",
         variant: "destructive"
       });
-    } finally {
-      setUploadingProof(false);
+      return;
+    }
+
+    try {
+      if (proofUrl.startsWith('http')) {
+        window.open(proofUrl, '_blank');
+        return;
+      }
+
+      const { data, error } = await supabase.storage.from('payment-proofs').createSignedUrl(proofUrl, 3600);
+      if (error || !data?.signedUrl) throw error || new Error('Failed to create signed URL');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error viewing payment proof:', error);
+      toast({
+        title: "Error",
+        description: "Could not open the payment proof. Please check your permissions.",
+        variant: "destructive"
+      });
     }
   };
+
+  
 
   const quickActions = [
     {
@@ -366,8 +309,9 @@ export default function UserDashboard() {
     },
   ];
 
-  const pendingPayments = payments.filter(p => p.status === 'pending' || p.status === 'rejected');
+  const pendingPayments = payments.filter(p => p.status === 'pending');
   const pendingPaymentsCount = pendingPayments.length;
+  const recentNonRejectedPayments = payments.filter(p => p.status !== 'rejected');
   const approvedReports = reports.filter(r => r.status === 'approved').length;
   const approvedReportsWithoutPayment = reports.filter(r => 
     r.status === 'approved' && !payments.some(p => p.report_id === r.id && p.status === 'approved')
@@ -483,15 +427,11 @@ export default function UserDashboard() {
               <div className="space-y-4">
                 {pendingPayments.map((payment) => {
                   const relatedReport = reports.find(r => r.id === payment.report_id);
-                  const isRejected = payment.status === 'rejected';
                   
                   return (
                     <motion.div
                       key={payment.id}
-                      className={cn(
-                        "rounded-lg border p-4",
-                        isRejected && "border-destructive/50 bg-destructive/5"
-                      )}
+                      className={cn("rounded-lg border p-4")}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
@@ -501,19 +441,13 @@ export default function UserDashboard() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <CreditCard className="h-5 w-5 text-primary/80 flex-shrink-0" />
                               <p className="font-semibold">₹{payment.amount.toLocaleString()}</p>
-                              <Badge variant={isRejected ? 'destructive' : 'secondary'}>
-                                {isRejected ? 'Rejected' : 'Pending'}
+                              <Badge variant={'secondary'}>
+                                Pending
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
                               {relatedReport?.title || 'Report'} • {new Date(payment.created_at).toLocaleDateString()}
                             </p>
-                            {isRejected && payment.rejection_message && (
-                              <div className="mt-2 flex items-start gap-2 text-sm text-destructive">
-                                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                                <span>{payment.rejection_message}</span>
-                              </div>
-                            )}
                           </div>
                         </div>
                         
@@ -522,20 +456,10 @@ export default function UserDashboard() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => handleView(payment.proof_url)}
+                              onClick={() => handleViewPaymentProof(payment.proof_url)}
                             >
                               <Eye className="h-4 w-4 mr-2" />
                               View Proof
-                            </Button>
-                          )}
-                          {isRejected && (
-                            <Button 
-                              variant="default" 
-                              size="sm"
-                              onClick={() => handleResubmitProof(payment)}
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              Resubmit Proof
                             </Button>
                           )}
                         </div>
@@ -672,7 +596,7 @@ export default function UserDashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {payments.length === 0 ? (
+              {recentNonRejectedPayments.length === 0 ? (
                 <div className="py-8 border border-dashed rounded-lg">
                   <div className="flex flex-col items-center justify-center text-center">
                     <CreditCard className="h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -683,7 +607,7 @@ export default function UserDashboard() {
                 <div className="space-y-4">
                   {isMobile ? (
                     <div className="grid grid-cols-1 gap-4">
-                      {payments.slice(0, 3).map((payment) => (
+                      {recentNonRejectedPayments.slice(0, 3).map((payment) => (
                         <motion.div
                           key={payment.id}
                           className="rounded-lg border p-4 hover:shadow-sm transition-shadow"
@@ -709,7 +633,7 @@ export default function UserDashboard() {
                               variant="outline" 
                               size="sm" 
                               className="flex-1"
-                              onClick={() => handleView(payment.proof_url)}
+                                onClick={() => handleViewPaymentProof(payment.proof_url)}
                             >
                               <Eye className="h-4 w-4 mr-2" />
                               View Proof
@@ -720,7 +644,7 @@ export default function UserDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {payments.slice(0, 5).map((payment) => (
+                      {recentNonRejectedPayments.slice(0, 5).map((payment) => (
                         <div
                           key={payment.id}
                           className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors"
@@ -741,7 +665,7 @@ export default function UserDashboard() {
                             <Button 
                               variant="ghost" 
                               size="icon"
-                              onClick={() => handleView(payment.proof_url)}
+                              onClick={() => handleViewPaymentProof(payment.proof_url)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -804,47 +728,7 @@ export default function UserDashboard() {
         </Card>
       </div>
 
-      {/* Resubmit Proof Dialog */}
-      <Dialog open={resubmitDialogOpen} onOpenChange={setResubmitDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Resubmit Payment Proof</DialogTitle>
-            <DialogDescription>
-              Upload a new payment proof document. The payment will be reviewed again by a manager.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 mt-4">
-            {selectedPayment && (
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium">Payment Amount</p>
-                <p className="text-lg font-bold">₹{selectedPayment.amount.toLocaleString()}</p>
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="proof-file">Upload New Proof</Label>
-              <Input
-                id="proof-file"
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
-                onChange={handleProofFileUpload}
-                disabled={uploadingProof}
-              />
-              <p className="text-xs text-muted-foreground">
-                Accepted formats: JPG, PNG, WEBP, PDF (max 5MB)
-              </p>
-            </div>
-
-            {uploadingProof && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-                <span>Uploading proof...</span>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Resubmit UI removed from dashboard; resubmission is handled on /payments */}
     </Layout>
   );
 }
