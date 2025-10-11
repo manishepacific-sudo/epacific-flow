@@ -12,7 +12,7 @@ import {
   Eye,
   Download,
   RefreshCw,
-  
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
@@ -35,6 +35,7 @@ interface Report {
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   attachment_url: string;
+  rejection_message?: string;
 }
 
 interface Payment {
@@ -83,7 +84,7 @@ export default function UserDashboard() {
         const [reportsRes, paymentsRes, attendanceRes] = await Promise.allSettled([
           supabase
             .from('reports')
-            .select('*')
+            .select('id, user_id, title, status, created_at, attachment_url, rejection_message')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(50),
@@ -309,10 +310,11 @@ export default function UserDashboard() {
     },
   ];
 
-  const pendingPayments = payments.filter(p => p.status === 'pending');
+  const pendingPayments = payments.filter(p => p.status === 'pending' || p.status === 'rejected');
   const pendingPaymentsCount = pendingPayments.length;
   const recentNonRejectedPayments = payments.filter(p => p.status !== 'rejected');
   const approvedReports = reports.filter(r => r.status === 'approved').length;
+  const rejectedReports = reports.filter(r => r.status === 'rejected');
   const approvedReportsWithoutPayment = reports.filter(r => 
     r.status === 'approved' && !payments.some(p => p.report_id === r.id && p.status === 'approved')
   ).length;
@@ -387,6 +389,41 @@ export default function UserDashboard() {
             Here's what's happening with your account today.
           </p>
         </motion.div>
+
+        {/* Rejected Reports Alert */}
+        {rejectedReports.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-destructive mb-2">
+                    {rejectedReports.length} Report{rejectedReports.length > 1 ? 's' : ''} Rejected
+                  </h3>
+                  <div className="space-y-3">
+                    {rejectedReports.map((report) => (
+                      <div key={report.id} className="bg-background/50 rounded p-3">
+                        <p className="font-medium text-sm mb-1">{report.title}</p>
+                        {report.rejection_message && (
+                          <p className="text-xs text-muted-foreground">
+                            <span className="font-medium">Reason:</span> {report.rejection_message}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    Please review the rejection reasons and resubmit your reports.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Dashboard Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

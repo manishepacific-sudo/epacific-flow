@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useDropzone } from "react-dropzone";
 import { format } from "date-fns";
@@ -10,7 +10,8 @@ import {
   Calendar as CalendarIcon,
   DollarSign,
   Eye,
-  ArrowRight
+  ArrowRight,
+  Clock
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -31,12 +32,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseReport } from "@/utils/reportParser";
 import { ParsedReportData } from "@/types";
 
+interface ReportHistory {
+  id: string;
+  title: string;
+  status: 'pending' | 'approved' | 'rejected';
+  amount: number | null;
+  created_at: string;
+  rejection_message: string | null;
+}
+
 export default function ReportUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [reportData, setReportData] = useState<ParsedReportData | null>(null);
   const [reportDate, setReportDate] = useState<Date | undefined>();
   const [parsing, setParsing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [reportHistory, setReportHistory] = useState<ReportHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -77,6 +89,31 @@ export default function ReportUpload() {
     maxFiles: 1,
     maxSize: 10 * 1024 * 1024, // 10MB
   });
+
+  // Fetch report history
+  useEffect(() => {
+    const fetchReportHistory = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('reports')
+          .select('id, title, status, amount, created_at, rejection_message')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+        setReportHistory((data as ReportHistory[]) || []);
+      } catch (error) {
+        console.error('Error fetching report history:', error);
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+
+    fetchReportHistory();
+  }, [user?.id]);
 
   const handleSubmit = async () => {
     if (!file || !user || !reportDate || !reportData) {
@@ -309,11 +346,80 @@ export default function ReportUpload() {
           </motion.div>
         )}
 
-        {/* Instructions */}
+        {/* Report History */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
+        >
+          <GlassCard>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Report History</h3>
+              </div>
+              <Badge variant="secondary">{reportHistory.length} reports</Badge>
+            </div>
+
+            {loadingHistory ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading history...
+              </div>
+            ) : reportHistory.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No reports submitted yet
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reportHistory.map((report) => (
+                  <div
+                    key={report.id}
+                    className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium truncate">{report.title}</h4>
+                          <Badge
+                            variant={
+                              report.status === 'approved'
+                                ? 'default'
+                                : report.status === 'rejected'
+                                ? 'destructive'
+                                : 'secondary'
+                            }
+                          >
+                            {report.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(report.created_at), 'PPP')}
+                        </p>
+                        {report.amount && (
+                          <p className="text-sm font-medium text-success mt-1">
+                            ₹{report.amount.toLocaleString()}
+                          </p>
+                        )}
+                        {report.status === 'rejected' && report.rejection_message && (
+                          <div className="mt-2 p-2 bg-destructive/10 rounded border border-destructive/20">
+                            <p className="text-xs text-destructive font-medium mb-1">Rejection Reason:</p>
+                            <p className="text-xs text-muted-foreground">{report.rejection_message}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
+
+        {/* Instructions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
         >
           <GlassCard>
             <div className="flex items-center gap-2 mb-4">
