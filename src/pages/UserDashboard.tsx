@@ -13,6 +13,7 @@ import {
   Download,
   RefreshCw,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
@@ -26,16 +27,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { downloadFileFromStorage } from "@/utils/fileDownload";
-// Dialog/upload UI removed for dashboard resubmit flow; resubmission now lives on /payments
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 
 interface Report {
   id: string;
   user_id: string;
   title: string;
+  description?: string;
+  amount?: number;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+  updated_at: string;
   attachment_url: string;
   rejection_message?: string;
+  manager_notes?: string;
 }
 
 interface Payment {
@@ -67,6 +73,8 @@ export default function UserDashboard() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -84,7 +92,7 @@ export default function UserDashboard() {
         const [reportsRes, paymentsRes, attendanceRes] = await Promise.allSettled([
           supabase
             .from('reports')
-            .select('id, user_id, title, status, created_at, attachment_url, rejection_message')
+            .select('id, user_id, title, description, amount, status, created_at, updated_at, attachment_url, rejection_message, manager_notes')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(50),
@@ -284,7 +292,10 @@ export default function UserDashboard() {
     }
   };
 
-  
+  const handleViewReportDetails = (report: Report) => {
+    setSelectedReport(report);
+    setReportDialogOpen(true);
+  };
 
   const quickActions = [
     {
@@ -566,11 +577,22 @@ export default function UserDashboard() {
                                 variant="outline" 
                                 size="sm" 
                                 className="flex-1"
-                                onClick={() => handleReportDownload(report)}
+                                onClick={() => handleViewReportDetails(report)}
                               >
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
+                                <Info className="h-4 w-4 mr-2" />
+                                Details
                               </Button>
+                              {report.attachment_url && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="flex-1"
+                                  onClick={() => handleReportDownload(report)}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download
+                                </Button>
+                              )}
                             </div>
                           </motion.div>
                         );
@@ -609,10 +631,20 @@ export default function UserDashboard() {
                                 variant="ghost" 
                                 size="icon"
                                 className="h-8 w-8"
-                                onClick={() => handleReportDownload(report)}
+                                onClick={() => handleViewReportDetails(report)}
                               >
-                                <Download className="h-4 w-4" />
+                                <Info className="h-4 w-4" />
                               </Button>
+                              {report.attachment_url && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => handleReportDownload(report)}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                         );
@@ -765,7 +797,100 @@ export default function UserDashboard() {
         </Card>
       </div>
 
-      {/* Resubmit UI removed from dashboard; resubmission is handled on /payments */}
+      {/* Report Detail Dialog */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Report Details</DialogTitle>
+          </DialogHeader>
+          {selectedReport && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-1">Title</h3>
+                <p className="text-lg font-semibold">{selectedReport.title}</p>
+              </div>
+
+              {selectedReport.description && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Description</h3>
+                  <p className="text-sm">{selectedReport.description}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Status</h3>
+                  <Badge variant={
+                    selectedReport.status === 'approved' ? 'default' : 
+                    selectedReport.status === 'rejected' ? 'destructive' : 
+                    'secondary'
+                  }>
+                    {selectedReport.status}
+                  </Badge>
+                </div>
+
+                {selectedReport.amount && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Amount</h3>
+                    <p className="text-sm font-semibold">₹{selectedReport.amount.toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Submitted On</h3>
+                  <p className="text-sm">{new Date(selectedReport.created_at).toLocaleString()}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Last Updated</h3>
+                  <p className="text-sm">{new Date(selectedReport.updated_at).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {selectedReport.rejection_message && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                  <h3 className="text-sm font-medium text-destructive mb-1">Rejection Reason</h3>
+                  <p className="text-sm">{selectedReport.rejection_message}</p>
+                </div>
+              )}
+
+              {selectedReport.manager_notes && (
+                <div className="bg-muted/50 border rounded-lg p-3">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Manager Notes</h3>
+                  <p className="text-sm">{selectedReport.manager_notes}</p>
+                </div>
+              )}
+
+              <Separator />
+
+              <div className="flex gap-2">
+                {selectedReport.attachment_url && (
+                  <>
+                    <Button 
+                      onClick={() => handleView(selectedReport.attachment_url)}
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Attachment
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => handleReportDownload(selectedReport)}
+                      className="flex-1"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
