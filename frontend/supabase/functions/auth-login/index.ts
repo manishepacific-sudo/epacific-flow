@@ -9,6 +9,11 @@ const corsHeaders = {
   "Access-Control-Allow-Credentials": "true",
 };
 
+const LoginSchema = z.object({
+  email: z.string().email().max(255),
+  password: z.string().min(8).max(128)
+});
+
 const handler = async (req: Request): Promise<Response> => {
   console.log('🚀 Auth-login handler started');
   
@@ -19,7 +24,18 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     console.log('📥 Reading request body...');
-    const { email, password } = await req.json();
+    const body = await req.json();
+    
+    // Validate input
+    const validation = LoginSchema.safeParse(body);
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ error: "Invalid input", details: validation.error.errors }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const { email, password } = validation.data;
     console.log('✅ Parsed credentials for:', email);
 
     // Initialize Supabase client for real authentication

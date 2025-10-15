@@ -16,24 +16,20 @@ serve(async (req) => {
   console.log('🚀 Delete-user handler started');
 
   try {
-    console.log('📥 Reading request body...');
-    const { user_id, admin_email } = await req.json();
-
-    if (!user_id || !admin_email) {
-      console.error('❌ Missing required parameters');
+    // Get JWT from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.log('❌ No authorization header');
       return new Response(
-        JSON.stringify({ error: 'Missing user_id or admin_email' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        JSON.stringify({ error: "Unauthorized: No authorization header" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
 
-    console.log(`👤 Admin requesting deletion: ${admin_email}`);
-    console.log(`🗑️ Target user ID: ${user_id}`);
-
-    // Initialize Supabase client with service role key for admin operations
+    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
@@ -44,44 +40,56 @@ serve(async (req) => {
       }
     });
 
-    // Check for demo admin credentials first
-    console.log('🔐 Verifying admin permissions...');
-    let adminRole = null;
-    let adminUserId = null;
+    // Verify JWT and get user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
-    // Demo credentials check
-    const demoCredentials: Record<string, string> = {
-      'admin@epacific.com': 'admin',
-      'manager@epacific.com': 'manager'
-    };
-
-    if (demoCredentials[admin_email as keyof typeof demoCredentials]) {
-      console.log('✅ Demo admin credentials detected');
-      adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
-      // For demo accounts, we don't need a specific user_id for permission checks
-      adminUserId = 'demo-admin';
-    } else {
-      // Regular database lookup for non-demo accounts
-      const { data: adminProfile, error: adminError } = await supabase
-        .from('profiles')
-        .select('role, user_id')
-        .eq('email', admin_email)
-        .single();
-
-      if (adminError || !adminProfile) {
-        console.error('❌ Admin profile not found:', adminError);
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
-          { 
-            status: 403, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-
-      adminRole = adminProfile.role;
-      adminUserId = adminProfile.user_id;
+    if (authError || !user) {
+      console.log('❌ Invalid token:', authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Invalid token" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
+
+    console.log('✅ Authenticated user:', user.id);
+
+    // Parse request body
+    const { user_id } = await req.json();
+
+    if (!user_id) {
+      console.error('❌ Missing user_id');
+      return new Response(
+        JSON.stringify({ error: 'Missing user_id' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log(`🗑️ Target user ID: ${user_id}`);
+
+    // Get requesting user's role from user_roles table
+    const { data: roleData, error: roleError } = await supabase
+      .rpc('get_user_role', { user_id_param: user.id });
+
+    if (roleError || !roleData) {
+      console.log('❌ Failed to get user role:', roleError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Could not verify user role" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const adminRole = roleData;
+    console.log('✅ User role:', adminRole);
 
     if (!['admin', 'manager'].includes(adminRole)) {
       console.error('❌ Insufficient permissions:', adminRole);
@@ -94,7 +102,19 @@ serve(async (req) => {
       );
     }
 
-    // Get target user profile (use maybeSingle to handle missing profiles)
+    // Prevent self-deletion
+    if (user.id === user_id) {
+      console.error('❌ Attempted self-deletion');
+      return new Response(
+        JSON.stringify({ error: 'Cannot delete your own account' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Get target user profile
     console.log('👥 Fetching target user profile...');
     const { data: targetProfile, error: targetError } = await supabase
       .from('profiles')
@@ -142,22 +162,13 @@ serve(async (req) => {
       );
     }
 
-    // Prevent self-deletion (skip for demo accounts)
-    if (adminUserId !== 'demo-admin' && adminUserId === user_id) {
-      console.error('❌ Attempted self-deletion');
-      return new Response(
-        JSON.stringify({ error: 'Cannot delete your own account' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // Manager role restrictions - managers can delete users and other managers, but not admins
+    // Manager role restrictions - managers can't delete admins
     if (adminRole === 'manager') {
-      // Managers can delete users and other managers, but not admins
-      if (targetProfile.role === 'admin') {
+      // Get target user's role
+      const { data: targetRoleData } = await supabase
+        .rpc('get_user_role', { user_id_param: user_id });
+      
+      if (targetRoleData === 'admin') {
         console.error('❌ Manager cannot delete admin accounts');
         return new Response(
           JSON.stringify({ error: 'Managers cannot delete admin accounts' }),
@@ -171,9 +182,9 @@ serve(async (req) => {
 
     console.log('🗄️ Starting cascade deletion...');
 
-    // Delete related data in order (payments -> reports -> profile -> auth user)
+    // Delete related data in order
     
-    // 1. Delete payments (silently continue if none exist)
+    // 1. Delete payments
     console.log('💳 Deleting user payments...');
     const { error: paymentsError } = await supabase
       .from('payments')
@@ -182,10 +193,9 @@ serve(async (req) => {
 
     if (paymentsError) {
       console.log('⚠️ Warning: Could not delete payments:', paymentsError.message);
-      // Continue deletion process even if payments deletion fails
     }
 
-    // 2. Delete reports (silently continue if none exist)
+    // 2. Delete reports
     console.log('📊 Deleting user reports...');
     const { error: reportsError } = await supabase
       .from('reports')
@@ -194,10 +204,9 @@ serve(async (req) => {
 
     if (reportsError) {
       console.log('⚠️ Warning: Could not delete reports:', reportsError.message);
-      // Continue deletion process even if reports deletion fails
     }
 
-    // 3. Delete invite tokens (cleanup any pending invites)
+    // 3. Delete invite tokens
     console.log('🎫 Deleting invite tokens...');
     const { error: tokensError } = await supabase
       .from('invite_tokens')
@@ -208,7 +217,18 @@ serve(async (req) => {
       console.log('⚠️ Warning: Could not delete invite tokens:', tokensError.message);
     }
 
-    // 4. Delete profile
+    // 4. Delete user roles
+    console.log('👔 Deleting user roles...');
+    const { error: rolesError } = await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', user_id);
+
+    if (rolesError) {
+      console.log('⚠️ Warning: Could not delete user roles:', rolesError.message);
+    }
+
+    // 5. Delete profile
     console.log('👤 Deleting user profile...');
     const { error: profileError } = await supabase
       .from('profiles')
@@ -226,12 +246,12 @@ serve(async (req) => {
       );
     }
 
-    // 5. Delete from auth.users
+    // 6. Delete from auth.users
     console.log('🔐 Deleting from auth.users...');
-    const { error: authError } = await supabase.auth.admin.deleteUser(user_id);
+    const { error: authDeleteError } = await supabase.auth.admin.deleteUser(user_id);
 
-    if (authError) {
-      console.error('❌ Error deleting auth user:', authError);
+    if (authDeleteError) {
+      console.error('❌ Error deleting auth user:', authDeleteError);
       return new Response(
         JSON.stringify({ error: 'Failed to delete user from authentication system' }),
         { 

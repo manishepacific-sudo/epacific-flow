@@ -28,6 +28,37 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Get JWT from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.log('❌ No authorization header');
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: No authorization header" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Verify JWT and get user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+      console.log('❌ Invalid token:', authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Invalid token" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    console.log('✅ Authenticated user:', user.id);
+
+    // Parse request body
     console.log('📥 Reading request body...');
     const { 
       full_name, 
@@ -35,18 +66,44 @@ const handler = async (req: Request): Promise<Response> => {
       mobile_number, 
       station_id, 
       center_address, 
-      role,
-      admin_email 
+      role
     } = await req.json();
     
     console.log('✅ Parsed user data for:', email);
-    console.log('👤 User creating user:', admin_email);
 
-    // Validate that the requesting user has appropriate role
-    if (!admin_email) {
-      console.log('❌ No email provided');
+    // Validate required fields
+    if (!email || !role || !full_name) {
+      console.log('❌ Missing required fields');
       return new Response(
-        JSON.stringify({ error: "Unauthorized: Email required" }),
+        JSON.stringify({ error: "Missing required fields: email, role, full_name" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Validate role
+    const validRoles = ['user', 'manager', 'admin'];
+    if (!validRoles.includes(role)) {
+      console.log('❌ Invalid role:', role);
+      return new Response(
+        JSON.stringify({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Get requesting user's role from user_roles table
+    const { data: adminRole, error: roleError } = await supabaseAdmin
+      .rpc('get_user_role', { user_id_param: user.id });
+
+    if (roleError || !adminRole) {
+      console.log('❌ Failed to get user role:', roleError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Could not verify user role" }),
         {
           status: 403,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -54,46 +111,20 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check user role from database
-    const { data: userProfile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('email', admin_email)
-      .single();
+    console.log('👤 Admin role:', adminRole);
 
-    if (profileError || !userProfile) {
-      console.log('❌ User not found:', admin_email);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized: User not found" }),
-        {
-          status: 403,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
-    // Validate role permissions
-    const requestingUserRole = userProfile.role;
-    if (requestingUserRole === 'admin') {
-      // Admins can create any role
-      console.log('✅ Admin creating user with role:', role);
-    } else if (requestingUserRole === 'manager') {
-      // Managers can only create users and managers
-      if (!['user', 'manager'].includes(role)) {
-        console.log('❌ Manager cannot create admin role');
-        return new Response(
-          JSON.stringify({ error: "Unauthorized: Managers can only create users and managers" }),
-          {
-            status: 403,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          }
-        );
-      }
-      console.log('✅ Manager creating user with role:', role);
+    // Verify admin permissions - admins can create any role, managers can create users and managers
+    if (adminRole === 'admin') {
+      console.log('✅ Admin user authorized to create any role');
+    } else if (adminRole === 'manager' && ['user', 'manager'].includes(role)) {
+      console.log('✅ Manager user authorized to create user or manager role');
     } else {
-      console.log('❌ Unauthorized user creation attempt - role:', requestingUserRole);
+      console.log('❌ Unauthorized user creation - insufficient permissions');
       return new Response(
-        JSON.stringify({ error: "Unauthorized: Only admins and managers can create users" }),
+        JSON.stringify({ 
+          error: "Unauthorized: Insufficient permissions to create this user role",
+          details: `Your role (${adminRole}) cannot create users with role: ${role}`
+        }),
         {
           status: 403,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -105,7 +136,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('👤 Creating Supabase auth user first...');
     
     // First create the auth user
-    let { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    let { data: authUser, error: authCreateError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       email_confirm: true,
       user_metadata: {
@@ -120,15 +151,15 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('📊 Auth creation result:', { 
       success: !!authUser?.user, 
       userId: authUser?.user?.id,
-      errorCode: authError?.status,
-      errorMessage: authError?.message 
+      errorCode: authCreateError?.status,
+      errorMessage: authCreateError?.message 
     });
 
-    if (authError) {
-      console.error('❌ Auth user creation error:', JSON.stringify(authError, null, 2));
+    if (authCreateError) {
+      console.error('❌ Auth user creation error:', JSON.stringify(authCreateError, null, 2));
       
       // Handle specific auth errors
-      if (authError.message?.includes('already registered') || authError.status === 422) {
+      if (authCreateError.message?.includes('already registered') || authCreateError.status === 422) {
         console.log('🔄 User already exists, trying to get existing user...');
         
         // Try to get existing user by email
@@ -151,7 +182,7 @@ const handler = async (req: Request): Promise<Response> => {
         }
       } else {
         return new Response(
-          JSON.stringify({ error: "Failed to create auth user: " + authError.message }),
+          JSON.stringify({ error: "Failed to create auth user: " + authCreateError.message }),
           {
             status: 500,
             headers: { "Content-Type": "application/json", ...corsHeaders },
