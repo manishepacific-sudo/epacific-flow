@@ -1,21 +1,25 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface InviteUserRequest {
-  email: string;
-  role: "admin" | "manager" | "user";
-  full_name: string;
-  mobile_number?: string;
-  station_id?: string;
-  center_address?: string;
-  registrar?: string;
-  admin_email?: string;
-}
+// Input validation schema
+const InviteUserSchema = z.object({
+  email: z.string().email("Invalid email format").max(255, "Email too long"),
+  role: z.enum(["admin", "manager", "user"]),
+  full_name: z.string().trim().min(2, "Name too short").max(100, "Name too long"),
+  mobile_number: z.string().max(20, "Mobile number too long").optional(),
+  station_id: z.string().max(50, "Station ID too long").optional(),
+  center_address: z.string().max(500, "Address too long").optional(),
+  registrar: z.string().max(100, "Registrar name too long").optional(),
+  admin_email: z.string().email("Invalid admin email").optional()
+});
+
+type InviteUserRequest = z.infer<typeof InviteUserSchema>;
 
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -24,6 +28,23 @@ serve(async (req: Request): Promise<Response> => {
 
   try {
     console.log("🚀 User-invite function started");
+    
+    // Parse and validate request body
+    const rawBody = await req.json();
+    const validationResult = InviteUserSchema.safeParse(rawBody);
+    
+    if (!validationResult.success) {
+      console.error("Validation error:", validationResult.error.format());
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Invalid input data",
+          details: validationResult.error.format()
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
     const { 
       email, 
       role, 
@@ -33,55 +54,47 @@ serve(async (req: Request): Promise<Response> => {
       center_address, 
       registrar, 
       admin_email 
-    }: InviteUserRequest = await req.json();
+    } = validationResult.data;
     
     console.log(`📧 Inviting user: ${email} with role: ${role} by admin: ${admin_email}`);
-
-    if (!email || !role || !full_name) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Email, role, and full name are required" 
-        }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // ✅ Validate admin permissions
+    // ✅ Validate admin permissions using database
     if (admin_email) {
       console.log("🔐 Validating admin permissions...");
-      const demoCredentials: Record<string, string> = {
-        'admin@epacific.com': 'admin',
-        'manager@epacific.com': 'manager'
-      };
+      
+      // Get admin user_id from email
+      const { data: adminProfile, error: adminError } = await supabaseAdmin
+        .from('profiles')
+        .select('user_id')
+        .eq('email', admin_email)
+        .single();
 
-      let adminRole = null;
-
-      if (demoCredentials[admin_email as keyof typeof demoCredentials]) {
-        adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
-        console.log(`✅ Demo admin detected: ${admin_email} with role: ${adminRole}`);
-      } else {
-        const { data: adminProfile, error: adminError } = await supabaseAdmin
-          .from('profiles')
-          .select('role')
-          .eq('email', admin_email)
-          .single();
-
-        if (adminError || !adminProfile) {
-          return new Response(
-            JSON.stringify({ success: false, error: "Unauthorized: Admin profile not found" }),
-            { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
-          );
-        }
-
-        adminRole = adminProfile.role;
-        console.log(`✅ Database admin found: ${admin_email} with role: ${adminRole}`);
+      if (adminError || !adminProfile) {
+        console.error("Admin profile not found:", adminError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized: Admin profile not found" }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
       }
+
+      // Check role from user_roles table using secure function
+      const { data: adminRole, error: roleError } = await supabaseAdmin
+        .rpc('get_user_role', { user_id_param: adminProfile.user_id });
+
+      if (roleError || !adminRole) {
+        console.error("Failed to get admin role:", roleError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized: Cannot determine admin role" }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      console.log(`✅ Admin validated: ${admin_email} with role: ${adminRole}`);
 
       if (!['admin', 'manager'].includes(adminRole)) {
         return new Response(

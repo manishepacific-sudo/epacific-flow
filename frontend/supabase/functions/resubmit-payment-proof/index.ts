@@ -1,10 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const ResubmitPaymentSchema = z.object({
+  paymentId: z.string().uuid("Invalid payment ID format"),
+  proofUrl: z.string().url("Invalid proof URL").max(2000, "URL too long")
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -32,14 +39,21 @@ serve(async (req) => {
       );
     }
 
-    const { paymentId, proofUrl } = await req.json();
+    const rawBody = await req.json();
+    const validationResult = ResubmitPaymentSchema.safeParse(rawBody);
 
-    if (!paymentId || !proofUrl) {
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error.format());
       return new Response(
-        JSON.stringify({ error: 'Payment ID and proof URL are required' }),
+        JSON.stringify({ 
+          error: 'Invalid input data',
+          details: validationResult.error.format()
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { paymentId, proofUrl } = validationResult.data;
 
     console.log(`Resubmitting payment proof for payment: ${paymentId}`);
 
