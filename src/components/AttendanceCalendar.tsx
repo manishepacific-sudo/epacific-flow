@@ -69,7 +69,7 @@ export default function AttendanceCalendar() {
         if (error.message?.includes('does not exist') || 
             error.message?.includes('schema cache')) {
           console.warn('Attendance table not found, returning empty calendar data');
-          setAttendanceData([]);
+          setAttendanceRecords([]);
           return;
         }
         throw error;

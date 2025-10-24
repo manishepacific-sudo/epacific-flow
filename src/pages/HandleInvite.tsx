@@ -152,7 +152,14 @@ export default function HandleInvite() {
         // Check if user needs to set password
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('password_set, email, role')
+          .select('password_set, email')
+          .eq('user_id', user.id)
+          .single();
+        
+        // Get user role from user_roles table
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
           .eq('user_id', user.id)
           .single();
           
@@ -171,7 +178,7 @@ export default function HandleInvite() {
         } else {
           console.log('✅ Password already set, redirecting to dashboard');
           // User already has password set, redirect to appropriate dashboard
-          const role = user.user_metadata?.role || profile.role;
+          const role = user.user_metadata?.role || roleData?.role || 'user';
           const dashboardMap = {
             admin: '/dashboard/admin',
             manager: '/dashboard/manager',

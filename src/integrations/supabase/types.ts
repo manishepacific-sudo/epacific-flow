@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance: {
+        Row: {
+          attendance_date: string
+          check_in_time: string | null
+          check_out_time: string | null
+          city: string | null
+          created_at: string
+          distance_from_office: number | null
+          geofence_valid: boolean
+          id: string
+          location_address: string | null
+          location_latitude: number
+          location_longitude: number
+          manager_notes: string | null
+          office_latitude: number | null
+          office_longitude: number | null
+          photo_url: string
+          remarks: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attendance_date?: string
+          check_in_time?: string | null
+          check_out_time?: string | null
+          city?: string | null
+          created_at?: string
+          distance_from_office?: number | null
+          geofence_valid?: boolean
+          id?: string
+          location_address?: string | null
+          location_latitude: number
+          location_longitude: number
+          manager_notes?: string | null
+          office_latitude?: number | null
+          office_longitude?: number | null
+          photo_url: string
+          remarks?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attendance_date?: string
+          check_in_time?: string | null
+          check_out_time?: string | null
+          city?: string | null
+          created_at?: string
+          distance_from_office?: number | null
+          geofence_valid?: boolean
+          id?: string
+          location_address?: string | null
+          location_latitude?: number
+          location_longitude?: number
+          manager_notes?: string | null
+          office_latitude?: number | null
+          office_longitude?: number | null
+          photo_url?: string
+          remarks?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       invite_tokens: {
         Row: {
           created_at: string

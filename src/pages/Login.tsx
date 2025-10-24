@@ -79,18 +79,27 @@ export default function Login() {
         // Check user profile and redirect accordingly
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, password_set, is_demo, full_name')
+          .select('password_set, is_demo, full_name')
+          .eq('user_id', data.user.id)
+          .single();
+          
+        // Get user role from user_roles table
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
           .eq('user_id', data.user.id)
           .single();
 
         if (profile && !profile.password_set) {
           navigate('/set-password');
         } else if (profile) {
+          const userRole = roleData?.role || 'user';
+          
           // Show appropriate welcome message based on user type
           if (profile.is_demo) {
             toast({
               title: "Demo login successful",
-              description: `Welcome to the ${profile.role} demo, ${profile.full_name}!`,
+              description: `Welcome to the ${userRole} demo, ${profile.full_name}!`,
             });
           } else {
             toast({
@@ -99,7 +108,7 @@ export default function Login() {
             });
           }
 
-          switch (profile.role) {
+          switch (userRole) {
             case 'admin':
               navigate('/dashboard/admin');
               break;

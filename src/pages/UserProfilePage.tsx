@@ -17,13 +17,13 @@ interface UserProfile {
   email: string;
   full_name: string;
   mobile_number: string;
-  role: string;
   station_id: string;
   center_address: string;
   is_demo: boolean;
   password_set: boolean;
   created_at: string;
   updated_at: string;
+  registrar?: string;
 }
 
 export function UserProfilePage() {

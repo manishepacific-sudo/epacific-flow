@@ -119,6 +119,8 @@ export default function AttendanceAnalytics() {
           acc[date].total_distance += record.distance_from_office;
           acc[date].distance_count++;
         }
+        
+        return acc;
       }, {} as Record<string, any>);
 
       // Calculate averages and format data
