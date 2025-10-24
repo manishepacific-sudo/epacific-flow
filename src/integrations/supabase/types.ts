@@ -1,8 +1,3 @@
-// Convenience types for system settings
-export type SystemSetting = Tables<'system_settings'>
-export type SystemSettingInsert = TablesInsert<'system_settings'>
-export type SystemSettingUpdate = TablesUpdate<'system_settings'>
-
 export type Json =
   | string
   | number
@@ -48,57 +43,7 @@ export type Database = {
           user_data?: Json
         }
         Relationships: []
-    },
-        attendance: {
-          Row: {
-            id: string
-            user_id: string
-            photo_url: string
-            location_latitude: number
-            location_longitude: number
-            location_address: string | null
-            attendance_date: string
-            status: string
-            manager_notes: string | null
-            created_at: string
-            updated_at: string
-          }
-          Insert: {
-            id?: string
-            user_id: string
-            photo_url: string
-            location_latitude: number
-            location_longitude: number
-            location_address?: string | null
-            attendance_date?: string
-            status?: string
-            manager_notes?: string | null
-            created_at?: string
-            updated_at?: string
-          }
-          Update: {
-            id?: string
-            user_id?: string
-            photo_url?: string
-            location_latitude?: number
-            location_longitude?: number
-            location_address?: string | null
-            attendance_date?: string
-            status?: string
-            manager_notes?: string | null
-            created_at?: string
-            updated_at?: string
-          }
-          Relationships: [
-            {
-              foreignKeyName: "attendance_user_id_fkey"
-              columns: ["user_id"]
-              isOneToOne: false
-              referencedRelation: "profiles"
-              referencedColumns: ["user_id"]
-            },
-          ]
-        }
+      }
       notifications: {
         Row: {
           created_at: string
@@ -323,36 +268,6 @@ export type Database = {
         }
         Relationships: []
       }
-      system_settings: {
-        Row: {
-          id: string
-          key: string
-          value: Json
-          category: string
-          description: string | null
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          id?: string
-          key: string
-          value: Json
-          category: string
-          description?: string | null
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          id?: string
-          key?: string
-          value?: Json
-          category?: string
-          description?: string | null
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
       user_roles: {
         Row: {
           assigned_at: string | null
@@ -415,14 +330,18 @@ export type Database = {
         }[]
       }
       get_user_role: {
-        Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"]
+        Args: { user_id_param: string }
+        Returns: string
       }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_admin: {
+        Args: { user_id_param: string }
         Returns: boolean
       }
       log_security_event: {

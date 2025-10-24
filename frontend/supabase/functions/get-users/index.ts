@@ -28,34 +28,46 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log('📥 Reading request body...');
-    const { admin_email } = await req.json();
+    console.log('📥 Validating authorization...');
     
-    console.log('👤 User requesting users:', admin_email);
-
-    // Validate that the requesting user has appropriate role
-    if (!admin_email) {
-      console.log('❌ No email provided');
+    // Get JWT from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.log('❌ No authorization header');
       return new Response(
-        JSON.stringify({ error: "Unauthorized: Email required" }),
+        JSON.stringify({ error: "Unauthorized: No authorization header" }),
         {
-          status: 403,
+          status: 401,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
     }
 
-    // Check user role from database
-    const { data: userProfile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('email', admin_email)
-      .single();
+    // Verify JWT and get user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
-    if (profileError || !userProfile) {
-      console.log('❌ User not found:', admin_email);
+    if (authError || !user) {
+      console.log('❌ Invalid token:', authError);
       return new Response(
-        JSON.stringify({ error: "Unauthorized: User not found" }),
+        JSON.stringify({ error: "Unauthorized: Invalid token" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    console.log('✅ Authenticated user:', user.id);
+
+    // Get requesting user's role from user_roles table
+    const { data: userRole, error: roleError } = await supabaseAdmin
+      .rpc('get_user_role', { user_id_param: user.id });
+
+    if (roleError || !userRole) {
+      console.log('❌ Failed to get user role:', roleError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Could not verify user role" }),
         {
           status: 403,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -64,8 +76,8 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Only managers and admins can view users
-    if (!['admin', 'manager'].includes(userProfile.role)) {
-      console.log('❌ Unauthorized user list request - role:', userProfile.role);
+    if (!['admin', 'manager'].includes(userRole)) {
+      console.log('❌ Unauthorized user list request - role:', userRole);
       return new Response(
         JSON.stringify({ error: "Unauthorized: Only admins and managers can view users" }),
         {
@@ -74,6 +86,8 @@ const handler = async (req: Request): Promise<Response> => {
         }
       );
     }
+
+    console.log('✅ User authorized with role:', userRole);
 
     // Fetch all users using service role (bypasses RLS)
     console.log('👥 Fetching all users...');

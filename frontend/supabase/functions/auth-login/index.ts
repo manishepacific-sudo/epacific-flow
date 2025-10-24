@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,6 +8,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Credentials": "true",
 };
+
+const LoginSchema = z.object({
+  email: z.string().email().max(255),
+  password: z.string().min(8).max(128)
+});
 
 const handler = async (req: Request): Promise<Response> => {
   console.log('🚀 Auth-login handler started');
@@ -18,7 +24,18 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     console.log('📥 Reading request body...');
-    const { email, password } = await req.json();
+    const body = await req.json();
+    
+    // Validate input
+    const validation = LoginSchema.safeParse(body);
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ error: "Invalid input", details: validation.error.errors }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const { email, password } = validation.data;
     console.log('✅ Parsed credentials for:', email);
 
     // Initialize Supabase client for real authentication

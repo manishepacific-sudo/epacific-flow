@@ -1,10 +1,22 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const SetPasswordSchema = z.object({
+  token: z.string().uuid(),
+  password: z.string().min(8).max(128)
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character")
+    .optional(),
+  validate_only: z.boolean().optional()
+});
 
 interface SetPasswordRequest {
   token: string;
@@ -19,22 +31,26 @@ serve(async (req: Request): Promise<Response> => {
 
   try {
     console.log("🚀 Set-password-with-token function started");
-    const { token, password, validate_only }: SetPasswordRequest = await req.json();
+    const body = await req.json();
     
-    console.log("🔍 Received token:", token ? `${token.substring(0, 8)}...` : "MISSING");
-    console.log("🔍 Validate only:", validate_only);
-    console.log("🔍 Password provided:", !!password);
-
-    if (!token) {
-      console.error("❌ No token provided in request body");
+    // Validate input
+    const validation = SetPasswordSchema.safeParse(body);
+    if (!validation.success) {
       return new Response(
         JSON.stringify({ 
-          success: false, 
-          error: "Token is required" 
+          success: false,
+          error: "Invalid input", 
+          details: validation.error.errors 
         }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
+    
+    const { token, password, validate_only } = validation.data;
+    
+    console.log("🔍 Received token:", token ? `${token.substring(0, 8)}...` : "MISSING");
+    console.log("🔍 Validate only:", validate_only);
+    console.log("🔍 Password provided:", !!password);
 
     if (!validate_only && !password) {
       return new Response(

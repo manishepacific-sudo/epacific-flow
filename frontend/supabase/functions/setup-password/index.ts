@@ -1,10 +1,21 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const SetPasswordSchema = z.object({
+  token: z.string().uuid(),
+  email: z.string().email().max(255),
+  password: z.string().min(8).max(128)
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character")
+});
 
 interface SetupPasswordRequest {
   token: string;
@@ -18,11 +29,22 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { token, email, password }: SetupPasswordRequest = await req.json();
-
-    if (!token || !email || !password) {
-      throw new Error("Token, email, and password are required");
+    const body = await req.json();
+    
+    // Validate input
+    const validation = SetPasswordSchema.safeParse(body);
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: "Invalid input", 
+          details: validation.error.errors 
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
+    
+    const { token, email, password } = validation.data;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
