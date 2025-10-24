@@ -311,10 +311,7 @@ export type Database = {
         }
         Returns: undefined
       }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_current_user_role: { Args: never; Returns: string }
       get_notifications_for_role: {
         Args: { target_role_param: string }
         Returns: {
@@ -329,7 +326,8 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_user_role: {
+      get_user_role: { Args: { user_id_param: string }; Returns: string }
+      get_user_role_for_notifications: {
         Args: { user_id_param: string }
         Returns: string
       }
@@ -340,10 +338,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_admin: {
-        Args: { user_id_param: string }
-        Returns: boolean
-      }
+      is_admin: { Args: { user_id_param: string }; Returns: boolean }
       log_security_event: {
         Args: {
           details_param?: Json
