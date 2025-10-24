@@ -32,6 +32,7 @@ const AttendancePage = lazy(() => import("./pages/AttendancePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AttendanceManagementPage = lazy(() => import("./pages/AttendanceManagementPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ReportDetailPage = lazy(() => import("./pages/ReportDetailPage"));
 
 // Create role-guarded components
 const GuardedUserDashboard = withRoleGuard(UserDashboard, 'user');
@@ -44,6 +45,7 @@ const GuardedSettingsPage = withRoleGuard(SettingsPage, 'admin');
 const GuardedPaymentsManagement = withRoleGuard(PaymentsManagementPage, ['admin', 'manager']);
 const GuardedReportUpload = withRoleGuard(ReportUpload, 'user');
 const GuardedUserProfile = withRoleGuard(UserProfilePage, 'admin');
+const GuardedReportDetail = withRoleGuard(ReportDetailPage, ['admin', 'manager', 'user']);
 
 const queryClient = new QueryClient();
 
@@ -125,6 +127,8 @@ const App = () => {
               } />
               
               <Route path="/user-profile/:userId" element={<GuardedUserProfile />} />
+              
+              <Route path="/report/:reportId" element={<GuardedReportDetail />} />
               
               {/* Root redirect and 404 */}
               <Route path="/" element={

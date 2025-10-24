@@ -58,7 +58,18 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: reports, error } = await supabaseAdmin
       .from('reports')
       .select(`
-        *,
+        id,
+        title,
+        description,
+        amount,
+        attachment_url,
+        status,
+        created_at,
+        report_date,
+        updated_at,
+        user_id,
+        manager_notes,
+        rejection_message,
         profiles (
           full_name,
           email,

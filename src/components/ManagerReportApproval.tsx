@@ -20,16 +20,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { notifyReportRejected } from "@/utils/notifications";
 import { downloadFileFromStorage } from '@/utils/fileDownload';
+import { DBReport } from "@/types";
 
-interface Report {
-  id: string;
-  title: string;
-  description: string;
-  amount: number;
-  attachment_url: string;
-  status: string;
-  created_at: string;
-  user_id: string;
+interface ReportWithProfile extends DBReport {
   profiles?: {
     full_name: string;
     email: string;
@@ -37,7 +30,7 @@ interface Report {
 }
 
 export default function ManagerReportApproval() {
-  const [reports, setReports] = useState<Report[]>([]);
+  const [reports, setReports] = useState<ReportWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [rejectionNotes, setRejectionNotes] = useState<{ [key: string]: string }>({});
@@ -62,7 +55,7 @@ export default function ManagerReportApproval() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setReports((data || []) as unknown as Report[]);
+      setReports((data || []) as unknown as ReportWithProfile[]);
     } catch (error) {
       console.error('Error fetching reports:', error);
       toast({

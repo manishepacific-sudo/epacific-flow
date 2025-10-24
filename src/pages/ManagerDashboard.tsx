@@ -13,7 +13,8 @@ import {
   Download,
   RefreshCw,
   MoreVertical,
-  CheckCircle
+  CheckCircle,
+  Info
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -28,6 +29,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 
 interface DashboardStats {
   totalUsers: number;
@@ -38,11 +41,21 @@ interface DashboardStats {
 
 interface Report {
   id: string;
+  user_id: string;
   title: string;
+  description?: string;
+  amount?: number;
   status: string;
   created_at: string;
+  updated_at: string;
+  attachment_url?: string;
+  rejection_message?: string;
+  manager_notes?: string;
   profiles?: {
     full_name: string;
+    email: string;
+    mobile_number: string;
+    station_id: string;
   } | null;
 }
 
@@ -75,6 +88,8 @@ export default function ManagerDashboard() {
   const [reports, setReports] = useState<Report[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [testingNotifications, setTestingNotifications] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   const isMobile = useIsMobile();
 
@@ -100,12 +115,26 @@ export default function ManagerDashboard() {
       if (usersRes?.error || reportsRes?.error || paymentsRes?.error) {
         const [fallbackUsersRes, fallbackReportsRes, fallbackPaymentsRes] = await Promise.all([
           supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-          supabase.from("reports").select("*, profiles(full_name)").order("created_at", { ascending: false }),
+          supabase.from("reports").select("*, profiles(full_name, email, mobile_number, station_id)").order("created_at", { ascending: false }),
           supabase.from("payments").select("*, profiles(full_name)").order("created_at", { ascending: false })
         ]);
 
         usersData = (fallbackUsersRes as any).data || [];
-        reportsData = ((fallbackReportsRes as any).data || []) as Report[];
+        
+        // Handle reports data with fallback
+        if ((fallbackReportsRes as any).error) {
+          const error = (fallbackReportsRes as any).error;
+          if (error?.message?.includes('does not exist') || 
+              error?.message?.includes('schema cache')) {
+            console.warn('Reports table not found, using empty reports data');
+            reportsData = [];
+          } else {
+            reportsData = [];
+          }
+        } else {
+          reportsData = ((fallbackReportsRes as any).data || []) as Report[];
+        }
+        
         paymentsData = ((fallbackPaymentsRes as any).data || []) as Payment[];
       } else {
         // parse function responses (shape may differ depending on your function code)
@@ -180,6 +209,34 @@ export default function ManagerDashboard() {
       });
     } finally {
       setTestingNotifications(false);
+    }
+  };
+
+  const handleViewReportDetails = (report: Report) => {
+    setSelectedReport(report);
+    setReportDialogOpen(true);
+  };
+
+  const handleViewFile = async (url?: string) => {
+    if (!url) {
+      toast({
+        title: "Error",
+        description: "No file available to view",
+        variant: "destructive"
+      });
+      return;
+    }
+    try {
+      const { data, error } = await supabase.storage.from('report-attachments').createSignedUrl(url, 3600);
+      if (error || !data?.signedUrl) throw error || new Error('Failed to create signed URL');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error viewing file:', error);
+      toast({
+        title: "Error",
+        description: "Could not open the file. Please check your permissions.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -361,33 +418,28 @@ export default function ManagerDashboard() {
                           </div>
                         </div>
                       </CardContent>
-                      <CardFooter className="p-4 pt-0">
+                       <CardFooter className="p-4 pt-0">
                         <div className="flex items-center gap-2 w-full">
-                          <Button variant="outline" size="sm" className="flex-1">
-                            <Eye className="h-3 w-3 mr-2" />
-                            View
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleViewReportDetails(report)}
+                          >
+                            <Info className="h-3 w-3 mr-2" />
+                            Details
                           </Button>
-                          <Button variant="outline" size="sm" className="flex-1">
-                            <Download className="h-3 w-3 mr-2" />
-                            Download
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem className="text-success">
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Approve
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Reject
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          {report.attachment_url && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={() => handleViewFile(report.attachment_url)}
+                            >
+                              <Eye className="h-3 w-3 mr-2" />
+                              View File
+                            </Button>
+                          )}
                         </div>
                       </CardFooter>
                     </Card>
@@ -430,12 +482,22 @@ export default function ManagerDashboard() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="icon">
-                              <Eye className="h-4 w-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleViewReportDetails(report)}
+                            >
+                              <Info className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon">
-                              <Download className="h-4 w-4" />
-                            </Button>
+                            {report.attachment_url && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => handleViewFile(report.attachment_url)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">
@@ -607,6 +669,119 @@ export default function ManagerDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Report Detail Dialog */}
+        <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Report Details</DialogTitle>
+            </DialogHeader>
+            {selectedReport && (
+              <div className="space-y-4">
+                {/* User Information */}
+                {selectedReport.profiles && (
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">User Information</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Name:</span>
+                        <p className="font-medium">{selectedReport.profiles.full_name}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Email:</span>
+                        <p className="font-medium">{selectedReport.profiles.email}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Mobile:</span>
+                        <p className="font-medium">{selectedReport.profiles.mobile_number}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Station ID:</span>
+                        <p className="font-medium">{selectedReport.profiles.station_id}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Report Information */}
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Title</h3>
+                  <p className="text-lg font-semibold">{selectedReport.title}</p>
+                </div>
+
+                {selectedReport.description && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Description</h3>
+                    <p className="text-sm">{selectedReport.description}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Status</h3>
+                    <Badge variant={
+                      selectedReport.status === 'approved' ? 'default' : 
+                      selectedReport.status === 'rejected' ? 'destructive' : 
+                      'secondary'
+                    }>
+                      {selectedReport.status}
+                    </Badge>
+                  </div>
+
+                  {selectedReport.amount && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Amount</h3>
+                      <p className="text-sm font-semibold">₹{selectedReport.amount.toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Submitted On</h3>
+                    <p className="text-sm">{new Date(selectedReport.created_at).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Last Updated</h3>
+                    <p className="text-sm">{new Date(selectedReport.updated_at).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {selectedReport.rejection_message && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                    <h3 className="text-sm font-medium text-destructive mb-1">Rejection Reason</h3>
+                    <p className="text-sm">{selectedReport.rejection_message}</p>
+                  </div>
+                )}
+
+                {selectedReport.manager_notes && (
+                  <div className="bg-muted/50 border rounded-lg p-3">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Manager Notes</h3>
+                    <p className="text-sm">{selectedReport.manager_notes}</p>
+                  </div>
+                )}
+
+                <Separator />
+
+                {selectedReport.attachment_url && (
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => handleViewFile(selectedReport.attachment_url)}
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Attachment
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

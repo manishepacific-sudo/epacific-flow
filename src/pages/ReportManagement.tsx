@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import * as XLSX from 'xlsx';
 import { downloadFileFromStorage } from '@/utils/fileDownload';
+import { useNavigate } from "react-router-dom";
 
 interface Report {
   id: string;
@@ -39,6 +40,7 @@ interface Report {
 export default function ReportManagement() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const role = profile?.role as 'admin' | 'manager';
 
   const [reports, setReports] = useState<Report[]>([]);
@@ -102,8 +104,18 @@ export default function ReportManagement() {
           `)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        reportsData = data;
+        if (error) {
+          // If reports table doesn't exist, return empty data
+          if (error.message?.includes('does not exist') || 
+              error.message?.includes('schema cache')) {
+            console.warn('Reports table not found, returning empty reports data');
+            reportsData = [];
+          } else {
+            throw error;
+          }
+        } else {
+          reportsData = data;
+        }
       } else {
         reportsData = edgeData.reports;
       }
@@ -487,11 +499,20 @@ export default function ReportManagement() {
                               </DialogContent>
                             </Dialog>
                             
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => navigate(`/report/${report.id}`)}
+                              title="View Full Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             {report.attachment_url && (
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => handleDownloadReport(report.attachment_url, report.title || `report-${report.id}`)}
+                                title="Download Report"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>

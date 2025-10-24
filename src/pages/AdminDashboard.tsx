@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import { downloadFileFromStorage } from '@/utils/fileDownload';
 import ErrorBoundary from "@/components/ErrorBoundary";
+import AttendanceAnalytics from "@/components/AttendanceAnalytics";
 
 interface DashboardStats {
   totalUsers: number;
@@ -505,6 +506,15 @@ export default function AdminDashboard(): JSX.Element {
               )}
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* Attendance Analytics Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <AttendanceAnalytics />
         </motion.div>
       </div>
     </Layout>

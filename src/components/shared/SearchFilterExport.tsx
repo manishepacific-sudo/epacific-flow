@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Search, Filter, Download, Calendar, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,7 @@ export interface SearchFilterExportProps {
     registrar: string;
     status: string;
     dateRange: { from: Date | null; to: Date | null };
+    useReportDate: boolean;
     [key: string]: any;
   };
   onFiltersChange: (filters: any) => void;
@@ -70,7 +72,8 @@ export default function SearchFilterExport({
       role: 'all',
       registrar: 'all',
       status: 'all',
-      dateRange: { from: null, to: null }
+      dateRange: { from: null, to: null },
+      useReportDate: false
     };
     
     // Clear additional filters
@@ -208,6 +211,23 @@ export default function SearchFilterExport({
                   </Select>
                 </div>
               ))}
+
+              {/* Date Filter Type Toggle */}
+              <div className="space-y-2">
+                <Label>Filter by:</Label>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="date-filter-type"
+                    checked={filters.useReportDate}
+                    onCheckedChange={(checked) => 
+                      onFiltersChange({ ...filters, useReportDate: checked })
+                    }
+                  />
+                  <Label htmlFor="date-filter-type" className="text-sm">
+                    {filters.useReportDate ? 'Report Date' : 'Created Date'}
+                  </Label>
+                </div>
+              </div>
 
               {/* Date Range Filter */}
               <div className="space-y-2">

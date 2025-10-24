@@ -25,8 +25,14 @@ interface AttendanceRecord {
   location_longitude: number;
   location_address: string;
   attendance_date: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending_approval' | 'approved' | 'rejected' | 'checked_in' | 'checked_out';
   manager_notes?: string;
+  check_in_time?: string;
+  check_out_time?: string;
+  city?: string;
+  remarks?: string;
+  geofence_valid: boolean;
+  distance_from_office?: number;
   created_at: string;
   updated_at: string;
   profiles: {
@@ -39,16 +45,27 @@ interface AttendanceRecord {
 }
 
 const filterConfig = {
-  statuses: ['pending', 'approved', 'rejected'],
+  statuses: ['pending_approval', 'approved', 'rejected', 'checked_in', 'checked_out'],
   additionalFilters: [
     {
       key: 'approval',
       label: 'Approval Status',
       options: [
         { label: 'All', value: 'all' },
-        { label: 'Pending', value: 'pending' },
+        { label: 'Pending Approval', value: 'pending_approval' },
         { label: 'Approved', value: 'approved' },
         { label: 'Rejected', value: 'rejected' },
+        { label: 'Checked In', value: 'checked_in' },
+        { label: 'Checked Out', value: 'checked_out' },
+      ],
+    },
+    {
+      key: 'geofence',
+      label: 'Location Status',
+      options: [
+        { label: 'All', value: 'all' },
+        { label: 'Valid Location', value: 'valid' },
+        { label: 'Invalid Location', value: 'invalid' },
       ],
     },
   ],
@@ -67,6 +84,7 @@ export default function AttendanceManagementPage() {
     registrar: '',
     status: '',
     approval: '',
+    geofence: '',
     dateRange: { from: null, to: null },
   });
 
@@ -88,8 +106,18 @@ export default function AttendanceManagementPage() {
           .select('*, profiles(full_name, email, mobile_number, center_address, registrar)')
           .order('created_at', { ascending: false });
 
-        if (queryError) throw queryError;
-        data = queryData;
+        if (queryError) {
+          // If attendance table doesn't exist, return empty data
+          if (queryError.message?.includes('does not exist') || 
+              queryError.message?.includes('schema cache')) {
+            console.warn('Attendance table not found, returning empty attendance data');
+            data = [];
+          } else {
+            throw queryError;
+          }
+        } else {
+          data = queryData;
+        }
       }
 
       setAttendance(data || []);
@@ -261,13 +289,20 @@ export default function AttendanceManagementPage() {
       !searchValue ||
       record.profiles.full_name.toLowerCase().includes(searchValue.toLowerCase()) ||
       record.profiles.email.toLowerCase().includes(searchValue.toLowerCase()) ||
-      record.location_address.toLowerCase().includes(searchValue.toLowerCase());
+      record.location_address.toLowerCase().includes(searchValue.toLowerCase()) ||
+      (record.city && record.city.toLowerCase().includes(searchValue.toLowerCase()));
 
     const statusMatch =
       !filters.status || record.status === filters.status;
 
     const approvalMatch =
       !filters.approval || filters.approval === 'all' || record.status === filters.approval;
+
+    const geofenceMatch =
+      !filters.geofence || 
+      filters.geofence === 'all' || 
+      (filters.geofence === 'valid' && record.geofence_valid) ||
+      (filters.geofence === 'invalid' && !record.geofence_valid);
 
     const registrarMatch =
       !filters.registrar || record.profiles.registrar === filters.registrar;
@@ -278,7 +313,7 @@ export default function AttendanceManagementPage() {
       (!filters.dateRange.to ||
         new Date(record.attendance_date) <= new Date(filters.dateRange.to));
 
-    return searchMatch && statusMatch && approvalMatch && registrarMatch && dateMatch;
+    return searchMatch && statusMatch && approvalMatch && geofenceMatch && registrarMatch && dateMatch;
   });
 
   const exportToExcel = () => {
@@ -288,8 +323,13 @@ export default function AttendanceManagementPage() {
         'Email': record.profiles.email,
         'Registrar': record.profiles.registrar,
         'Date': format(new Date(record.attendance_date), 'yyyy-MM-dd'),
+        'Check-in Time': record.check_in_time ? format(new Date(record.check_in_time), 'HH:mm:ss') : '',
+        'Check-out Time': record.check_out_time ? format(new Date(record.check_out_time), 'HH:mm:ss') : '',
         'Location': record.location_address,
+        'City': record.city || '',
         'Status': record.status,
+        'Geofence Valid': record.geofence_valid ? 'Yes' : 'No',
+        'Distance from Office': record.distance_from_office ? `${Math.round(record.distance_from_office)}m` : '',
         'Manager Notes': record.manager_notes || '',
         'Created Date': format(new Date(record.created_at), 'yyyy-MM-dd HH:mm:ss'),
       }));
@@ -318,8 +358,14 @@ export default function AttendanceManagementPage() {
         return <Badge variant="success">Approved</Badge>;
       case 'rejected':
         return <Badge variant="destructive">Rejected</Badge>;
-      default:
+      case 'checked_in':
+        return <Badge variant="secondary">Checked In</Badge>;
+      case 'checked_out':
+        return <Badge variant="default">Complete</Badge>;
+      case 'pending_approval':
         return <Badge variant="secondary">Pending</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
@@ -329,6 +375,12 @@ export default function AttendanceManagementPage() {
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'rejected':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'checked_in':
+        return <CheckCircle2 className="h-4 w-4 text-blue-500" />;
+      case 'checked_out':
+        return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      case 'pending_approval':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
     }
@@ -451,15 +503,52 @@ export default function AttendanceManagementPage() {
                           <p className="text-lg font-bold text-white">{format(new Date(record.attendance_date), 'MMM dd, yyyy')}</p>
                         </div>
                         <div className="space-y-2 text-sm">
+                          {/* Check-in/Check-out Times */}
+                          {(record.check_in_time || record.check_out_time) && (
+                            <div className="space-y-1">
+                              {record.check_in_time && (
+                                <div className="flex items-center gap-2">
+                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                  <span className="text-muted-foreground">Check-in:</span>
+                                  <span className="ml-auto">{format(new Date(record.check_in_time), 'HH:mm')}</span>
+                                </div>
+                              )}
+                              {record.check_out_time && (
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-blue-500" />
+                                  <span className="text-muted-foreground">Check-out:</span>
+                                  <span className="ml-auto">{format(new Date(record.check_out_time), 'HH:mm')}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
                           <div className="flex items-start gap-2">
                             <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                             <div className="flex-1 min-w-0">
                               <p className="text-muted-foreground text-xs mb-1">Location:</p>
+                              {record.city && (
+                                <p className="text-sm font-semibold text-primary mb-1">📍 {record.city}</p>
+                              )}
                               <p className="text-sm truncate" title={record.location_address}>{record.location_address}</p>
                               <p className="text-xs text-muted-foreground mt-1">
                                 {record.location_latitude.toFixed(6)}, {record.location_longitude.toFixed(6)}
                               </p>
                             </div>
+                          </div>
+                          
+                          {/* Geofencing Status */}
+                          <div className="flex items-center gap-2">
+                            {record.geofence_valid ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            )}
+                            <span className="text-muted-foreground">Location:</span>
+                            <span className="ml-auto text-xs">
+                              {record.geofence_valid ? 'Valid' : 'Invalid'}
+                              {record.distance_from_office && ` (${Math.round(record.distance_from_office)}m)`}
+                            </span>
                           </div>
                           
                           {record.profiles?.registrar && (
@@ -516,7 +605,7 @@ export default function AttendanceManagementPage() {
                           </Button>
                         )}
                         
-                        {record.status === 'pending' && (
+                        {record.status === 'pending_approval' && (
                           <>
                             <Button
                               variant="default"
@@ -614,6 +703,9 @@ export default function AttendanceManagementPage() {
                           <div className="flex items-start gap-2 max-w-[200px]">
                             <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                             <div className="min-w-0">
+                              {record.city && (
+                                <p className="text-sm font-semibold text-primary mb-1">📍 {record.city}</p>
+                              )}
                               <p className="truncate text-sm" title={record.location_address}>
                                 {record.location_address}
                               </p>
@@ -658,7 +750,7 @@ export default function AttendanceManagementPage() {
                                 <Edit className="h-4 w-4" />
                               </Button>
                             )}
-                            {record.status === 'pending' && (
+                            {record.status === 'pending_approval' && (
                               <>
                                 <Button
                                   variant="ghost"

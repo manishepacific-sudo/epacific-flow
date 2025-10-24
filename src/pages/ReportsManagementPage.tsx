@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { FileText, CheckCircle2, XCircle, Clock, Download, Edit, Trash2, User, Building, Calendar, RefreshCw, Check, X } from "lucide-react";
+import { FileText, CheckCircle2, XCircle, Clock, Download, Edit, Trash2, User, Building, Calendar, RefreshCw, Check, X, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Layout from "@/components/Layout";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -13,13 +13,15 @@ import { Badge } from "@/components/ui/badge";
 import SearchFilterExport, { FilterConfig } from "@/components/shared/SearchFilterExport";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
 import { downloadFileFromStorage } from '@/utils/fileDownload';
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { DBReport } from "@/types";
 
 interface Profile {
   full_name: string;
@@ -29,18 +31,7 @@ interface Profile {
   registrar: string;
 }
 
-interface Report {
-  id: string;
-  title: string;
-  description: string;
-  amount: number;
-  attachment_url: string;
-  status: 'pending' | 'approved' | 'rejected';
-  created_at: string;
-  user_id: string;
-  manager_notes?: string;
-  rejection_message?: string;
-  updated_at: string;
+interface ReportWithProfile extends DBReport {
   profiles?: Profile | null;
 }
 
@@ -53,31 +44,37 @@ interface Filters {
     from: Date | null;
     to: Date | null;
   };
+  useReportDate: boolean;
 }
 
-interface ReportData {
-  amount: number;
-  attachment_url: string;
-  created_at: string;
-  description: string;
-  id: string;
-  manager_notes: string;
-  rejection_message: string;
-  status: string;
-  title: string;
-  updated_at: string;
-  user_id: string;
-  profiles?: Profile | null;
-}
 
 export default function ReportsManagementPage() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const role = profile?.role as 'admin' | 'manager';
   const isMobile = useIsMobile();
   
+  // Safe date parsing utility
+  const safeFormatDate = (d?: string | Date, fmt = 'MMM dd, yyyy') => {
+    if (!d) return null;
+    
+    // Handle date-only strings (YYYY-MM-DD) to prevent timezone shifts
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      try {
+        const parsed = parse(d, 'yyyy-MM-dd', new Date());
+        return isNaN(parsed.getTime()) ? null : format(parsed, fmt);
+      } catch {
+        return null;
+      }
+    }
+    
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? null : format(dt, fmt);
+  };
+  
   // State management
-  const [reports, setReports] = useState<Report[]>([]);
+  const [reports, setReports] = useState<ReportWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingReports, setProcessingReports] = useState<Set<string>>(new Set());
   const [searchValue, setSearchValue] = useState('');
@@ -86,9 +83,10 @@ export default function ReportsManagementPage() {
     registrar: 'all',
     status: 'all',
     approval: 'all',
-    dateRange: { from: null, to: null }
+    dateRange: { from: null, to: null },
+    useReportDate: false
   });
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [selectedReport, setSelectedReport] = useState<ReportWithProfile | null>(null);
   const [managerNotes, setManagerNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -116,13 +114,24 @@ export default function ReportsManagementPage() {
         body: { admin_email: profile?.email }
       });
 
-      let reportsData: Report[];
+      let reportsData: ReportWithProfile[];
       if (edgeError) {
         // Fallback to direct query with profiles relationship
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('reports')
           .select(`
-            *,
+            id,
+            title,
+            description,
+            amount,
+            attachment_url,
+            status,
+            created_at,
+            report_date,
+            updated_at,
+            user_id,
+            manager_notes,
+            rejection_message,
             profiles (
               full_name,
               email,
@@ -137,22 +146,46 @@ export default function ReportsManagementPage() {
           // If profiles relationship still fails, fetch reports only
           const { data: reportsOnly, error: reportsError } = await supabase
             .from('reports')
-            .select('*')
+            .select(`
+              id,
+              title,
+              description,
+              amount,
+              attachment_url,
+              status,
+              created_at,
+              report_date,
+              updated_at,
+              user_id,
+              manager_notes,
+              rejection_message
+            `)
             .order('created_at', { ascending: false });
           
-          if (reportsError) throw reportsError;
-          reportsData = (reportsOnly || []).map((r: ReportData) => ({
-            ...r,
-            status: r.status as 'pending' | 'approved' | 'rejected'
-          }));
+          if (reportsError) {
+            // If reports table doesn't exist, return empty data
+            if (reportsError.message?.includes('does not exist') || 
+                reportsError.message?.includes('schema cache')) {
+              console.warn('Reports table not found, returning empty reports data');
+              reportsData = [];
+            } else {
+              throw reportsError;
+            }
+          } else {
+            reportsData = (reportsOnly || []).map((r: any) => ({
+              ...r,
+              status: r.status as 'pending' | 'approved' | 'rejected'
+            }));
+          }
         } else {
-          reportsData = (fallbackData || []).map((r: ReportData) => ({
+          reportsData = (fallbackData || []).map((r: any) => ({
             ...r,
             status: r.status as 'pending' | 'approved' | 'rejected'
           }));
         }
       } else {
-        reportsData = (edgeData?.reports || []).map((r: ReportData) => ({
+        // Edge function now includes report_date consistently
+        reportsData = (edgeData?.reports || []).map((r: any) => ({
           ...r,
           status: r.status as 'pending' | 'approved' | 'rejected'
         }));
@@ -171,55 +204,6 @@ export default function ReportsManagementPage() {
     }
   }, [profile?.email, toast]);
 
-  const processReports = (reports: Report[]) => {
-    return reports.filter(report => {
-      // Search filter
-      if (searchValue) {
-        const searchLower = searchValue.toLowerCase();
-        const searchMatches = 
-          report.title.toLowerCase().includes(searchLower) ||
-          report.description.toLowerCase().includes(searchLower) ||
-          report.profiles?.full_name?.toLowerCase().includes(searchLower) ||
-          report.profiles?.email?.toLowerCase().includes(searchLower) ||
-          report.profiles?.mobile_number?.includes(searchValue);
-        
-        if (!searchMatches) return false;
-      }
-
-      // Status filter
-      if (filters.status !== 'all' && report.status !== filters.status) {
-        return false;
-      }
-
-      // Registrar filter
-      if (filters.registrar !== 'all' && report.profiles?.registrar !== filters.registrar) {
-        return false;
-      }
-
-      // Approval filter
-      if (filters.approval !== 'all') {
-        if (filters.approval === 'pending' && report.status !== 'pending') return false;
-        if (filters.approval === 'approved' && report.status !== 'approved') return false;
-        if (filters.approval === 'rejected' && report.status !== 'rejected') return false;
-      }
-
-      // Date range filter
-      if (filters.dateRange.from || filters.dateRange.to) {
-        const reportDate = new Date(report.created_at);
-        
-        if (filters.dateRange.from && reportDate < filters.dateRange.from) {
-          return false;
-        }
-        if (filters.dateRange.to) {
-          const endDate = new Date(filters.dateRange.to);
-          endDate.setHours(23, 59, 59, 999); // Include the entire day
-          if (reportDate > endDate) return false;
-        }
-      }
-
-      return true;
-    });
-  };
 
   useEffect(() => {
     fetchReports();
@@ -295,7 +279,7 @@ export default function ReportsManagementPage() {
   };
 
   const exportToExcel = (type: 'all' | 'filtered' | 'active' | 'inactive' | 'date-range') => {
-    let dataToExport: Report[] = [];
+    let dataToExport: ReportWithProfile[] = [];
     let filename = 'reports-export';
 
     switch (type) {
@@ -327,12 +311,13 @@ export default function ReportsManagementPage() {
       'User Name': report.profiles?.full_name || 'N/A',
       'User Email': report.profiles?.email || 'N/A',
       'Registrar': report.profiles?.registrar || 'N/A',
-      'Amount': report.amount || 'N/A',
+      'Report Date': safeFormatDate(report.report_date, 'yyyy-MM-dd') || '',
+      'Amount': report.amount ?? 0,
       'Status': report.status,
       'Manager Notes': report.manager_notes || 'N/A',
       'Rejection Message': report.rejection_message || 'N/A',
-      'Created Date': format(new Date(report.created_at), 'yyyy-MM-dd HH:mm:ss'),
-      'Updated Date': format(new Date(report.updated_at), 'yyyy-MM-dd HH:mm:ss')
+      'Created Date': safeFormatDate(report.created_at, 'yyyy-MM-dd HH:mm:ss') || '',
+      'Updated Date': safeFormatDate(report.updated_at, 'yyyy-MM-dd HH:mm:ss') || ''
     }));
 
     // Create and style the worksheet
@@ -346,9 +331,8 @@ export default function ReportsManagementPage() {
       { wch: 35 }, // Description
       { wch: 20 }, // User Name
       { wch: 25 }, // User Email
-      { wch: 25 }, // Center Address
       { wch: 15 }, // Registrar
-      { wch: 15 }, // Mobile Number
+      { wch: 15 }, // Report Date
       { wch: 12 }, // Amount
       { wch: 10 }, // Status
       { wch: 25 }, // Manager Notes
@@ -408,16 +392,32 @@ export default function ReportsManagementPage() {
 
     // Status filter
     if (filters.status !== 'all' && report.status !== filters.status) return false;
+
+    // Approval filter (separate from status filter)
     if (filters.approval !== 'all' && report.status !== filters.approval) return false;
 
     // Registrar filter
     if (filters.registrar !== 'all' && report.profiles?.registrar !== filters.registrar) return false;
 
-    // Date range filter
-    if (filters.dateRange.from) {
-      const reportDate = new Date(report.created_at);
-      if (reportDate < filters.dateRange.from) return false;
-      if (filters.dateRange.to && reportDate > filters.dateRange.to) return false;
+    // Date range filter - using report_date or created_at based on toggle
+    if (filters.dateRange.from || filters.dateRange.to) {
+      const dateToFilter = filters.useReportDate ? report.report_date : report.created_at;
+      
+      // If filtering by report_date but report_date is null, skip this report
+      if (filters.useReportDate && !dateToFilter) {
+        return false;
+      }
+      
+      const reportDate = new Date(dateToFilter);
+      
+      if (filters.dateRange.from && reportDate < filters.dateRange.from) {
+        return false;
+      }
+      if (filters.dateRange.to) {
+        const endDate = new Date(filters.dateRange.to);
+        endDate.setHours(23, 59, 59, 999); // Include the entire day
+        if (reportDate > endDate) return false;
+      }
     }
 
     return true;
@@ -593,6 +593,12 @@ export default function ReportsManagementPage() {
                         <CardContent className="flex-1 py-2 overflow-hidden">
                           <div className="text-sm line-clamp-2 mb-2 break-words overflow-hidden">{report.description}</div>
                           <div className="text-xs text-muted-foreground">Amount: ₹{report.amount?.toLocaleString()}</div>
+                          {report.report_date && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                              <Calendar className="h-3 w-3" />
+                              Report Date: {safeFormatDate(report.report_date) || 'N/A'}
+                            </div>
+                          )}
                         </CardContent>
                         <CardFooter className="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-2">
                           {report.status === 'pending' ? (
@@ -625,15 +631,25 @@ export default function ReportsManagementPage() {
                               Status: {getStatusBadge(report.status)}
                             </div>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownloadReport(report.attachment_url, report.title)}
-                            disabled={!report.attachment_url}
-                            className="w-full sm:w-auto"
-                          >
-                            <Download className="h-4 w-4 mr-1" /> Download
-                          </Button>
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/report/${report.id}`)}
+                              className="flex-1 sm:flex-none"
+                            >
+                              <Eye className="h-4 w-4 mr-1" /> View Details
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDownloadReport(report.attachment_url, report.title)}
+                              disabled={!report.attachment_url}
+                              className="flex-1 sm:flex-none"
+                            >
+                              <Download className="h-4 w-4 mr-1" /> Download
+                            </Button>
+                          </div>
                         </CardFooter>
                       </Card>
                     ))}
@@ -655,6 +671,7 @@ export default function ReportsManagementPage() {
                           <TableHead>Registrar</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead>Report Date</TableHead>
                           <TableHead>Created</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -683,9 +700,17 @@ export default function ReportsManagementPage() {
                             <TableCell>₹{report.amount?.toLocaleString()}</TableCell>
                             <TableCell>{getStatusIcon(report.status)}</TableCell>
                             <TableCell>
+                              {report.report_date ? (
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {safeFormatDate(report.report_date) || 'N/A'}
+                                </div>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell>
                               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                 <Calendar className="h-3 w-3" />
-                                {format(new Date(report.created_at), 'MMM dd, yyyy')}
+                                {safeFormatDate(report.created_at) || 'N/A'}
                               </div>
                             </TableCell>
                             <TableCell className="text-right">
@@ -717,6 +742,16 @@ export default function ReportsManagementPage() {
                                     </Button>
                                   </>
                                 )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => navigate(`/report/${report.id}`)}
+                                  title="View Report Details"
+                                  aria-label={`View details for report ${report.title}`}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  <span className="hidden sm:inline ml-2">View</span>
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"

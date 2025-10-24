@@ -13,9 +13,25 @@ export interface Report {
   fileUrl: string;
   filename: string;
   reportDate: string;
+  report_date?: string;
   amount: number;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
+}
+
+export interface DBReport {
+  id: string;
+  title: string;
+  description: string;
+  amount: number;
+  attachment_url: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  report_date?: string;
+  updated_at: string;
+  user_id: string;
+  manager_notes?: string;
+  rejection_message?: string;
 }
 
 export interface Payment {
@@ -37,7 +53,14 @@ export interface Attendance {
   user?: User;
   photoUrl: string;
   attendanceDate: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending_approval' | 'approved' | 'rejected' | 'checked_in' | 'checked_out';
+  checkInTime?: string;
+  checkOutTime?: string;
+  city?: string;
+  remarks?: string;
+  geofenceValid: boolean;
+  distanceFromOffice?: number;
+  managerNotes?: string;
   createdAt: string;
 }
 
