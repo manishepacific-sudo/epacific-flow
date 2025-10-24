@@ -46,7 +46,6 @@ interface Profile {
   mobile_number: string;
   center_address: string;
   registrar: string;
-  role: string;
 }
 
 interface ReportWithProfile extends DBReport {
@@ -526,7 +525,6 @@ export default function ReportDetailPage() {
                         </Avatar>
                         <div>
                           <p className="font-medium">{report.profiles.full_name}</p>
-                          <p className="text-sm text-muted-foreground capitalize">{report.profiles.role}</p>
                         </div>
                       </div>
 

@@ -151,7 +151,6 @@ export type Database = {
           mobile_number: string
           password_set: boolean | null
           registrar: string | null
-          role: string
           station_id: string
           updated_at: string
           user_id: string
@@ -166,7 +165,6 @@ export type Database = {
           mobile_number: string
           password_set?: boolean | null
           registrar?: string | null
-          role?: string
           station_id: string
           updated_at?: string
           user_id: string
@@ -181,7 +179,6 @@ export type Database = {
           mobile_number?: string
           password_set?: boolean | null
           registrar?: string | null
-          role?: string
           station_id?: string
           updated_at?: string
           user_id?: string
