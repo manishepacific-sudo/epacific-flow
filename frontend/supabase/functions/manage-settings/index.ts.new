@@ -1,24 +1,46 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
+
+// Validation schemas
+const CreateSettingSchema = z.object({
+  category: z.string().trim().min(1).max(50).regex(/^[a-z_]+$/, 'Category must contain only lowercase letters and underscores'),
+  key: z.string().trim().min(1).max(100).regex(/^[a-z_]+$/, 'Key must contain only lowercase letters and underscores'),
+  value: z.union([
+    z.string().max(5000),
+    z.number(),
+    z.boolean(),
+    z.record(z.unknown())
+  ]).refine(val => JSON.stringify(val).length < 10000, 'Value too large'),
+  description: z.string().max(500).optional()
+})
+
+const UpdateSettingSchema = z.object({
+  category: z.string().trim().min(1).max(50).regex(/^[a-z_]+$/),
+  key: z.string().trim().min(1).max(100).regex(/^[a-z_]+$/),
+  value: z.union([
+    z.string().max(5000),
+    z.number(),
+    z.boolean(),
+    z.record(z.unknown())
+  ]).refine(val => JSON.stringify(val).length < 10000, 'Value too large'),
+  description: z.string().max(500).optional()
+})
+
+const GetSettingSchema = z.object({
+  category: z.string().trim().max(50).optional(),
+  keys: z.array(z.string().trim().max(100)).optional()
+})
+
+const DeleteSettingSchema = z.object({
+  category: z.string().trim().min(1).max(50),
+  key: z.string().trim().min(1).max(100)
+})
 
 // TypeScript interfaces
 interface ActionRequest {
   action: 'get' | 'create' | 'update' | 'delete'
   payload?: Record<string, unknown>
-}
-
-interface CreateSettingPayload {
-  category: string
-  key: string
-  value: unknown
-  description?: string
-}
-
-interface UpdateSettingPayload {
-  category: string
-  key: string
-  value: unknown
-  description?: string
 }
 
 // CORS headers
@@ -37,8 +59,20 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   }
 })
 
-async function handleGet(payload: { category?: string; keys?: string[] }) {
-  const { category, keys } = payload
+async function handleGet(payload: Record<string, unknown>) {
+  // Validate input
+  const validation = GetSettingSchema.safeParse(payload)
+  if (!validation.success) {
+    return new Response(JSON.stringify({ 
+      error: 'Invalid input',
+      details: validation.error.issues
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+
+  const { category, keys } = validation.data
   let query = supabase
     .from('system_settings')
     .select('*')
@@ -57,9 +91,7 @@ async function handleGet(payload: { category?: string; keys?: string[] }) {
   if (error) {
     return new Response(JSON.stringify({ 
       error: 'Failed to fetch settings',
-      details: error.message,
-      category,
-      keys
+      details: error.message
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -72,19 +104,20 @@ async function handleGet(payload: { category?: string; keys?: string[] }) {
   })
 }
 
-async function handlePost(payload: CreateSettingPayload, userId: string) {
-  const { category, key, value } = payload
-
-  if (!category || !key) {
+async function handlePost(payload: Record<string, unknown>, userId: string) {
+  // Validate input
+  const validation = CreateSettingSchema.safeParse(payload)
+  if (!validation.success) {
     return new Response(JSON.stringify({ 
-      error: 'Missing required fields for creating setting',
-      required: ['category', 'key'],
-      provided: { category: !!category, key: !!key }
+      error: 'Invalid input',
+      details: validation.error.issues
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
+
+  const { category, key, value, description } = validation.data
 
   const { data, error } = await supabase
     .from('system_settings')
@@ -93,7 +126,7 @@ async function handlePost(payload: CreateSettingPayload, userId: string) {
       key, 
       value, 
       updated_by: userId,
-      description: payload.description
+      description
     }])
     .select()
     .single()
@@ -101,9 +134,7 @@ async function handlePost(payload: CreateSettingPayload, userId: string) {
   if (error) {
     return new Response(JSON.stringify({ 
       error: 'Failed to create setting',
-      details: error.message,
-      category,
-      key
+      details: error.message
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -116,24 +147,25 @@ async function handlePost(payload: CreateSettingPayload, userId: string) {
   })
 }
 
-async function handlePut(payload: UpdateSettingPayload, userId: string) {
-  const { category, key, value } = payload
-
-  if (!category || !key) {
+async function handlePut(payload: Record<string, unknown>, userId: string) {
+  // Validate input
+  const validation = UpdateSettingSchema.safeParse(payload)
+  if (!validation.success) {
     return new Response(JSON.stringify({ 
-      error: 'Missing required fields for updating setting',
-      required: ['category', 'key'],
-      provided: { category: !!category, key: !!key }
+      error: 'Invalid input',
+      details: validation.error.issues
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
 
+  const { category, key, value, description } = validation.data
+
   const updateData = {
     value,
     updated_by: userId,
-    description: payload.description
+    description
   }
 
   const { data, error } = await supabase
@@ -146,9 +178,7 @@ async function handlePut(payload: UpdateSettingPayload, userId: string) {
   if (error) {
     return new Response(JSON.stringify({
       error: 'Failed to update setting',
-      details: error.message,
-      category,
-      key
+      details: error.message
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -161,19 +191,20 @@ async function handlePut(payload: UpdateSettingPayload, userId: string) {
   })
 }
 
-async function handleDelete(payload: { category: string; key: string }) {
-  const { category, key } = payload
-
-  if (!category || !key) {
+async function handleDelete(payload: Record<string, unknown>) {
+  // Validate input
+  const validation = DeleteSettingSchema.safeParse(payload)
+  if (!validation.success) {
     return new Response(JSON.stringify({ 
-      error: 'Missing required fields for deleting setting',
-      required: ['category', 'key'],
-      provided: { category: !!category, key: !!key }
+      error: 'Invalid input',
+      details: validation.error.issues
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
+
+  const { category, key } = validation.data
 
   const { data, error } = await supabase
     .from('system_settings')
@@ -185,9 +216,7 @@ async function handleDelete(payload: { category: string; key: string }) {
   if (error) {
     return new Response(JSON.stringify({
       error: 'Failed to delete setting',
-      details: error.message,
-      category,
-      key
+      details: error.message
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -196,9 +225,7 @@ async function handleDelete(payload: { category: string; key: string }) {
 
   if (!data) {
     return new Response(JSON.stringify({
-      error: 'Setting not found',
-      category,
-      key
+      error: 'Setting not found'
     }), {
       status: 404,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -266,11 +293,11 @@ serve(async (req: Request) => {
       case 'get':
         return await handleGet(payload ?? {})
       case 'create':
-        return await handlePost(payload as CreateSettingPayload, user.id)
+        return await handlePost(payload ?? {}, user.id)
       case 'update':
-        return await handlePut(payload as UpdateSettingPayload, user.id)
+        return await handlePut(payload ?? {}, user.id)
       case 'delete':
-        return await handleDelete(payload as { category: string; key: string })
+        return await handleDelete(payload ?? {})
       default:
         throw new Error('Invalid action')
     }
