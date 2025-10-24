@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+// Export the update setting hook
+export { useUpdateSetting } from "./useUpdateSetting";
+
 // Type definitions for settings
 type SettingKey = 'session.timeout.duration' | 'session.timeout.warning' | 'payments.methods' | 'payments.bank.details';
 

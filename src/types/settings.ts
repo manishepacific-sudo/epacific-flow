@@ -1,6 +1,29 @@
-import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+// System settings types - These tables may not be in the auto-generated types yet
+// but are used by the application for managing system configuration
 
-// Re-export system settings types using Tables aliases
-export type SystemSetting = Tables<'system_settings'>;
-export type SystemSettingInsert = TablesInsert<'system_settings'>;
-export type SystemSettingUpdate = TablesUpdate<'system_settings'>;
+export interface SystemSetting {
+  id: string;
+  key: string;
+  value: any;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SystemSettingInsert {
+  id?: string;
+  key: string;
+  value: any;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SystemSettingUpdate {
+  id?: string;
+  key?: string;
+  value?: any;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}

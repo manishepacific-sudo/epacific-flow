@@ -340,7 +340,10 @@ export default function PaymentManagement() {
         <SearchFilterExport
           searchValue={searchValue}
           onSearchChange={setSearchValue}
-          filters={filters}
+          filters={{
+            ...filters,
+            useReportDate: false
+          }}
           onFiltersChange={setFilters}
           filterConfig={filterConfig}
           onRefresh={fetchPayments}

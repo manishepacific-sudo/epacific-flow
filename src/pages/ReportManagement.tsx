@@ -350,7 +350,10 @@ export default function ReportManagement() {
         <SearchFilterExport
           searchValue={searchValue}
           onSearchChange={setSearchValue}
-          filters={filters}
+          filters={{
+            ...filters,
+            useReportDate: false
+          }}
           onFiltersChange={setFilters}
           filterConfig={filterConfig}
           onRefresh={fetchReports}

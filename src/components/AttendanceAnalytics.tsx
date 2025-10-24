@@ -143,11 +143,13 @@ export default function AttendanceAnalytics() {
         return sum + (day.avg_distance_from_office || 0);
       }, 0) / (analyticsData?.length || 1);
 
-      // Get total users count
-      const { count: totalUsers } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
+      // Get total users count (join with user_roles to filter by role)
+      const { data: userRoleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('user_id')
         .in('role', ['user', 'manager']);
+
+      const totalUsers = userRoleData?.length || 0;
 
       setSummary({
         totalUsers: totalUsers || 0,

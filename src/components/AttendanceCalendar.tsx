@@ -31,6 +31,7 @@ interface AttendanceRecord {
   geofence_valid: boolean;
   distance_from_office: number | null;
   manager_notes: string | null;
+  photo_url: string;
 }
 
 interface CalendarDay {

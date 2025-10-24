@@ -212,22 +212,7 @@ export function UserProfilePage() {
               />
             </div>
 
-            <div>
-              <Label htmlFor="role">Role</Label>
-              <Select
-                value={formData.role || ''}
-                onValueChange={(value) => handleInputChange('role', value)}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Role is now managed in user_roles table */}
 
             <div>
               <Label htmlFor="station_id">Station ID</Label>

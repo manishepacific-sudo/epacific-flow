@@ -102,8 +102,7 @@ export default function ReportDetailPage() {
             email,
             mobile_number,
             center_address,
-            registrar,
-            role
+            registrar
           )
         `)
         .eq('id', reportId)
