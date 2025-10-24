@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,18 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
     autoRefreshToken: false,
     persistSession: false
   }
+});
+
+// Validation schema for user creation
+const createUserSchema = z.object({
+  email: z.string().trim().email('Invalid email address').max(255, 'Email must be less than 255 characters'),
+  full_name: z.string().trim().min(2, 'Full name must be at least 2 characters').max(100, 'Full name must be less than 100 characters'),
+  mobile_number: z.string().trim().max(20, 'Mobile number must be less than 20 characters').optional(),
+  station_id: z.string().trim().max(50, 'Station ID must be less than 50 characters').optional(),
+  center_address: z.string().trim().max(500, 'Center address must be less than 500 characters').optional(),
+  role: z.enum(['admin', 'manager', 'user'], { 
+    errorMap: () => ({ message: 'Role must be one of: admin, manager, user' })
+  })
 });
 
 const handler = async (req: Request): Promise<Response> => {
@@ -58,8 +71,30 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('✅ Authenticated user:', user.id);
 
-    // Parse request body
+    // Parse and validate request body
     console.log('📥 Reading request body...');
+    const requestBody = await req.json();
+    
+    // Validate input using Zod schema
+    const validationResult = createUserSchema.safeParse(requestBody);
+    
+    if (!validationResult.success) {
+      console.log('❌ Validation failed:', validationResult.error.errors);
+      return new Response(
+        JSON.stringify({ 
+          error: "Validation failed", 
+          details: validationResult.error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+    
     const { 
       full_name, 
       email, 
@@ -67,34 +102,9 @@ const handler = async (req: Request): Promise<Response> => {
       station_id, 
       center_address, 
       role
-    } = await req.json();
+    } = validationResult.data;
     
-    console.log('✅ Parsed user data for:', email);
-
-    // Validate required fields
-    if (!email || !role || !full_name) {
-      console.log('❌ Missing required fields');
-      return new Response(
-        JSON.stringify({ error: "Missing required fields: email, role, full_name" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
-    // Validate role
-    const validRoles = ['user', 'manager', 'admin'];
-    if (!validRoles.includes(role)) {
-      console.log('❌ Invalid role:', role);
-      return new Response(
-        JSON.stringify({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
+    console.log('✅ Validated user data for:', email);
 
     // Get requesting user's role from user_roles table
     const { data: adminRole, error: roleError } = await supabaseAdmin
