@@ -16,7 +16,7 @@ export interface APIUser {
   id: string;
   email: string;
   full_name: string;
-  role: string;
+  role?: string; // Role is now fetched from user_roles table
   created_at: string;
 }
 
