@@ -1,50 +1,78 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
-// TypeScript interfaces
+// Validation schemas
+const GetSettingSchema = z.object({
+  category: z.string().trim().max(50).optional(),
+  keys: z.array(z.string().trim().max(100)).optional()
+})
+
+const CreateSettingSchema = z.object({
+  category: z.string().trim().min(1).max(50).regex(/^[a-z_]+$/, 'Category must contain only lowercase letters and underscores'),
+  key: z.string().trim().min(1).max(100),
+  value: z.union([
+    z.string().max(5000),
+    z.number(),
+    z.boolean(),
+    z.record(z.unknown())
+  ]).refine(val => JSON.stringify(val).length < 10000, 'Value too large'),
+  description: z.string().max(500).optional()
+})
+
+const UpdateSettingSchema = z.object({
+  category: z.string().trim().min(1).max(50),
+  key: z.string().trim().min(1).max(100),
+  value: z.union([
+    z.string().max(5000),
+    z.number(),
+    z.boolean(),
+    z.record(z.unknown())
+  ]).refine(val => JSON.stringify(val).length < 10000, 'Value too large'),
+  description: z.string().max(500).optional()
+})
+
+const DeleteSettingSchema = z.object({
+  category: z.string().trim().min(1).max(50),
+  key: z.string().trim().min(1).max(100)
+})
+
 interface ActionRequest {
   action: 'get' | 'create' | 'update' | 'delete'
-  payload?: any
+  payload?: Record<string, unknown>
 }
 
-interface CreateSettingPayload {
-  category: string
-  key: string
-  value: any
-  description?: string // Optional description field
-}
-
-interface UpdateSettingPayload {
-  category: string
-  key: string
-  value: any
-  description?: string
-}
-
-// CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// Create a Supabase client with service role key
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: {
-    persistSession: false // Don't persist auth state
+    persistSession: false
   }
 })
 
-async function handleGet(req: Request, userId: string) {
-  const url = new URL(req.url)
-  const category = url.searchParams.get('category')
-  const keys = url.searchParams.get('keys')?.split(',').filter(Boolean)
+async function handleGet(payload: Record<string, unknown>) {
+  const validation = GetSettingSchema.safeParse(payload)
+  if (!validation.success) {
+    return new Response(JSON.stringify({ 
+      error: 'Invalid input',
+      details: validation.error.issues
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
 
+  const { category, keys } = validation.data
   let query = supabase
     .from('system_settings')
-    .select('*')
+    .select('key, value, category, description')
+    .order('created_at', { ascending: false })
 
   if (category) {
     query = query.eq('category', category)
@@ -57,13 +85,12 @@ async function handleGet(req: Request, userId: string) {
   const { data, error } = await query
 
   if (error) {
+    console.error('[manage-settings] Query error:', error)
     return new Response(JSON.stringify({ 
       error: 'Failed to fetch settings',
-      details: error.message,
-      category,
-      keys
+      details: error.message
     }), {
-      status: 500,
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
@@ -74,19 +101,19 @@ async function handleGet(req: Request, userId: string) {
   })
 }
 
-async function handlePost(payload: CreateSettingPayload, userId: string) {
-  const { category, key, value } = payload
-
-  if (!category || !key) {
+async function handlePost(payload: Record<string, unknown>, userId: string) {
+  const validation = CreateSettingSchema.safeParse(payload)
+  if (!validation.success) {
     return new Response(JSON.stringify({ 
-      error: 'Missing required fields for creating setting',
-      required: ['category', 'key'],
-      provided: { category: !!category, key: !!key }
+      error: 'Invalid input',
+      details: validation.error.issues
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
+
+  const { category, key, value, description } = validation.data
 
   const { data, error } = await supabase
     .from('system_settings')
@@ -95,7 +122,7 @@ async function handlePost(payload: CreateSettingPayload, userId: string) {
       key, 
       value, 
       updated_by: userId,
-      description: payload.description // Will be undefined if not provided
+      description
     }])
     .select()
     .single()
@@ -103,42 +130,37 @@ async function handlePost(payload: CreateSettingPayload, userId: string) {
   if (error) {
     return new Response(JSON.stringify({ 
       error: 'Failed to create setting',
-      details: error.message,
-      category,
-      key
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
-  }
-
-  return new Response(JSON.stringify({ data }), {
-    status: 201,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  })
-}
-
-async function handlePut(payload: UpdateSettingPayload, userId: string) {
-  const { category, key, value, description } = payload
-
-  if (!category || !key) {
-    return new Response(JSON.stringify({ 
-      error: 'Missing required fields for updating setting',
-      required: ['category', 'key'],
-      provided: { category: !!category, key: !!key }
+      details: error.message
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
 
-  // Build update payload, including description only if provided
-  const updateData: { value: any; updated_by: string; description?: string } = {
-    value,
-    updated_by: userId
+  return new Response(JSON.stringify({ data }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  })
+}
+
+async function handlePut(payload: Record<string, unknown>, userId: string) {
+  const validation = UpdateSettingSchema.safeParse(payload)
+  if (!validation.success) {
+    return new Response(JSON.stringify({ 
+      error: 'Invalid input',
+      details: validation.error.issues
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
-  if (description !== undefined) {
-    updateData.description = description
+
+  const { category, key, value, description } = validation.data
+
+  const updateData = {
+    value,
+    updated_by: userId,
+    description
   }
 
   const { data, error } = await supabase
@@ -151,222 +173,144 @@ async function handlePut(payload: UpdateSettingPayload, userId: string) {
   if (error) {
     return new Response(JSON.stringify({
       error: 'Failed to update setting',
-      details: error.message,
-      category,
-      key
+      details: error.message
     }), {
-      status: 500,
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
-  }  return new Response(JSON.stringify({ data }), {
+  }
+
+  return new Response(JSON.stringify({ data }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   })
 }
 
-async function handleDelete(req: Request, userId: string) {
-  const url = new URL(req.url)
-  const category = url.searchParams.get('category')
-  const key = url.searchParams.get('key')
-
-  if (!category || !key) {
-    return new Response(JSON.stringify({
-      error: 'Missing required fields for deleting setting',
-      required: ['category', 'key'],
-      provided: { category: !!category, key: !!key }
-    }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+async function handleDelete(payload: Record<string, unknown>) {
+  const validation = DeleteSettingSchema.safeParse(payload)
+  if (!validation.success) {
+    return new Response(JSON.stringify({ 
+      error: 'Invalid input',
+      details: validation.error.issues
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
 
-  // First check if the setting exists
-  const { data: existingSettings } = await supabase
-    .from('system_settings')
-    .select('id')
-    .match({ category, key })
-    .maybeSingle()
+  const { category, key } = validation.data
 
-  if (!existingSettings) {
-    return new Response(JSON.stringify({
-      error: 'Setting not found',
-      category,
-      key
-    }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  }
-
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('system_settings')
     .delete()
     .match({ category, key })
+    .select()
+    .single()
 
   if (error) {
     return new Response(JSON.stringify({
       error: 'Failed to delete setting',
-      details: error.message,
-      category,
-      key
-    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      details: error.message
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
 
-  // Log the deletion event with the acting admin's ID
-  await supabase.rpc('log_security_event', {
-    event_type_param: 'setting_deleted',
-    target_user_id_param: userId,
-    details_param: { key, category }
-  })
+  if (!data) {
+    return new Response(JSON.stringify({
+      error: 'Setting not found'
+    }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
 
-  return new Response(null, {
-    status: 204,
-    headers: corsHeaders
+  return new Response(JSON.stringify({ data }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   })
 }
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    })
   }
 
   try {
-    // Get the JWT token from the request header
-    const authHeader = req.headers.get('Authorization')?.split(' ')[1]
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'No authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
+    const authHeader = req.headers.get('Authorization')
+    const token = authHeader?.split(' ')[1]
 
-    // Verify the JWT and get the user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader)
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token ?? '')
+
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+      console.error('[manage-settings] Auth error:', authError)
+      return new Response(JSON.stringify({ 
+        error: 'Unauthorized - Authentication required'
+      }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // WARNING: Using get_current_user_role() with service-role client may cause auth.uid() to be NULL
-    // Consider using get_user_role() with explicit user.id if 403 errors occur
-    const { data: role, error: roleErr } = await supabase.rpc('get_current_user_role');
-    if (roleErr) {
-      return new Response(JSON.stringify({
-        error: 'Failed to resolve current user role',
-        details: roleErr.message,
-      }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    let requestBody: ActionRequest | null = null
+    try {
+      requestBody = await req.json()
+    } catch (err) {
+      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
-    if (role !== 'admin') {
+
+    const { action, payload } = requestBody ?? {}
+
+    // GET is allowed for all authenticated users
+    if (action === 'get') {
+      return await handleGet(payload ?? {})
+    }
+
+    // For write operations (create, update, delete), check admin role
+    const userRolesResponse = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle()
+
+    const isAdmin = !!userRolesResponse.data
+
+    if (!isAdmin) {
       return new Response(JSON.stringify({ 
-        error: 'Forbidden: Admin role required. User does not have admin privileges in user_roles table.'
+        error: 'Forbidden: Admin role required for this operation'
       }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    let requestBody: any = null
-
-    // Parse request body once if it's not GET
-    if (req.method !== 'GET') {
-      try {
-        requestBody = await req.json()
-      } catch (err) {
-        console.error('Failed to parse request body:', err)
-        return new Response(JSON.stringify({ error: 'Invalid request body' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
-      }
-    }
-
-    // Handle action-based routing for POST requests
-    if (req.method === 'POST' && requestBody && 'action' in requestBody) {
-      const actionRequest = requestBody as ActionRequest
-      switch (actionRequest.action) {
-        case 'get': {
-          // Handle GET via query parameters
-          const queryParams = new URLSearchParams()
-          if (actionRequest.payload?.category) {
-            queryParams.set('category', actionRequest.payload.category)
-          }
-          if (actionRequest.payload?.keys) {
-            queryParams.set('keys', actionRequest.payload.keys.join(','))
-          }
-          const mockReq = new Request(`${req.url}?${queryParams.toString()}`, {
-            headers: req.headers
-          })
-          return handleGet(mockReq, user.id)
-        }
-        case 'create': {
-          if (!actionRequest.payload) {
-            return new Response(JSON.stringify({ error: 'Missing payload' }), {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
-          }
-          return handlePost(actionRequest.payload as CreateSettingPayload, user.id)
-        }
-        case 'update': {
-          if (!actionRequest.payload) {
-            return new Response(JSON.stringify({ error: 'Missing payload' }), {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
-          }
-          return handlePut(actionRequest.payload as UpdateSettingPayload, user.id)
-        }
-        case 'delete': {
-          if (!actionRequest.payload?.category || !actionRequest.payload?.key) {
-            return new Response(JSON.stringify({ error: 'Missing category or key' }), {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
-          }
-          const queryParams = new URLSearchParams()
-          queryParams.set('category', actionRequest.payload.category)
-          queryParams.set('key', actionRequest.payload.key)
-          const mockReq = new Request(`${req.url}?${queryParams.toString()}`, {
-            headers: req.headers
-          })
-          return handleDelete(mockReq, user.id)
-        }
-        default:
-          return new Response(JSON.stringify({ error: 'Invalid action' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          })
-      }
-    }
-
-    // Handle HTTP verb-based routing
-    switch (req.method) {
-      case 'GET':
-        return handleGet(req, user.id)
-      case 'POST':
-        if (!requestBody) {
-          return new Response(JSON.stringify({ error: 'Missing request body' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          })
-        }
-        return handlePost(requestBody as CreateSettingPayload, user.id)
-      case 'PUT':
-        if (!requestBody) {
-          return new Response(JSON.stringify({ error: 'Missing request body' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          })
-        }
-        return handlePut(requestBody as UpdateSettingPayload, user.id)
-      case 'DELETE':
-        return handleDelete(req, user.id)
+    // Handle admin operations
+    switch (action) {
+      case 'create':
+        return await handlePost(payload ?? {}, user.id)
+      case 'update':
+        return await handlePut(payload ?? {}, user.id)
+      case 'delete':
+        return await handleDelete(payload ?? {})
       default:
-        return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-          status: 405,
+        return new Response(JSON.stringify({ error: 'Invalid action' }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }
   } catch (err) {
-    console.error('Error processing request:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    console.error('[manage-settings] Error:', err)
+    return new Response(JSON.stringify({ 
+      error: err.message || 'Internal server error'
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
