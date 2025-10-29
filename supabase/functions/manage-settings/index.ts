@@ -241,10 +241,28 @@ serve(async (req: Request) => {
   }
 
   try {
+    let requestBody: ActionRequest | null = null
+    try {
+      requestBody = await req.json()
+    } catch (err) {
+      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const { action, payload } = requestBody ?? {}
+
+    // GET is public - no authentication required for reading system settings
+    if (action === 'get') {
+      return await handleGet(payload ?? {})
+    }
+
+    // For write operations (create, update, delete), require authentication
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(JSON.stringify({ 
-        error: 'Unauthorized - Missing authorization header'
+        error: 'Unauthorized - Authentication required for write operations'
       }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -270,24 +288,7 @@ serve(async (req: Request) => {
       })
     }
 
-    let requestBody: ActionRequest | null = null
-    try {
-      requestBody = await req.json()
-    } catch (err) {
-      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    const { action, payload } = requestBody ?? {}
-
-    // GET/batch-read is allowed for all authenticated users
-    if (action === 'get' || action === 'batch-read') {
-      return await handleGet(payload ?? {})
-    }
-
-    // For write operations (create, update, delete), check admin role
+    // Check if user is admin
     const userRolesResponse = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -295,9 +296,9 @@ serve(async (req: Request) => {
       .eq('role', 'admin')
       .maybeSingle()
 
-    const isAdmin = !!userRolesResponse.data
+    const isUserAdmin = !!userRolesResponse.data
 
-    if (!isAdmin) {
+    if (!isUserAdmin) {
       return new Response(JSON.stringify({ 
         error: 'Forbidden: Admin role required for this operation'
       }), {
