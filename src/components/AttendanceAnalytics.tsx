@@ -119,6 +119,8 @@ export default function AttendanceAnalytics() {
           acc[date].total_distance += record.distance_from_office;
           acc[date].distance_count++;
         }
+        
+        return acc;
       }, {} as Record<string, any>);
 
       // Calculate averages and format data
@@ -141,11 +143,10 @@ export default function AttendanceAnalytics() {
         return sum + (day.avg_distance_from_office || 0);
       }, 0) / (analyticsData?.length || 1);
 
-      // Get total users count
+      // Get total users count  
       const { count: totalUsers } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .in('role', ['user', 'manager']);
+        .select('*', { count: 'exact', head: true });
 
       setSummary({
         totalUsers: totalUsers || 0,

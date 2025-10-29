@@ -419,7 +419,7 @@ export default function AttendanceManagementPage() {
         <SearchFilterExport
           searchValue={searchValue}
           onSearchChange={setSearchValue}
-          filters={filters}
+          filters={{ ...filters, useReportDate: false }}
           onFiltersChange={setFilters}
           filterConfig={filterConfig}
           onExport={exportToExcel}
@@ -506,7 +506,7 @@ export default function AttendanceManagementPage() {
                             <div className="space-y-1">
                               {record.check_in_time && (
                                 <div className="flex items-center gap-2">
-                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
                                   <span className="text-muted-foreground">Check-in:</span>
                                   <span className="ml-auto">{format(new Date(record.check_in_time), 'HH:mm')}</span>
                                 </div>
@@ -538,7 +538,7 @@ export default function AttendanceManagementPage() {
                           {/* Geofencing Status */}
                           <div className="flex items-center gap-2">
                             {record.geofence_valid ? (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
                             ) : (
                               <XCircle className="h-4 w-4 text-red-500" />
                             )}

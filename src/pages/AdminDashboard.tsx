@@ -116,7 +116,10 @@ export default function AdminDashboard(): JSX.Element {
       if (!Array.isArray(reportsResult.data?.reports)) throw new Error('Invalid reports data');
       if (!Array.isArray(paymentsResult.data?.payments)) throw new Error('Invalid payments data');
 
-      const users = usersResult.data.users;
+      const users = usersResult.data.users.map((user: any) => ({
+        ...user,
+        role: user.role || 'user' // Ensure role is always present
+      }));
       const reports = reportsResult.data.reports;
       const payments = paymentsResult.data.payments;
 
@@ -177,7 +180,7 @@ export default function AdminDashboard(): JSX.Element {
         });
 
         setRecentData({
-          users: users.slice(0, 3),
+          users: (users || []).slice(0, 3) as unknown as APIUser[],
           reports: reports.slice(0, 3),
           payments: payments.slice(0, 3)
         });

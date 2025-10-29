@@ -171,7 +171,7 @@ export default function ReportUpload() {
       {
         const { data, error } = await supabase
           .from('reports')
-          .insert(payloadWithDate)
+          .insert([payloadWithDate as any])
           .select()
           .single();
         reportInsertError = error;
@@ -182,7 +182,7 @@ export default function ReportUpload() {
       if (reportInsertError && `${reportInsertError.message}`.toLowerCase().includes('report_date')) {
         const { data, error } = await supabase
           .from('reports')
-          .insert(basePayload)
+          .insert([basePayload as any])
           .select()
           .single();
         reportInsertError = error;

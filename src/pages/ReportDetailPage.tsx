@@ -83,7 +83,7 @@ export default function ReportDetailPage() {
   const [rejectorProfile, setRejectorProfile] = useState<ProfileLike | null>(null);
 
   const isManagerOrAdmin = profile?.role === 'admin' || profile?.role === 'manager';
-  const canEdit = isManagerOrAdmin && report?.status === 'pending';
+  const canEdit = isManagerOrAdmin && report?.status === 'pending_approval';
 
   useEffect(() => {
     if (reportId) {
@@ -140,7 +140,7 @@ export default function ReportDetailPage() {
 
       setReport({
         ...reportData,
-        status: reportData.status as 'pending' | 'approved' | 'rejected',
+        status: reportData.status as 'pending_approval' | 'approved' | 'rejected',
         profiles: (reportData as any)?.profiles && typeof (reportData as any).profiles === 'object'
           ? ((reportData as any).profiles as Profile)
           : null
@@ -148,43 +148,19 @@ export default function ReportDetailPage() {
       setManagerNotes(reportData.manager_notes || '');
       setRejectionMessage(reportData.rejection_message || '');
 
-      // Prepare approver, rejector, and payment fetches to run in parallel
+      // Fetch payment if exists
       try {
-        const approverPromise = reportData.approved_by
-          ? supabase
-              .from('profiles')
-              .select('full_name, email')
-              .eq('user_id', reportData.approved_by)
-              .single()
-          : Promise.resolve({ data: null });
-
-        const rejectorPromise = reportData.rejected_by
-          ? supabase
-              .from('profiles')
-              .select('full_name, email')
-              .eq('user_id', reportData.rejected_by)
-              .single()
-          : Promise.resolve({ data: null });
-
-        const paymentPromise = supabase
+        const { data: paymentData, error: paymentError } = await supabase
           .from('payments')
           .select('*')
           .eq('report_id', reportId)
           .single();
 
-        const [
-          { data: approverData },
-          { data: rejectorData },
-          { data: paymentData, error: paymentError }
-        ] = await Promise.all([approverPromise, rejectorPromise, paymentPromise]);
-
-        setApproverProfile(approverData ? (approverData as ProfileLike) : null);
-        setRejectorProfile(rejectorData ? (rejectorData as ProfileLike) : null);
         if (paymentData && !paymentError) {
           setPayment(paymentData as any);
         }
       } catch (e) {
-        console.error('Failed to fetch approver/rejector profiles or payment', e);
+        console.error('Failed to fetch payment', e);
       }
 
     } catch (error) {

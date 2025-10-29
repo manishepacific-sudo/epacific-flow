@@ -2,7 +2,7 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-interface GlassCardProps {
+interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   hover?: boolean;
   delay?: number;
@@ -12,7 +12,7 @@ interface GlassCardProps {
 }
 
 const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
-  ({ className, children, hover = true, delay = 0, onClick, glass = false }, ref) => {
+  ({ className, children, hover = true, delay = 0, onClick, glass = false, tabIndex, onKeyDown, ...otherProps }, ref) => {
     return (
       <motion.div
         ref={ref}
@@ -40,6 +40,8 @@ const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
           className
         )}
         onClick={onClick}
+        tabIndex={tabIndex}
+        onKeyDown={onKeyDown as any}
       >
         {children}
       </motion.div>

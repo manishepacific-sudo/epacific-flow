@@ -174,7 +174,7 @@ export default function HandleInvite() {
         console.log('✅ Redirecting to dashboard');
         
         // Redirect to appropriate dashboard - use profile role or fall back to metadata
-        const role = profile?.role || user.user_metadata?.role || 'user';
+        const role = (profile as any)?.role || user.user_metadata?.role || 'user';
         const dashboardMap = {
           admin: '/dashboard/admin',
           manager: '/dashboard/manager',

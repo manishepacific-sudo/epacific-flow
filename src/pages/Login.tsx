@@ -110,7 +110,7 @@ export default function Login() {
 
         if (profile) {
           // Use role from profile or fall back to user metadata
-          const role = profile.role || data.user.user_metadata?.role || 'user';
+          const role = (profile as any).role || data.user.user_metadata?.role || 'user';
           const fullName = profile.full_name || data.user.user_metadata?.full_name || data.user.email;
           
           toast({

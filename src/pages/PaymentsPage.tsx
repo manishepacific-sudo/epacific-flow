@@ -428,7 +428,6 @@ export default function PaymentsPage() {
                           transition={{ delay: index * 0.06 }}
                         >
                           <GlassCard
-                            role="button"
                             tabIndex={0}
                             onClick={() => navigate(`/payment/user/${payment.id}`)}
                             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/payment/user/${payment.id}`); }}

@@ -78,8 +78,20 @@ export function UserProfilePage() {
 
       if (error) throw error;
       
-      setUserProfile(data);
-      setFormData(data);
+      // Fetch role from user_roles table
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.user_id)
+        .maybeSingle();
+      
+      const enrichedProfile = {
+        ...data,
+        role: roleData?.role || 'user'
+      };
+      
+      setUserProfile(enrichedProfile);
+      setFormData(enrichedProfile);
     } catch (error: any) {
       toast({
         title: "Error",

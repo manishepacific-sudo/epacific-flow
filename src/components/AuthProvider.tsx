@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session.user);
           setSession(session);
           
-          // Fetch profile with role - query only essential fields
+          // Fetch profile and role from separate tables
           try {
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
@@ -84,18 +84,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 details: profileError.details,
                 hint: profileError.hint
               });
-              // Only clear profile if it's a not found error
               if (profileError.code === 'PGRST116') {
                 setProfile(null);
               }
-              // Keep existing profile for other types of errors
             } else if (mounted && profile) {
-              // If profile doesn't have role, try to get it from user metadata
+              // Fetch role from user_roles table
+              const { data: roleData } = await supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', session.user.id)
+                .maybeSingle();
+              
               const enrichedProfile = {
                 ...profile,
-                role: profile.role || session.user.user_metadata?.role || 'user'
+                role: roleData?.role || session.user.user_metadata?.role || 'user'
               };
-              console.log('Profile loaded successfully:', enrichedProfile.role);
+              console.log('Profile loaded successfully with role:', enrichedProfile.role);
               setProfile(enrichedProfile);
             }
           } catch (error) {
@@ -161,18 +165,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   details: profileError.details,
                   hint: profileError.hint
                 });
-                // Only clear profile if it's a not found error
                 if (profileError.code === 'PGRST116') {
                   setProfile(null);
                 }
-                // Keep existing profile for other types of errors
               } else if (mounted && profile) {
-                // If profile doesn't have role, try to get it from user metadata
+                // Fetch role from user_roles table
+                const { data: roleData } = await supabase
+                  .from('user_roles')
+                  .select('role')
+                  .eq('user_id', session.user.id)
+                  .maybeSingle();
+                
                 const enrichedProfile = {
                   ...profile,
-                  role: profile.role || session.user.user_metadata?.role || 'user'
+                  role: roleData?.role || session.user.user_metadata?.role || 'user'
                 };
-                console.log('Profile loaded successfully on auth change:', enrichedProfile.role);
+                console.log('Profile loaded successfully on auth change with role:', enrichedProfile.role);
                 setProfile(enrichedProfile);
               }
             } catch (error) {
