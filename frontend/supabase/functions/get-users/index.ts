@@ -46,11 +46,14 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // First get the user_id from profiles
+    console.log('🔍 Querying profiles for email:', admin_email);
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('user_id')
       .eq('email', admin_email)
       .maybeSingle();
+
+    console.log('📊 Profile query result:', { userProfile, profileError });
 
     if (profileError) {
       console.log('❌ Profile query error:', profileError);
@@ -65,6 +68,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!userProfile) {
       console.log('❌ User not found:', admin_email);
+      // Let's try querying all profiles to debug
+      const { data: allProfiles } = await supabaseAdmin
+        .from('profiles')
+        .select('email, user_id')
+        .limit(5);
+      console.log('🔍 Sample profiles in database:', allProfiles);
+      
       return new Response(
         JSON.stringify({ error: "Unauthorized: User not found" }),
         {
