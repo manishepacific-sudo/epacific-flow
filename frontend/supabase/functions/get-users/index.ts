@@ -46,9 +46,10 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Check user role from database
+    // First get the user_id from profiles
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('role')
+      .select('user_id')
       .eq('email', admin_email)
       .single();
 
@@ -63,9 +64,27 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Now get the role from user_roles table
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userProfile.user_id)
+      .single();
+
+    if (roleError || !roleData) {
+      console.log('❌ User role not found:', roleError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: User role not found" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
     // Only managers and admins can view users
-    if (!['admin', 'manager'].includes(userProfile.role)) {
-      console.log('❌ Unauthorized user list request - role:', userProfile.role);
+    if (!['admin', 'manager'].includes(roleData.role)) {
+      console.log('❌ Unauthorized user list request - role:', roleData.role);
       return new Response(
         JSON.stringify({ error: "Unauthorized: Only admins and managers can view users" }),
         {

@@ -62,9 +62,10 @@ serve(async (req) => {
       adminUserId = 'demo-admin';
     } else {
       // Regular database lookup for non-demo accounts
+      // First get the user_id from profiles
       const { data: adminProfile, error: adminError } = await supabase
         .from('profiles')
-        .select('role, user_id')
+        .select('user_id')
         .eq('email', admin_email)
         .single();
 
@@ -79,7 +80,25 @@ serve(async (req) => {
         );
       }
 
-      adminRole = adminProfile.role;
+      // Now get the role from user_roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', adminProfile.user_id)
+        .single();
+
+      if (roleError || !roleData) {
+        console.error('❌ Admin role not found:', roleError);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: Admin role not found' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      adminRole = roleData.role;
       adminUserId = adminProfile.user_id;
     }
 
@@ -156,8 +175,14 @@ serve(async (req) => {
 
     // Manager role restrictions - managers can delete users and other managers, but not admins
     if (adminRole === 'manager') {
-      // Managers can delete users and other managers, but not admins
-      if (targetProfile.role === 'admin') {
+      // Get target user's role from user_roles table
+      const { data: targetRole, error: targetRoleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user_id)
+        .single();
+
+      if (targetRole && targetRole.role === 'admin') {
         console.error('❌ Manager cannot delete admin accounts');
         return new Response(
           JSON.stringify({ error: 'Managers cannot delete admin accounts' }),
@@ -208,7 +233,18 @@ serve(async (req) => {
       console.log('⚠️ Warning: Could not delete invite tokens:', tokensError.message);
     }
 
-    // 4. Delete profile
+    // 4. Delete user role
+    console.log('🔐 Deleting user role...');
+    const { error: roleDeleteError } = await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', user_id);
+
+    if (roleDeleteError) {
+      console.log('⚠️ Warning: Could not delete user role:', roleDeleteError.message);
+    }
+
+    // 5. Delete profile
     console.log('👤 Deleting user profile...');
     const { error: profileError } = await supabase
       .from('profiles')
@@ -226,7 +262,7 @@ serve(async (req) => {
       );
     }
 
-    // 5. Delete from auth.users
+    // 6. Delete from auth.users
     console.log('🔐 Deleting from auth.users...');
     const { error: authError } = await supabase.auth.admin.deleteUser(user_id);
 
