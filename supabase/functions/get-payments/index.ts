@@ -33,22 +33,50 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check user role from database instead of email pattern
+    // First get the user_id from profiles
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('role')
+      .select('user_id')
       .eq('email', admin_email)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !userProfile) {
+    if (profileError) {
+      return new Response(
+        JSON.stringify({ error: "Database error", details: profileError.message }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (!userProfile) {
       return new Response(
         JSON.stringify({ error: "User not found" }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
+    // Now get the role from user_roles table
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userProfile.user_id)
+      .maybeSingle();
+
+    if (roleError) {
+      return new Response(
+        JSON.stringify({ error: "Database error", details: roleError.message }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (!roleData) {
+      return new Response(
+        JSON.stringify({ error: "No role assigned" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     // Allow both admin and manager users
-    if (!['admin', 'manager'].includes(userProfile.role)) {
+    if (!['admin', 'manager'].includes(roleData.role)) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }

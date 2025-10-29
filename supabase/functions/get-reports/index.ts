@@ -93,7 +93,6 @@ const handler = async (req: Request): Promise<Response> => {
         attachment_url,
         status,
         created_at,
-        report_date,
         updated_at,
         user_id,
         manager_notes,
