@@ -1,0 +1,219 @@
+import { createContext, useContext, useEffect, useState } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  profile: any | null;
+  loading: boolean;
+  signOut: () => Promise<void>;
+  setDemoUser: (email: string, role: string, name: string) => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  session: null,
+  profile: null,
+  loading: true,
+  signOut: async () => {},
+  setDemoUser: async () => {},
+});
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const setDemoUser = async (email: string, role: string, name: string) => {
+    // This function is kept for compatibility but no longer used
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        // Get the current session from Supabase
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+
+        if (error) {
+          console.error('Session error during initialization:', {
+            code: error.code,
+            message: error.message,
+            status: error.status
+          });
+          // Clear invalid session data
+          await supabase.auth.signOut();
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        if (session?.user) {
+          setUser(session.user);
+          setSession(session);
+          
+          // Fetch profile with role - query only essential fields
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
+            
+            if (profileError) {
+              console.error('Failed to fetch user profile:', {
+                code: profileError.code,
+                message: profileError.message,
+                details: profileError.details,
+                hint: profileError.hint
+              });
+              // Only clear profile if it's a not found error
+              if (profileError.code === 'PGRST116') {
+                setProfile(null);
+              }
+              // Keep existing profile for other types of errors
+            } else if (mounted && profile) {
+              // If profile doesn't have role, try to get it from user metadata
+              const enrichedProfile = {
+                ...profile,
+                role: profile.role || session.user.user_metadata?.role || 'user'
+              };
+              console.log('Profile loaded successfully:', enrichedProfile.role);
+              setProfile(enrichedProfile);
+            }
+          } catch (error) {
+            console.error('Unexpected error fetching profile:', error);
+          }
+        } else {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+        }
+        
+      } catch (error) {
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Set up Supabase auth state listener for real-time updates
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!mounted) return;
+        
+        // Handle token refresh errors
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          // Defer signOut to prevent deadlock
+          setTimeout(() => {
+            supabase.auth.signOut();
+          }, 0);
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        
+        if (event === 'SIGNED_OUT' || !session) {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+        } else if (session?.user) {
+          setUser(session.user);
+          setSession(session);
+          
+          // Defer profile fetch to prevent deadlock
+          setTimeout(async () => {
+            if (!mounted) return;
+            try {
+              const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .single();
+              
+              if (profileError) {
+                console.error('Failed to fetch user profile on auth change:', {
+                  code: profileError.code,
+                  message: profileError.message,
+                  details: profileError.details,
+                  hint: profileError.hint
+                });
+                // Only clear profile if it's a not found error
+                if (profileError.code === 'PGRST116') {
+                  setProfile(null);
+                }
+                // Keep existing profile for other types of errors
+              } else if (mounted && profile) {
+                // If profile doesn't have role, try to get it from user metadata
+                const enrichedProfile = {
+                  ...profile,
+                  role: profile.role || session.user.user_metadata?.role || 'user'
+                };
+                console.log('Profile loaded successfully on auth change:', enrichedProfile.role);
+                setProfile(enrichedProfile);
+              }
+            } catch (error) {
+              console.error('Unexpected error fetching profile on auth change:', error);
+            }
+          }, 0);
+        }
+        
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    );
+
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const signOut = async () => {
+    try {
+      // Sign out from Supabase client
+      await supabase.auth.signOut();
+      
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      
+      navigate('/login');
+    } catch (error) {
+      // Force navigation even if logout fails
+      navigate('/login');
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, setDemoUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
