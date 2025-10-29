@@ -89,6 +89,7 @@ serve(async (req: Request): Promise<Response> => {
           .single();
 
         if (adminError || !adminProfile) {
+          console.error("❌ Admin profile not found:", { email: admin_email, error: adminError });
           return new Response(
             JSON.stringify({ success: false, error: "Unauthorized: Admin profile not found" }),
             { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -103,6 +104,7 @@ serve(async (req: Request): Promise<Response> => {
           .single();
 
         if (roleError || !roleData) {
+          console.error("❌ Admin role not found:", { user_id: adminProfile.user_id, error: roleError });
           return new Response(
             JSON.stringify({ success: false, error: "Unauthorized: Admin role not found" }),
             { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
