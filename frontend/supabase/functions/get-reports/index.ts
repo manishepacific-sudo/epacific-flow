@@ -33,10 +33,10 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check user role from database - query profiles with user_roles
+    // First get the user_id from profiles
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, user_roles(role)')
+      .select('user_id')
       .eq('email', admin_email)
       .maybeSingle();
 
@@ -54,20 +54,29 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check if user has a role assigned
-    const userRoles = userProfile.user_roles as any[];
-    if (!userRoles || userRoles.length === 0) {
+    // Now get the role from user_roles table
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userProfile.user_id)
+      .maybeSingle();
+
+    if (roleError) {
+      return new Response(
+        JSON.stringify({ error: "Database error", details: roleError.message }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    if (!roleData) {
       return new Response(
         JSON.stringify({ error: "No role assigned" }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // Get the user's role
-    const userRole = userRoles[0].role;
-
     // Allow both admin and manager users
-    if (!['admin', 'manager'].includes(userRole)) {
+    if (!['admin', 'manager'].includes(roleData.role)) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
