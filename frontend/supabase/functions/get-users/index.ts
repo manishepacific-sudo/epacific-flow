@@ -46,14 +46,25 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Check user role from database
-    // First get the user_id from profiles
+    // Query profiles joined with user_roles in one go
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id')
+      .select('user_id, user_roles(role)')
       .eq('email', admin_email)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !userProfile) {
+    if (profileError) {
+      console.log('❌ Profile query error:', profileError);
+      return new Response(
+        JSON.stringify({ error: "Database error", details: profileError.message }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    if (!userProfile) {
       console.log('❌ User not found:', admin_email);
       return new Response(
         JSON.stringify({ error: "Unauthorized: User not found" }),
@@ -64,17 +75,12 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Now get the role from user_roles table
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userProfile.user_id)
-      .single();
-
-    if (roleError || !roleData) {
-      console.log('❌ User role not found:', roleError);
+    // Check if user has a role assigned
+    const userRoles = userProfile.user_roles as any[];
+    if (!userRoles || userRoles.length === 0) {
+      console.log('❌ No role assigned to user:', admin_email);
       return new Response(
-        JSON.stringify({ error: "Unauthorized: User role not found" }),
+        JSON.stringify({ error: "Unauthorized: No role assigned" }),
         {
           status: 403,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -82,9 +88,12 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Get the user's role (users should only have one role)
+    const userRole = userRoles[0].role;
+    
     // Only managers and admins can view users
-    if (!['admin', 'manager'].includes(roleData.role)) {
-      console.log('❌ Unauthorized user list request - role:', roleData.role);
+    if (!['admin', 'manager'].includes(userRole)) {
+      console.log('❌ Unauthorized user list request - role:', userRole);
       return new Response(
         JSON.stringify({ error: "Unauthorized: Only admins and managers can view users" }),
         {
@@ -93,6 +102,8 @@ const handler = async (req: Request): Promise<Response> => {
         }
       );
     }
+
+    console.log('✅ User authorized with role:', userRole);
 
     // Fetch all users using service role (bypasses RLS)
     console.log('👥 Fetching all users...');
