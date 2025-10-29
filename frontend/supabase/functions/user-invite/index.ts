@@ -81,9 +81,10 @@ serve(async (req: Request): Promise<Response> => {
         adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
         console.log(`✅ Demo admin detected: ${admin_email} with role: ${adminRole}`);
       } else {
+        // First get the user_id from profiles
         const { data: adminProfile, error: adminError } = await supabaseAdmin
           .from('profiles')
-          .select('role')
+          .select('user_id')
           .eq('email', admin_email)
           .single();
 
@@ -94,7 +95,21 @@ serve(async (req: Request): Promise<Response> => {
           );
         }
 
-        adminRole = adminProfile.role;
+        // Now get the role from user_roles table
+        const { data: roleData, error: roleError } = await supabaseAdmin
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', adminProfile.user_id)
+          .single();
+
+        if (roleError || !roleData) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Unauthorized: Admin role not found" }),
+            { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        adminRole = roleData.role;
         console.log(`✅ Database admin found: ${admin_email} with role: ${adminRole}`);
       }
 
@@ -235,7 +250,6 @@ serve(async (req: Request): Promise<Response> => {
       user_id: inviteData.user.id,
       email,
       full_name,
-      role,
       mobile_number: mobile_number || "",
       station_id: station_id || "",
       center_address: center_address || "",
@@ -253,6 +267,28 @@ serve(async (req: Request): Promise<Response> => {
         JSON.stringify({ 
           success: false, 
           error: `Failed to create user profile: ${profileError.message}`
+        }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // ✅ Create role entry in user_roles table
+    console.log("🔐 Creating user role...");
+    const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
+      user_id: inviteData.user.id,
+      role: role,
+    });
+
+    if (roleError) {
+      console.error("❌ Failed to create user role:", roleError);
+      // Clean up user, profile and token if role creation fails
+      await supabaseAdmin.auth.admin.deleteUser(inviteData.user.id);
+      await supabaseAdmin.from("profiles").delete().eq("user_id", inviteData.user.id);
+      await supabaseAdmin.from("invite_tokens").delete().eq("token", secureToken);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Failed to create user role: ${roleError.message}`
         }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
