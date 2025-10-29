@@ -1,8 +1,3 @@
-// Convenience types for system settings
-export type SystemSetting = Tables<'system_settings'>
-export type SystemSettingInsert = TablesInsert<'system_settings'>
-export type SystemSettingUpdate = TablesUpdate<'system_settings'>
-
 export type Json =
   | string
   | number
@@ -19,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance: {
+        Row: {
+          attendance_date: string
+          check_in_time: string | null
+          check_out_time: string | null
+          city: string | null
+          created_at: string
+          distance_from_office: number | null
+          geofence_valid: boolean
+          id: string
+          location_address: string | null
+          location_latitude: number
+          location_longitude: number
+          manager_notes: string | null
+          office_latitude: number | null
+          office_longitude: number | null
+          photo_url: string
+          remarks: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attendance_date?: string
+          check_in_time?: string | null
+          check_out_time?: string | null
+          city?: string | null
+          created_at?: string
+          distance_from_office?: number | null
+          geofence_valid?: boolean
+          id?: string
+          location_address?: string | null
+          location_latitude: number
+          location_longitude: number
+          manager_notes?: string | null
+          office_latitude?: number | null
+          office_longitude?: number | null
+          photo_url: string
+          remarks?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attendance_date?: string
+          check_in_time?: string | null
+          check_out_time?: string | null
+          city?: string | null
+          created_at?: string
+          distance_from_office?: number | null
+          geofence_valid?: boolean
+          id?: string
+          location_address?: string | null
+          location_latitude?: number
+          location_longitude?: number
+          manager_notes?: string | null
+          office_latitude?: number | null
+          office_longitude?: number | null
+          photo_url?: string
+          remarks?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       invite_tokens: {
         Row: {
           created_at: string
@@ -48,57 +109,7 @@ export type Database = {
           user_data?: Json
         }
         Relationships: []
-    },
-        attendance: {
-          Row: {
-            id: string
-            user_id: string
-            photo_url: string
-            location_latitude: number
-            location_longitude: number
-            location_address: string | null
-            attendance_date: string
-            status: string
-            manager_notes: string | null
-            created_at: string
-            updated_at: string
-          }
-          Insert: {
-            id?: string
-            user_id: string
-            photo_url: string
-            location_latitude: number
-            location_longitude: number
-            location_address?: string | null
-            attendance_date?: string
-            status?: string
-            manager_notes?: string | null
-            created_at?: string
-            updated_at?: string
-          }
-          Update: {
-            id?: string
-            user_id?: string
-            photo_url?: string
-            location_latitude?: number
-            location_longitude?: number
-            location_address?: string | null
-            attendance_date?: string
-            status?: string
-            manager_notes?: string | null
-            created_at?: string
-            updated_at?: string
-          }
-          Relationships: [
-            {
-              foreignKeyName: "attendance_user_id_fkey"
-              columns: ["user_id"]
-              isOneToOne: false
-              referencedRelation: "profiles"
-              referencedColumns: ["user_id"]
-            },
-          ]
-        }
+      }
       notifications: {
         Row: {
           created_at: string
@@ -142,14 +153,11 @@ export type Database = {
           created_at: string
           id: string
           method: string
-          // Valid values: 'phonepe', 'razorpay', 'offline'
           phonepe_transaction_id: string | null
-          payment_date: string | null
           proof_url: string | null
           rejection_message: string | null
           report_id: string
           status: string
-          // Valid values: 'pending', 'approved', 'completed', 'rejected'
           updated_at: string
           user_id: string
         }
@@ -159,14 +167,11 @@ export type Database = {
           created_at?: string
           id?: string
           method: string
-          // Valid values: 'phonepe', 'razorpay', 'offline'
           phonepe_transaction_id?: string | null
-          payment_date?: string | null
           proof_url?: string | null
           rejection_message?: string | null
           report_id: string
           status?: string
-          // Valid values: 'pending', 'approved', 'completed', 'rejected'
           updated_at?: string
           user_id: string
         }
@@ -176,14 +181,11 @@ export type Database = {
           created_at?: string
           id?: string
           method?: string
-          // Valid values: 'phonepe', 'razorpay', 'offline'
           phonepe_transaction_id?: string | null
-          payment_date?: string | null
           proof_url?: string | null
           rejection_message?: string | null
           report_id?: string
           status?: string
-          // Valid values: 'pending', 'approved', 'completed', 'rejected'
           updated_at?: string
           user_id?: string
         }
@@ -215,7 +217,6 @@ export type Database = {
           mobile_number: string
           password_set: boolean | null
           registrar: string | null
-          role: string
           station_id: string
           updated_at: string
           user_id: string
@@ -230,7 +231,6 @@ export type Database = {
           mobile_number: string
           password_set?: boolean | null
           registrar?: string | null
-          role?: string
           station_id: string
           updated_at?: string
           user_id: string
@@ -245,7 +245,6 @@ export type Database = {
           mobile_number?: string
           password_set?: boolean | null
           registrar?: string | null
-          role?: string
           station_id?: string
           updated_at?: string
           user_id?: string
@@ -259,16 +258,11 @@ export type Database = {
           created_at: string
           description: string
           id: string
-          approved_by: string | null
-          rejected_by: string | null
-          approved_at: string | null
-          rejected_at: string | null
           manager_notes: string | null
           rejection_message: string | null
           status: string
           title: string
           updated_at: string
-          report_date: string | null
           user_id: string
         }
         Insert: {
@@ -277,16 +271,11 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
-          approved_by?: string | null
-          rejected_by?: string | null
-          approved_at?: string | null
-          rejected_at?: string | null
           manager_notes?: string | null
           rejection_message?: string | null
           status?: string
           title?: string
           updated_at?: string
-          report_date?: string | null
           user_id: string
         }
         Update: {
@@ -295,36 +284,17 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
-          approved_by?: string | null
-          rejected_by?: string | null
-          approved_at?: string | null
-          rejected_at?: string | null
           manager_notes?: string | null
           rejection_message?: string | null
           status?: string
           title?: string
           updated_at?: string
-          report_date?: string | null
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "fk_reports_user_id"
             columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "fk_reports_approved_by"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "fk_reports_rejected_by"
-            columns: ["rejected_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
@@ -363,31 +333,34 @@ export type Database = {
       }
       system_settings: {
         Row: {
+          category: string
+          created_at: string | null
+          description: string | null
           id: string
           key: string
-          value: Json
-          category: string
-          description: string | null
-          updated_at: string
+          updated_at: string | null
           updated_by: string | null
+          value: Json
         }
         Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
           id?: string
           key: string
-          value: Json
-          category: string
-          description?: string | null
-          updated_at?: string
+          updated_at?: string | null
           updated_by?: string | null
+          value: Json
         }
         Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
           id?: string
           key?: string
-          value?: Json
-          category?: string
-          description?: string | null
-          updated_at?: string
+          updated_at?: string | null
           updated_by?: string | null
+          value?: Json
         }
         Relationships: []
       }
@@ -434,10 +407,7 @@ export type Database = {
         }
         Returns: undefined
       }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_current_user_role: { Args: never; Returns: string }
       get_notifications_for_role: {
         Args: { target_role_param: string }
         Returns: {
@@ -452,9 +422,10 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_user_role: {
-        Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"]
+      get_user_role: { Args: { user_id_param: string }; Returns: string }
+      get_user_role_for_notifications: {
+        Args: { user_id_param: string }
+        Returns: string
       }
       has_role: {
         Args: {
@@ -463,6 +434,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: { user_id_param: string }; Returns: boolean }
       log_security_event: {
         Args: {
           details_param?: Json
