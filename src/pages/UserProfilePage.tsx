@@ -188,7 +188,8 @@ export function UserProfilePage() {
           mobile_number: userProfile.mobile_number,
           station_id: userProfile.station_id,
           center_address: userProfile.center_address,
-          registrar: userProfile.registrar || ''
+          registrar: userProfile.registrar || '',
+          admin_email: profile?.email
         }
       });
 

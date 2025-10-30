@@ -3,6 +3,9 @@ project_id = "nimxzvhzxsfkfpnbhphm"
 [functions.user-invite]
 verify_jwt = false
 
+[functions.delete-user]
+verify_jwt = false
+
 [functions.get-users]
 verify_jwt = false
 

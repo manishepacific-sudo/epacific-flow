@@ -70,10 +70,19 @@ export default function UserManagement() {
   });
 
   useEffect(() => {
+    if (!profile?.email) {
+      return;
+    }
+
+    setLoading(true);
     fetchUsers();
-  }, []);
+  }, [profile?.email]);
 
   const fetchUsers = async () => {
+    if (!profile?.email) {
+      return;
+    }
+
     try {
       // Use edge function to fetch users (bypasses RLS for demo mode)
       const { data: result, error } = await supabase.functions.invoke('get-users', {
@@ -89,9 +98,10 @@ export default function UserManagement() {
           .order('created_at', { ascending: false });
 
         if (directError) throw directError;
+
         setUsers(data || []);
       } else {
-        setUsers(result.users || []);
+        setUsers(result?.users || []);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -132,6 +142,15 @@ export default function UserManagement() {
 
   const createUser = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!profile?.email) {
+      toast({
+        title: "Profile not loaded",
+        description: "Please wait and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     // Validate mobile number if provided
     if (formData.mobile_number && !/^\d{10}$/.test(formData.mobile_number)) {
@@ -176,10 +195,33 @@ export default function UserManagement() {
         throw new Error(result?.error || 'Failed to create user');
       }
 
-      toast({
-        title: "User created successfully",
-        description: `Invitation email sent to ${formData.email}`,
-      });
+      // Check if email was sent or if we need to show manual link
+      if (result.emailError && result.invite_link) {
+        // User created but email failed - show manual link
+        const inviteLink = result.invite_link;
+        toast({
+          title: "User created (email not sent)",
+          description: "User created successfully but email couldn't be sent. Please share the invite link manually.",
+          action: {
+            label: "Copy Link",
+            onClick: () => {
+              navigator.clipboard.writeText(inviteLink);
+              toast({
+                title: "Link copied!",
+                description: `Share this link with ${formData.email}`,
+              });
+            }
+          },
+          duration: 10000,
+        });
+        console.log(`📋 Manual invite link for ${formData.email}: ${inviteLink}`);
+      } else {
+        // Email sent successfully
+        toast({
+          title: "User created successfully",
+          description: `Invitation email sent to ${formData.email}`,
+        });
+      }
 
       // Reset form and close dialog
       setFormData({
@@ -236,15 +278,31 @@ export default function UserManagement() {
   };
 
   const deleteUser = async (user: any) => {
-    setDeletingUserId(user.id);
+    if (!profile?.email) {
+      toast({
+        title: "Profile not loaded",
+        description: "Please wait and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!user?.user_id) {
+      toast({
+        title: "User ID missing",
+        description: "Unable to delete this user because their ID is missing.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setDeletingUserId(user.user_id);
 
     try {
-      const { data: result, error } = await supabase.functions.invoke('manageUser', {
+      const { data: result, error } = await supabase.functions.invoke('delete-user', {
         body: {
-          action: 'delete',
-          data: {
-            userId: user.user_id
-          }
+          user_id: user.user_id,
+          admin_email: profile?.email
         }
       });
 
@@ -292,7 +350,7 @@ export default function UserManagement() {
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" disabled={loading || !profile?.email}>
               <UserPlus className="h-4 w-4" />
               Add User
             </Button>
@@ -346,7 +404,6 @@ export default function UserManagement() {
                     value={formData.mobile_number}
                     onChange={(e) => handleInputChange('mobile_number', e.target.value)}
                     className={`pl-10 ${formErrors.mobile_number ? 'border-destructive' : ''}`}
-                    required
                   />
                 </div>
                 {formErrors.mobile_number && (
@@ -365,7 +422,6 @@ export default function UserManagement() {
                     value={formData.station_id}
                     onChange={(e) => handleInputChange('station_id', e.target.value)}
                     className={`pl-10 ${formErrors.station_id ? 'border-destructive' : ''}`}
-                    required
                   />
                 </div>
                 {formErrors.station_id && (
@@ -444,11 +500,16 @@ export default function UserManagement() {
             </div>
           ) : (
             users.map((user) => {
+              const userId = user?.user_id;
+              if (!userId) {
+                return null;
+              }
+
               const RoleIcon = roleIcons[user.role as keyof typeof roleIcons] || Shield;
               
               return (
                 <motion.div
-                  key={user.id}
+                  key={userId}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="p-6 hover:bg-gray-50 transition-colors"
@@ -486,19 +547,21 @@ export default function UserManagement() {
                       </Button>
                       
                       {/* Delete User Button with Confirmation */}
-                      {((profile?.role === 'admin') || 
-                        (profile?.role === 'manager' && user.role === 'user')) && 
-                        user.user_id !== profile?.user_id && (
+                      {userId && userId !== profile?.user_id &&
+                        (
+                          (profile?.role === 'admin') ||
+                          (profile?.role === 'manager' && user.role !== 'admin')
+                        ) && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
                               variant="outline"
                               size="sm"
                               className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                              disabled={deletingUserId === user.id}
+                              disabled={deletingUserId === userId || loading || !profile?.email}
                             >
                               <Trash2 className="h-4 w-4" />
-                              {deletingUserId === user.id ? "Deleting..." : "Delete"}
+                              {deletingUserId === userId ? "Deleting..." : "Delete"}
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -526,6 +589,7 @@ export default function UserManagement() {
                               <AlertDialogAction
                                 onClick={() => deleteUser(user)}
                                 className="bg-red-600 hover:bg-red-700"
+                                disabled={loading || !profile?.email}
                               >
                                 Yes, Delete User
                               </AlertDialogAction>

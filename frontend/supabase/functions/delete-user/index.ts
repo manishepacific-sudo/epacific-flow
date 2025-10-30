@@ -48,6 +48,7 @@ serve(async (req) => {
     console.log('🔐 Verifying admin permissions...');
     let adminRole = null;
     let adminUserId = null;
+    let authUser: any = null;
 
     // Demo credentials check
     const demoCredentials: Record<string, string> = {
@@ -62,44 +63,74 @@ serve(async (req) => {
       adminUserId = 'demo-admin';
     } else {
       // Regular database lookup for non-demo accounts
-      // First get the user_id from profiles
+      // First try to get the user_id from profiles (case-sensitive match)
       const { data: adminProfile, error: adminError } = await supabase
         .from('profiles')
-        .select('user_id')
+        .select('user_id, email')
         .eq('email', admin_email)
-        .single();
+        .maybeSingle();
 
-      if (adminError || !adminProfile) {
-        console.error('❌ Admin profile not found:', adminError);
+      if (adminError) {
+        console.error('❌ Error verifying admin profile:', adminError);
         return new Response(
-          JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
+          JSON.stringify({ error: 'Database error while verifying admin' }),
           { 
-            status: 403, 
+            status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
 
-      // Now get the role from user_roles table
+      if (adminProfile?.user_id) {
+        adminUserId = adminProfile.user_id;
+      } else {
+        // Fallback: search in auth users list (case-insensitive email check)
+        const { data: allUsers, error: listError } = await supabase.auth.admin.listUsers();
+        if (listError) {
+          console.error('❌ Failed to list users for admin lookup:', listError);
+          return new Response(
+            JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
+            { 
+              status: 403, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+
+        authUser = allUsers.users.find((u: any) => u.email?.toLowerCase() === admin_email.toLowerCase());
+        if (!authUser) {
+          console.error('❌ Admin auth user not found for email', admin_email);
+          return new Response(
+            JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
+            { 
+              status: 403, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+
+        adminUserId = authUser.id;
+      }
+
+      // Now get the role from user_roles table, fallback to auth user metadata
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', adminProfile.user_id)
-        .single();
+        .eq('user_id', adminUserId)
+        .maybeSingle();
 
-      if (roleError || !roleData) {
-        console.error('❌ Admin role not found:', roleError);
+      if (roleError) {
+        console.error('❌ Error fetching admin role:', roleError);
         return new Response(
-          JSON.stringify({ error: 'Unauthorized: Admin role not found' }),
+          JSON.stringify({ error: 'Database error while verifying admin' }),
           { 
-            status: 403, 
+            status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
 
-      adminRole = roleData.role;
-      adminUserId = adminProfile.user_id;
+      adminRole = roleData?.role ?? authUser?.user_metadata?.role ?? null;
     }
 
     if (!['admin', 'manager'].includes(adminRole)) {

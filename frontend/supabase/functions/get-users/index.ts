@@ -147,10 +147,34 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('✅ Users fetched successfully:', users.length);
 
+    // Merge role information server-side to avoid extra round-trips
+    const userIds = (users || [])
+      .map((u) => u.user_id)
+      .filter((id) => Boolean(id));
+
+    let usersWithRoles = users || [];
+
+    if (userIds.length > 0) {
+      const { data: rolesData, error: rolesError } = await supabaseAdmin
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', userIds as string[]);
+
+      if (rolesError) {
+        console.error('⚠️ Role merge warning:', rolesError);
+      } else if (rolesData) {
+        const roleMap = new Map(rolesData.map(({ user_id, role }) => [user_id, role]));
+        usersWithRoles = usersWithRoles.map((user) => ({
+          ...user,
+          role: roleMap.get(user.user_id) ?? user.role,
+        }));
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         message: "Users fetched successfully",
-        users: users
+        users: usersWithRoles
       }),
       {
         status: 200,

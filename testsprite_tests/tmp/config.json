@@ -1,0 +1,16 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8080",
+  "executionArgs": {
+    "projectName": "epacific-flow",
+    "projectPath": "F:\\epacific-flow",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "sk-user-RFsou1NEsaGCpVbP1e5vWkUUUXzvN8ENUj3cLBrY8J1-kX6vXIOg-UDMa2bzDk7qoVT4rXYM87HGQgSaJ0HAD_mKakIjby9nPD6OuRUM9mHgTxuJ5qmigIHvDcLIy7Mk8Ks"
+    }
+  },
+  "proxy": "http://346ff57c-4757-4a85-a727-4f7b892c504d:566KPloS0r160HfU2WpAniiiHQUXLigb@tun.testsprite.com:8080"
+}
