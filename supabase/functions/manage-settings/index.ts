@@ -323,8 +323,9 @@ serve(async (req: Request) => {
     }
   } catch (err) {
     console.error('[manage-settings] Error:', err)
+    const errorMessage = err instanceof Error ? err.message : 'Internal server error'
     return new Response(JSON.stringify({ 
-      error: err.message || 'Internal server error'
+      error: errorMessage
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

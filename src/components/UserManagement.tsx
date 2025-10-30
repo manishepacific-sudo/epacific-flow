@@ -202,17 +202,12 @@ export default function UserManagement() {
         toast({
           title: "User created (email not sent)",
           description: "User created successfully but email couldn't be sent. Please share the invite link manually.",
-          action: {
-            label: "Copy Link",
-            onClick: () => {
-              navigator.clipboard.writeText(inviteLink);
-              toast({
-                title: "Link copied!",
-                description: `Share this link with ${formData.email}`,
-              });
-            }
-          },
           duration: 10000,
+        });
+        
+        // Copy link to clipboard automatically
+        navigator.clipboard.writeText(inviteLink).then(() => {
+          console.log(`📋 Invite link copied to clipboard: ${inviteLink}`);
         });
         console.log(`📋 Manual invite link for ${formData.email}: ${inviteLink}`);
       } else {
