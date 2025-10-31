@@ -54,7 +54,7 @@ export default function ManagerReportApproval() {
             email
           )
         `)
-        .eq('status', 'pending_approval')
+        .in('status', ['pending_approval', 'pending'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;

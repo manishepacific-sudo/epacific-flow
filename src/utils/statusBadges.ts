@@ -1,23 +1,25 @@
-export type ReportStatus = 'pending_approval' | 'approved' | 'rejected';
+export type ReportStatus = 'pending_approval' | 'pending' | 'approved' | 'rejected';
 export type PaymentStatus = 'pending' | 'approved' | 'rejected';
 
 export const STATUS_LABELS: Record<string, string> = {
   pending_approval: 'Pending Approval',
+  pending: 'Pending',
   approved: 'Approved',
   rejected: 'Rejected',
-  pending: 'Pending',
 };
 
 export const REPORT_BADGE_VARIANT: Record<ReportStatus, 'default' | 'destructive' | 'secondary'> = {
   approved: 'default',
   rejected: 'destructive',
   pending_approval: 'secondary',
+  pending: 'secondary',
 };
 
 export const REPORT_BADGE_CLASS: Record<ReportStatus, string> = {
   approved: 'bg-green-100 text-green-800 border-green-200',
   rejected: 'bg-red-100 text-red-800 border-red-200',
   pending_approval: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
 };
 
 export const PAYMENT_BADGE_CLASS: Record<PaymentStatus, string> = {
@@ -36,7 +38,7 @@ export function getPaymentStatusLabel(status: string): string {
 
 export function getReportBadgeProps(status: string): { variant: 'default' | 'destructive' | 'secondary'; className: string } {
   // Normalize legacy/new status values
-  const normalized: ReportStatus = (status === 'pending' ? 'pending_approval' : status) as ReportStatus;
+  const normalized: ReportStatus = (status === 'pending' || status === 'pending_approval' ? (status as ReportStatus) : status) as ReportStatus;
   const variant = REPORT_BADGE_VARIANT[normalized] || 'secondary';
   const className = REPORT_BADGE_CLASS[normalized] || REPORT_BADGE_CLASS['pending_approval'];
   return { variant, className };

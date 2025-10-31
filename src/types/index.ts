@@ -15,7 +15,7 @@ export interface Report {
   reportDate: string;
   report_date?: string;
   amount: number;
-  status: 'pending_approval' | 'approved' | 'rejected';
+  status: 'pending_approval' | 'pending' | 'approved' | 'rejected';
   createdAt: string;
 }
 
@@ -25,7 +25,7 @@ export interface DBReport {
   description: string;
   amount: number;
   attachment_url: string;
-  status: 'pending_approval' | 'approved' | 'rejected';
+  status: 'pending_approval' | 'pending' | 'approved' | 'rejected';
   approved_by?: string;
   rejected_by?: string;
   created_at: string;

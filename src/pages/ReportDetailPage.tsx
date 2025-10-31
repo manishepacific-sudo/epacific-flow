@@ -83,7 +83,7 @@ export default function ReportDetailPage() {
   const [rejectorProfile, setRejectorProfile] = useState<ProfileLike | null>(null);
 
   const isManagerOrAdmin = profile?.role === 'admin' || profile?.role === 'manager';
-  const canEdit = isManagerOrAdmin && report?.status === 'pending_approval';
+  const canEdit = isManagerOrAdmin && (report?.status === 'pending_approval' || report?.status === 'pending');
 
   useEffect(() => {
     if (reportId) {
@@ -139,7 +139,7 @@ export default function ReportDetailPage() {
 
       setReport({
         ...reportData,
-        status: reportData.status as 'pending_approval' | 'approved' | 'rejected',
+        status: reportData.status as 'pending_approval' | 'pending' | 'approved' | 'rejected',
         profiles: (reportData as any)?.profiles && typeof (reportData as any).profiles === 'object'
           ? ((reportData as any).profiles as Profile)
           : null
