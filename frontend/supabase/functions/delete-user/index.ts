@@ -1,10 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const DeleteUserSchema = z.object({
+  user_id: z.string().uuid('Invalid user ID format'),
+  admin_email: z.string().email('Invalid email format').max(255, 'Email too long'),
+})
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -17,18 +23,28 @@ serve(async (req) => {
 
   try {
     console.log('📥 Reading request body...');
-    const { user_id, admin_email } = await req.json();
+    const requestBody = await req.json();
 
-    if (!user_id || !admin_email) {
-      console.error('❌ Missing required parameters');
+    // Validate input with Zod
+    const validation = DeleteUserSchema.safeParse(requestBody);
+    if (!validation.success) {
+      console.error('❌ Input validation failed:', validation.error.issues);
       return new Response(
-        JSON.stringify({ error: 'Missing user_id or admin_email' }),
+        JSON.stringify({ 
+          error: 'Invalid input',
+          details: validation.error.issues.map(issue => ({
+            field: issue.path.join('.'),
+            message: issue.message
+          }))
+        }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
+
+    const { user_id, admin_email } = validation.data;
 
     console.log(`👤 Admin requesting deletion: ${admin_email}`);
     console.log(`🗑️ Target user ID: ${user_id}`);
