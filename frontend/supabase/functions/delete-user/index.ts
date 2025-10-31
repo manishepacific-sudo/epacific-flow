@@ -44,70 +44,57 @@ serve(async (req) => {
       }
     });
 
-    // Check for demo admin credentials first
+    // Verify admin permissions - NO HARDCODED CREDENTIALS
     console.log('🔐 Verifying admin permissions...');
     let adminRole = null;
     let adminUserId = null;
     let authUser: any = null;
 
-    // Demo credentials check
-    const demoCredentials: Record<string, string> = {
-      'admin@epacific.com': 'admin',
-      'manager@epacific.com': 'manager'
-    };
+    // First try to get the user_id from profiles (case-sensitive match)
+    const { data: adminProfile, error: adminError } = await supabase
+      .from('profiles')
+      .select('user_id, email')
+      .eq('email', admin_email)
+      .maybeSingle();
 
-    if (demoCredentials[admin_email as keyof typeof demoCredentials]) {
-      console.log('✅ Demo admin credentials detected');
-      adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
-      // For demo accounts, we don't need a specific user_id for permission checks
-      adminUserId = 'demo-admin';
+    if (adminError) {
+      console.error('❌ Error verifying admin profile:', adminError);
+      return new Response(
+        JSON.stringify({ error: 'Database error while verifying admin' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (adminProfile?.user_id) {
+      adminUserId = adminProfile.user_id;
     } else {
-      // Regular database lookup for non-demo accounts
-      // First try to get the user_id from profiles (case-sensitive match)
-      const { data: adminProfile, error: adminError } = await supabase
-        .from('profiles')
-        .select('user_id, email')
-        .eq('email', admin_email)
-        .maybeSingle();
-
-      if (adminError) {
-        console.error('❌ Error verifying admin profile:', adminError);
+      // Fallback: search in auth users list (case-insensitive email check)
+      const { data: allUsers, error: listError } = await supabase.auth.admin.listUsers();
+      if (listError) {
+        console.error('❌ Failed to list users for admin lookup:', listError);
         return new Response(
-          JSON.stringify({ error: 'Database error while verifying admin' }),
+          JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
           { 
-            status: 500, 
+            status: 403, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
 
-      if (adminProfile?.user_id) {
-        adminUserId = adminProfile.user_id;
-      } else {
-        // Fallback: search in auth users list (case-insensitive email check)
-        const { data: allUsers, error: listError } = await supabase.auth.admin.listUsers();
-        if (listError) {
-          console.error('❌ Failed to list users for admin lookup:', listError);
-          return new Response(
-            JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
-            { 
-              status: 403, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
-
-        authUser = allUsers.users.find((u: any) => u.email?.toLowerCase() === admin_email.toLowerCase());
-        if (!authUser) {
-          console.error('❌ Admin auth user not found for email', admin_email);
-          return new Response(
-            JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
-            { 
-              status: 403, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
+      authUser = allUsers.users.find((u: any) => u.email?.toLowerCase() === admin_email.toLowerCase());
+      if (!authUser) {
+        console.error('❌ Admin auth user not found for email', admin_email);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
 
         adminUserId = authUser.id;
       }

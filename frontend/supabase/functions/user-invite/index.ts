@@ -67,37 +67,27 @@ serve(async (req: Request): Promise<Response> => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // ✅ Validate admin permissions
+    // ✅ Validate admin permissions - NO HARDCODED CREDENTIALS
     if (admin_email) {
       console.log("🔐 Validating admin permissions...");
-      const demoCredentials: Record<string, string> = {
-        'admin@epacific.com': 'admin',
-        'manager@epacific.com': 'manager'
-      };
 
-      let adminRole = null;
+      // Get the user_id from profiles
+      const { data: adminProfile, error: adminError } = await supabaseAdmin
+        .from('profiles')
+        .select('user_id')
+        .eq('email', admin_email)
+        .single();
 
-      if (demoCredentials[admin_email as keyof typeof demoCredentials]) {
-        adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
-        console.log(`✅ Demo admin detected: ${admin_email} with role: ${adminRole}`);
-      } else {
-        // First get the user_id from profiles
-        const { data: adminProfile, error: adminError } = await supabaseAdmin
-          .from('profiles')
-          .select('user_id')
-          .eq('email', admin_email)
-          .single();
+      if (adminError || !adminProfile) {
+        console.error("❌ Admin profile not found:", { email: admin_email, error: adminError });
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized: Admin profile not found" }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
 
-        if (adminError || !adminProfile) {
-          console.error("❌ Admin profile not found:", { email: admin_email, error: adminError });
-          return new Response(
-            JSON.stringify({ success: false, error: "Unauthorized: Admin profile not found" }),
-            { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
-          );
-        }
-
-        // Now get the role from user_roles table
-        const { data: roleData, error: roleError } = await supabaseAdmin
+      // Now get the role from user_roles table
+      const { data: roleData, error: roleError } = await supabaseAdmin
           .from('user_roles')
           .select('role')
           .eq('user_id', adminProfile.user_id)
@@ -300,18 +290,18 @@ serve(async (req: Request): Promise<Response> => {
     console.log(`📧 Invitation email sent to ${email} via Supabase SMTP`);
     console.log(`🔗 Password setup link: ${redirectUrl}`);
 
+    // ✅ SECURITY: Never return tokens in API response
+    // Tokens are only sent via secure email
     return new Response(
       JSON.stringify({
         success: true,
-        message: "User invited successfully via Supabase SMTP",
+        message: "User invited successfully. Invitation email sent.",
         user: { 
           id: inviteData.user.id, 
           email, 
           full_name, 
           role 
         },
-        invite_link: redirectUrl,
-        token: secureToken,
         expires_at: expiresAt.toISOString()
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
