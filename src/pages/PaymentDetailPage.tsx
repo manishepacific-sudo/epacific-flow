@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Eye, Download, Check, X, Calendar, User, CreditCard, ShieldAlert } from "lucide-react";
+import { Eye, Download, Check, X, User, CreditCard, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -25,8 +25,6 @@ interface PaymentWithProfile {
   proof_url?: string | null;
   created_at: string;
   updated_at: string;
-  approved_at?: string | null;
-  rejected_at?: string | null;
   admin_notes?: string | null;
   rejection_message?: string | null;
   user_id: string;
@@ -34,7 +32,6 @@ interface PaymentWithProfile {
     full_name?: string | null;
     email?: string | null;
     mobile_number?: string | null;
-    role?: string | null;
     registrar?: string | null;
   } | null;
 }
@@ -66,7 +63,7 @@ export default function PaymentDetailPage() {
         
         const { data, error } = await supabase
           .from('payments')
-          .select(`*, profiles:user_id(full_name,email,mobile_number,role,registrar)`) 
+          .select(`*, profiles:user_id(full_name,email,mobile_number,registrar)`) 
           .eq('id', id)
           .single();
           
@@ -141,45 +138,29 @@ export default function PaymentDetailPage() {
     try {
       const now = new Date().toISOString();
 
-      const payloadWithAudit: any = {
+      const updatePayload = {
         status: next,
         updated_at: now,
         rejection_message: next === 'rejected' ? (reason || '') : null,
+        admin_notes: next === 'approved' ? null : undefined,
       };
-      if (next === 'approved') {
-        payloadWithAudit.approved_at = now;
-        payloadWithAudit.approved_by = profile?.user_id || null;
-      }
-      if (next === 'rejected') {
-        payloadWithAudit.rejected_at = now;
-        payloadWithAudit.rejected_by = profile?.user_id || null;
-      }
 
-      let { error } = await supabase.from('payments').update(payloadWithAudit).eq('id', id);
-      if (error) {
-        const fallback = {
-          status: next,
-          updated_at: now,
-          rejection_message: next === 'rejected' ? (reason || '') : null,
-        };
-        const res = await supabase.from('payments').update(fallback).eq('id', id);
-        error = res.error as any;
-        if (error) throw error;
-      }
+      const { error } = await supabase.from('payments').update(updatePayload).eq('id', id);
+      if (error) throw error;
 
       try {
         if (payment) {
           if (next === 'approved') {
-            await notifyPaymentApproved(payment.user_id, payment.amount, `/payment-detail/${payment.id}`);
+            await notifyPaymentApproved(payment.user_id, payment.amount, `/payment/user/${payment.id}`);
           } else if (next === 'rejected') {
-            await notifyPaymentRejected(payment.user_id, payment.amount, reason || '', `/payment-detail/${payment.id}`);
+            await notifyPaymentRejected(payment.user_id, payment.amount, reason || '', `/payment/user/${payment.id}`);
           }
         }
       } catch {}
 
       const { data } = await supabase
         .from('payments')
-        .select(`*, profiles:user_id(full_name,email,mobile_number,role,registrar)`) 
+        .select(`*, profiles:user_id(full_name,email,mobile_number,registrar)`) 
         .eq('id', id)
         .single();
       setPayment(data as any);
@@ -247,22 +228,12 @@ export default function PaymentDetailPage() {
                   <div className="flex items-center gap-2"><User className="h-4 w-4"/><span className="text-muted-foreground">Name:</span><span className="font-medium">{payment.profiles?.full_name || 'Unknown'}</span></div>
                   <div className="flex items-center gap-2"><span className="text-muted-foreground">Email:</span><span className="font-medium break-all">{payment.profiles?.email || '-'}</span></div>
                   <div className="flex items-center gap-2"><span className="text-muted-foreground">Mobile:</span><span className="font-medium">{payment.profiles?.mobile_number || '-'}</span></div>
-                  <div className="flex items-center gap-2"><span className="text-muted-foreground">Role:</span><span className="font-medium capitalize">{payment.profiles?.role || '-'}</span></div>
                   {payment.profiles?.registrar && (
                     <div className="flex items-center gap-2 col-span-2">
                       <span className="text-muted-foreground">Registrar:</span>
                       <span className="font-semibold text-primary">{payment.profiles.registrar}</span>
                     </div>
                   )}
-                </div>
-              </GlassCard>
-
-              <GlassCard className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Activity Timeline</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Submitted on {format(new Date(payment.created_at), 'PPP')}</div>
-                  {payment.approved_at && <div className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> Approved on {format(new Date(payment.approved_at), 'PPP')}</div>}
-                  {payment.rejected_at && <div className="flex items-center gap-2"><X className="h-4 w-4 text-destructive" /> Rejected on {format(new Date(payment.rejected_at), 'PPP')}</div>}
                 </div>
               </GlassCard>
             </div>
