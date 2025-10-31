@@ -208,44 +208,44 @@ export type Database = {
       }
       profiles: {
         Row: {
-          center_address: string
+          center_address: string | null
           created_at: string
           email: string
           full_name: string
           id: string
           is_demo: boolean | null
-          mobile_number: string
+          mobile_number: string | null
           password_set: boolean | null
           registrar: string | null
-          station_id: string
+          station_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          center_address: string
+          center_address?: string | null
           created_at?: string
           email: string
           full_name: string
           id?: string
           is_demo?: boolean | null
-          mobile_number: string
+          mobile_number?: string | null
           password_set?: boolean | null
           registrar?: string | null
-          station_id: string
+          station_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          center_address?: string
+          center_address?: string | null
           created_at?: string
           email?: string
           full_name?: string
           id?: string
           is_demo?: boolean | null
-          mobile_number?: string
+          mobile_number?: string | null
           password_set?: boolean | null
           registrar?: string | null
-          station_id?: string
+          station_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -393,6 +393,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_invite_tokens: { Args: never; Returns: undefined }
       clear_read_notifications: {
         Args: { target_role_param: string }
         Returns: undefined
