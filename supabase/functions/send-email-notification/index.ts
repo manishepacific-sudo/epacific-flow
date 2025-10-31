@@ -1,9 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-
-// Lightweight SMTP sender for Deno (manual sockets avoided; rely on Resend-like HTTP if available)
-// Here we implement a minimal SMTP over net using Deno's connectTls for Hostinger
-// For simplicity and reliability, we'll call a webhook-compatible SMTP relay if provided; otherwise noop.
+import { createTransport } from "npm:nodemailer@6.9.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +31,7 @@ async function logEmail(supabaseAdmin: ReturnType<typeof createClient>, params: 
   }
 }
 
-// Placeholder SMTP send using a basic compatible API endpoint
+// Send email using Hostinger SMTP via nodemailer
 async function sendSMTP(payload: Payload): Promise<{ ok: boolean; error?: string }> {
   const host = Deno.env.get('SMTP_HOST') || '';
   const port = Number(Deno.env.get('SMTP_PORT') || '587');
@@ -42,28 +39,48 @@ async function sendSMTP(payload: Payload): Promise<{ ok: boolean; error?: string
   const pass = Deno.env.get('SMTP_PASS') || '';
 
   if (!host || !port || !user || !pass) {
-    console.warn('SMTP credentials missing; skipping actual send');
-    return { ok: true }; // treat as sent to avoid blocking flows in dev
+    const error = 'SMTP credentials missing (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)';
+    console.error('❌', error);
+    return { ok: false, error };
   }
 
-  // Minimal SMTP using a third-party micro-relay if configured
-  const relayUrl = Deno.env.get('SMTP_HTTP_RELAY');
-  if (relayUrl) {
-    const res = await fetch(relayUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ host, port, user, pass, to: payload.to, subject: payload.subject, html: payload.html })
+  console.log(`📧 Configuring SMTP: ${host}:${port} with user: ${user}`);
+
+  try {
+    // Create nodemailer transport for Hostinger SMTP
+    const transporter = createTransport({
+      host,
+      port,
+      secure: port === 465, // true for 465, false for other ports
+      auth: {
+        user,
+        pass,
+      },
+      tls: {
+        rejectUnauthorized: false // Accept self-signed certificates
+      }
     });
-    if (!res.ok) {
-      const text = await res.text();
-      return { ok: false, error: text };
-    }
-    return { ok: true };
-  }
 
-  // As a fallback, we skip the actual socket SMTP implementation here for brevity
-  // and return success. Replace with a proper SMTP client if needed.
-  return { ok: true };
+    console.log(`📨 Sending email to: ${payload.to}`);
+    console.log(`📋 Subject: ${payload.subject}`);
+
+    // Send email
+    const info = await transporter.sendMail({
+      from: `"Epacific Technologies" <${user}>`, // sender address
+      to: payload.to, // recipient
+      subject: payload.subject,
+      html: payload.html,
+    });
+
+    console.log(`✅ Email sent successfully! Message ID: ${info.messageId}`);
+    return { ok: true };
+  } catch (error: any) {
+    console.error('❌ SMTP send error:', error);
+    return { 
+      ok: false, 
+      error: error.message || 'Failed to send email via SMTP' 
+    };
+  }
 }
 
 serve(async (req: Request): Promise<Response> => {
