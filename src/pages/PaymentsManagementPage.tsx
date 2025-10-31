@@ -15,6 +15,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { downloadFileFromStorage } from "@/utils/fileDownload";
 import * as XLSX from 'xlsx';
 
 interface Payment {
@@ -167,25 +168,12 @@ export default function PaymentsManagementPage() {
 
   const handleDownloadProof = async (proofPath: string, paymentId: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('payment-proofs')
-        .createSignedUrl(proofPath, 300);
-      
-      if (error) throw error;
-      
-      const link = document.createElement('a');
-      link.href = data.signedUrl;
-      link.download = `payment-proof-${paymentId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
+      await downloadFileFromStorage('payment-proofs', proofPath, `payment-proof-${paymentId}`);
       toast({
-        title: "Download started",
-        description: "Payment proof is being downloaded.",
+        title: "Success",
+        description: "Payment proof downloaded successfully.",
       });
-    } catch (error: unknown) {
-      const err = error as Error;
+    } catch (err: any) {
       console.error('Download error:', err);
       toast({
         title: "Download failed",
