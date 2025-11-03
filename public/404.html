@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Redirecting…</title>
+    <meta name="robots" content="noindex" />
+    <script>
+      (function () {
+        try {
+          var redirectPath = window.location.pathname + window.location.search + window.location.hash;
+          sessionStorage.setItem('spa-redirect-path', redirectPath);
+        } catch (error) {
+          console.error('Failed to persist redirect path', error);
+        }
+        window.location.replace('/');
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>
+      <p>Please enable JavaScript to continue.</p>
+    </noscript>
+  </body>
+</html>
+

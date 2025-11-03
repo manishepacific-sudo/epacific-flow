@@ -62,21 +62,65 @@ export default function PaymentDetailPage() {
     const fetchPayment = async () => {
       try {
         setLoading(true);
-        console.log('Fetching payment with ID:', id);
-        
-        const { data, error } = await supabase
+
+        const { data: paymentRecord, error: paymentError } = await supabase
           .from('payments')
-          .select(`*, profiles:user_id(full_name,email,mobile_number,role,registrar)`) 
+          .select('*')
           .eq('id', id)
-          .single();
-          
-        if (error) {
-          console.error('Supabase error:', error);
-          throw error;
+          .maybeSingle();
+
+        if (paymentError) {
+          const message = paymentError.message?.toLowerCase() || '';
+          const tableMissing =
+            message.includes('relation "public.payments" does not exist') ||
+            message.includes('relation "payments" does not exist') ||
+            message.includes('table "public.payments" does not exist');
+
+          if (tableMissing) {
+            toast({
+              title: 'Payments System Unavailable',
+              description: 'Payment records are currently unavailable. Please contact your administrator.',
+              variant: 'destructive'
+            });
+            navigate(-1);
+            return;
+          }
+
+          throw paymentError;
         }
-        
-        console.log('Payment data loaded:', data);
-        setPayment(data as unknown as PaymentWithProfile);
+
+        if (!paymentRecord) {
+          toast({
+            title: 'Payment Not Found',
+            description: 'The requested payment could not be located.',
+            variant: 'destructive'
+          });
+          navigate(-1);
+          return;
+        }
+
+        let profileDetails: PaymentWithProfile['profiles'] = null;
+        if (paymentRecord.user_id) {
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select(`
+                full_name,
+                email,
+                mobile_number,
+                role,
+                registrar
+              `)
+              .eq('user_id', paymentRecord.user_id)
+              .maybeSingle();
+
+            profileDetails = profileData || null;
+          } catch (profileError) {
+            console.warn('Failed to load payment owner profile', profileError);
+          }
+        }
+
+        setPayment({ ...paymentRecord, profiles: profileDetails } as PaymentWithProfile);
       } catch (error) {
         console.error('Error loading payment', error);
         toast({ 
@@ -84,7 +128,7 @@ export default function PaymentDetailPage() {
           description: `Failed to load payment: ${error instanceof Error ? error.message : 'Unknown error'}`, 
           variant: 'destructive' 
         });
-        navigate('/dashboard/user');
+        navigate(-1);
       } finally {
         setLoading(false);
       }
@@ -177,12 +221,35 @@ export default function PaymentDetailPage() {
         }
       } catch {}
 
-      const { data } = await supabase
+      const { data: refreshedPayment } = await supabase
         .from('payments')
-        .select(`*, profiles:user_id(full_name,email,mobile_number,role,registrar)`) 
+        .select('*')
         .eq('id', id)
-        .single();
-      setPayment(data as any);
+        .maybeSingle();
+
+      if (refreshedPayment) {
+        let refreshedProfile: PaymentWithProfile['profiles'] = null;
+        if (refreshedPayment.user_id) {
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select(`
+                full_name,
+                email,
+                mobile_number,
+                role,
+                registrar
+              `)
+              .eq('user_id', refreshedPayment.user_id)
+              .maybeSingle();
+            refreshedProfile = profileData || null;
+          } catch (profileError) {
+            console.warn('Failed to refresh payment owner profile', profileError);
+          }
+        }
+
+        setPayment({ ...refreshedPayment, profiles: refreshedProfile } as PaymentWithProfile);
+      }
 
       toast({ title: `Payment ${next}`, description: `Payment has been ${next}.` });
     } catch (error) {

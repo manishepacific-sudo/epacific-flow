@@ -94,28 +94,34 @@ export default function ReportDetailPage() {
   const fetchReportDetails = async () => {
     try {
       setLoading(true);
-      
-      // Fetch report with user profile
-      const { data: reportData, error: reportError } = await supabase
+
+      const selectQuery = `
+        *,
+        profiles (
+          full_name,
+          email,
+          mobile_number,
+          center_address,
+          registrar,
+          role
+        )
+      `;
+
+      const { data: reportRecord, error: reportError } = await supabase
         .from('reports')
-        .select(`
-          *,
-          profiles (
-            full_name,
-            email,
-            mobile_number,
-            center_address,
-            registrar,
-            role
-          )
-        `)
+        .select('*')
         .eq('id', reportId)
-        .single();
+        .maybeSingle();
 
       if (reportError) {
-        // If reports table doesn't exist, show error
-        if (reportError.message?.includes('does not exist') || 
-            reportError.message?.includes('schema cache')) {
+        const message = reportError.message?.toLowerCase() || '';
+        const tableMissing =
+          message.includes('relation "public.reports" does not exist') ||
+          message.includes('relation "reports" does not exist') ||
+          message.includes('table "public.reports" does not exist') ||
+          message.includes('schema cache');
+
+        if (tableMissing) {
           toast({
             title: "Reports System Unavailable",
             description: "The reports system is not available. Please contact your administrator.",
@@ -124,11 +130,44 @@ export default function ReportDetailPage() {
           navigate(-1);
           return;
         }
+
         throw reportError;
       }
 
+      if (!reportRecord) {
+        toast({
+          title: "Report Not Found",
+          description: "The requested report could not be located.",
+          variant: "destructive"
+        });
+        navigate(-1);
+        return;
+      }
+
+      let profileDetails: Profile | null = null;
+      if (reportRecord.user_id) {
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select(`
+              full_name,
+              email,
+              mobile_number,
+              center_address,
+              registrar,
+              role
+            `)
+            .eq('user_id', reportRecord.user_id)
+            .maybeSingle();
+
+          profileDetails = profileData || null;
+        } catch (profileError) {
+          console.warn('Failed to load report owner profile', profileError);
+        }
+      }
+
       // Check if user can view this report
-      if (profile?.role === 'user' && reportData.user_id !== profile.user_id) {
+      if (profile?.role === 'user' && reportRecord.user_id !== profile.user_id) {
         toast({
           title: "Access Denied",
           description: "You can only view your own reports.",
@@ -139,14 +178,12 @@ export default function ReportDetailPage() {
       }
 
       setReport({
-        ...reportData,
-        status: reportData.status as 'pending_approval' | 'approved' | 'rejected',
-        profiles: (reportData as any)?.profiles && typeof (reportData as any).profiles === 'object'
-          ? ((reportData as any).profiles as Profile)
-          : null
+        ...reportRecord,
+        status: reportRecord.status as 'pending_approval' | 'approved' | 'rejected',
+        profiles: profileDetails
       });
-      setManagerNotes(reportData.manager_notes || '');
-      setRejectionMessage(reportData.rejection_message || '');
+      setManagerNotes(reportRecord.manager_notes || '');
+      setRejectionMessage(reportRecord.rejection_message || '');
 
       // Fetch payment if exists
       try {

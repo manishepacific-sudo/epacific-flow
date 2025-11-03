@@ -12,6 +12,23 @@
 </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        var storageKey = 'spa-redirect-path';
+        try {
+          var redirectPath = sessionStorage.getItem(storageKey);
+          if (redirectPath) {
+            sessionStorage.removeItem(storageKey);
+            var currentPath = window.location.pathname + window.location.search + window.location.hash;
+            if (redirectPath !== currentPath) {
+              history.replaceState(null, '', redirectPath);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to restore redirect path', error);
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
