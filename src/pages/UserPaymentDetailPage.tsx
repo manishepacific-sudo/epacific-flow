@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useAuth } from "@/components/AuthProvider";
+import { downloadFileFromStorage } from "@/utils/fileDownload";
 
 type Status = 'pending' | 'approved' | 'rejected';
 
@@ -95,18 +96,11 @@ export default function UserPaymentDetailPage() {
   const downloadProof = async () => {
     if (!payment?.proof_url) return;
     try {
-      const { data, error } = await supabase.storage
-        .from('payment-proofs')
-        .createSignedUrl(payment.proof_url, 300);
-      if (error) throw error;
-      const a = document.createElement('a');
-      a.href = data.signedUrl;
-      a.download = `payment-proof-${payment.id}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch {
-      toast({ title: 'Download failed', description: 'Unable to download proof', variant: 'destructive' });
+      await downloadFileFromStorage('payment-proofs', payment.proof_url, `payment-proof-${payment.id}`);
+      toast({ title: 'Success', description: 'Payment proof downloaded successfully' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to download proof';
+      toast({ title: 'Download failed', description: message, variant: 'destructive' });
     }
   };
 

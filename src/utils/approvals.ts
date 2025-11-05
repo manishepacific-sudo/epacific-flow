@@ -20,22 +20,13 @@ export function buildReportApprovalUpdate(action: Action, fields: BaseFields) {
 
   if (isApprove) {
     updateData.manager_notes = fields.manager_notes ?? null;
-    updateData.approved_by = fields.user_id ?? null;
-    updateData.approved_at = now;
+    // Clear rejection fields when approving
     if (NORMALIZE_APPROVAL_STATE) {
-      updateData.rejected_by = null;
-      updateData.rejected_at = null;
       updateData.rejection_message = null;
     }
   } else {
     updateData.rejection_message = fields.rejection_message ?? null;
     updateData.manager_notes = fields.manager_notes ?? null;
-    updateData.rejected_by = fields.user_id ?? null;
-    updateData.rejected_at = now;
-    if (NORMALIZE_APPROVAL_STATE) {
-      updateData.approved_by = null;
-      updateData.approved_at = null;
-    }
   }
 
   return updateData;

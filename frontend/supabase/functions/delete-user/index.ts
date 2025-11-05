@@ -1,10 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const DeleteUserSchema = z.object({
+  user_id: z.string().uuid('Invalid user ID format'),
+  admin_email: z.string().email('Invalid email format').max(255, 'Email too long'),
+})
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -17,18 +23,28 @@ serve(async (req) => {
 
   try {
     console.log('📥 Reading request body...');
-    const { user_id, admin_email } = await req.json();
+    const requestBody = await req.json();
 
-    if (!user_id || !admin_email) {
-      console.error('❌ Missing required parameters');
+    // Validate input with Zod
+    const validation = DeleteUserSchema.safeParse(requestBody);
+    if (!validation.success) {
+      console.error('❌ Input validation failed:', validation.error.issues);
       return new Response(
-        JSON.stringify({ error: 'Missing user_id or admin_email' }),
+        JSON.stringify({ 
+          error: 'Invalid input',
+          details: validation.error.issues.map(issue => ({
+            field: issue.path.join('.'),
+            message: issue.message
+          }))
+        }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
+
+    const { user_id, admin_email } = validation.data;
 
     console.log(`👤 Admin requesting deletion: ${admin_email}`);
     console.log(`🗑️ Target user ID: ${user_id}`);
@@ -44,70 +60,57 @@ serve(async (req) => {
       }
     });
 
-    // Check for demo admin credentials first
+    // Verify admin permissions - NO HARDCODED CREDENTIALS
     console.log('🔐 Verifying admin permissions...');
     let adminRole = null;
     let adminUserId = null;
     let authUser: any = null;
 
-    // Demo credentials check
-    const demoCredentials: Record<string, string> = {
-      'admin@epacific.com': 'admin',
-      'manager@epacific.com': 'manager'
-    };
+    // First try to get the user_id from profiles (case-sensitive match)
+    const { data: adminProfile, error: adminError } = await supabase
+      .from('profiles')
+      .select('user_id, email')
+      .eq('email', admin_email)
+      .maybeSingle();
 
-    if (demoCredentials[admin_email as keyof typeof demoCredentials]) {
-      console.log('✅ Demo admin credentials detected');
-      adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
-      // For demo accounts, we don't need a specific user_id for permission checks
-      adminUserId = 'demo-admin';
+    if (adminError) {
+      console.error('❌ Error verifying admin profile:', adminError);
+      return new Response(
+        JSON.stringify({ error: 'Database error while verifying admin' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (adminProfile?.user_id) {
+      adminUserId = adminProfile.user_id;
     } else {
-      // Regular database lookup for non-demo accounts
-      // First try to get the user_id from profiles (case-sensitive match)
-      const { data: adminProfile, error: adminError } = await supabase
-        .from('profiles')
-        .select('user_id, email')
-        .eq('email', admin_email)
-        .maybeSingle();
-
-      if (adminError) {
-        console.error('❌ Error verifying admin profile:', adminError);
+      // Fallback: search in auth users list (case-insensitive email check)
+      const { data: allUsers, error: listError } = await supabase.auth.admin.listUsers();
+      if (listError) {
+        console.error('❌ Failed to list users for admin lookup:', listError);
         return new Response(
-          JSON.stringify({ error: 'Database error while verifying admin' }),
+          JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
           { 
-            status: 500, 
+            status: 403, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
 
-      if (adminProfile?.user_id) {
-        adminUserId = adminProfile.user_id;
-      } else {
-        // Fallback: search in auth users list (case-insensitive email check)
-        const { data: allUsers, error: listError } = await supabase.auth.admin.listUsers();
-        if (listError) {
-          console.error('❌ Failed to list users for admin lookup:', listError);
-          return new Response(
-            JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
-            { 
-              status: 403, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
-
-        authUser = allUsers.users.find((u: any) => u.email?.toLowerCase() === admin_email.toLowerCase());
-        if (!authUser) {
-          console.error('❌ Admin auth user not found for email', admin_email);
-          return new Response(
-            JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
-            { 
-              status: 403, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
+      authUser = allUsers.users.find((u: any) => u.email?.toLowerCase() === admin_email.toLowerCase());
+      if (!authUser) {
+        console.error('❌ Admin auth user not found for email', admin_email);
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
 
         adminUserId = authUser.id;
       }

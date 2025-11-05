@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,6 +8,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Credentials": "true",
 };
+
+const GetUsersSchema = z.object({
+  admin_email: z.string().email('Invalid email format').max(255, 'Email too long'),
+});
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -29,21 +34,29 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     console.log('📥 Reading request body...');
-    const { admin_email } = await req.json();
+    const requestBody = await req.json();
     
-    console.log('👤 User requesting users:', admin_email);
-
-    // Validate that the requesting user has appropriate role
-    if (!admin_email) {
-      console.log('❌ No email provided');
+    // Validate input with Zod
+    const validation = GetUsersSchema.safeParse(requestBody);
+    if (!validation.success) {
+      console.error('❌ Input validation failed:', validation.error.issues);
       return new Response(
-        JSON.stringify({ error: "Unauthorized: Email required" }),
+        JSON.stringify({ 
+          error: 'Invalid input',
+          details: validation.error.issues.map(issue => ({
+            field: issue.path.join('.'),
+            message: issue.message
+          }))
+        }),
         {
-          status: 403,
+          status: 400,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
     }
+
+    const { admin_email } = validation.data;
+    console.log('👤 User requesting users:', admin_email);
 
     // First get the user_id from profiles
     console.log('🔍 Querying profiles for email:', admin_email);
