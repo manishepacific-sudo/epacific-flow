@@ -1,37 +1,21 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-
-/**
- * IMPORTANT: Base URL Configuration
- * 
- * The BASE_APP_URL must match the domain configured in:
- * - frontend/supabase/config.toml (site_url and additional_redirect_urls)
- * - src/config/constants.ts (BASE_APP_URL)
- * 
- * This ensures consistency across invitation emails, redirects, and deep links.
- * 
- * Environment Variable: Set BASE_APP_URL in Supabase function environment variables.
- * - Production: https://login.epacifictechnologies.com
- * - Local Development: http://localhost:5173 (or your local dev port)
- */
-const BASE_APP_URL = Deno.env.get('BASE_APP_URL') || "https://login.epacifictechnologies.com";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const InviteUserSchema = z.object({
-  email: z.string().email('Invalid email format').max(255, 'Email too long'),
-  role: z.enum(['admin', 'manager', 'user'], { errorMap: () => ({ message: 'Role must be admin, manager, or user' }) }),
-  full_name: z.string().min(2, 'Full name too short').max(100, 'Full name too long'),
-  mobile_number: z.string().max(20, 'Mobile number too long').optional(),
-  station_id: z.string().max(50, 'Station ID too long').optional(),
-  center_address: z.string().max(200, 'Center address too long').optional(),
-  registrar: z.string().max(100, 'Registrar name too long').optional(),
-  admin_email: z.string().email('Invalid admin email format').max(255, 'Admin email too long').optional(),
-})
+interface InviteUserRequest {
+  email: string;
+  role: "admin" | "manager" | "user";
+  full_name: string;
+  mobile_number?: string;
+  station_id?: string;
+  center_address?: string;
+  registrar?: string;
+  admin_email?: string;
+}
 
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -40,25 +24,6 @@ serve(async (req: Request): Promise<Response> => {
 
   try {
     console.log("🚀 User-invite function started");
-    const requestBody = await req.json();
-    
-    // Validate input with Zod
-    const validation = InviteUserSchema.safeParse(requestBody);
-    if (!validation.success) {
-      console.error('❌ Input validation failed:', validation.error.issues);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Invalid input',
-          details: validation.error.issues.map(issue => ({
-            field: issue.path.join('.'),
-            message: issue.message
-          }))
-        }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
     const { 
       email, 
       role, 
@@ -68,50 +33,53 @@ serve(async (req: Request): Promise<Response> => {
       center_address, 
       registrar, 
       admin_email 
-    } = validation.data;
+    }: InviteUserRequest = await req.json();
     
     console.log(`📧 Inviting user: ${email} with role: ${role} by admin: ${admin_email}`);
+
+    if (!email || !role || !full_name) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Email, role, and full name are required" 
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // ✅ Validate admin permissions - NO HARDCODED CREDENTIALS
+    // ✅ Validate admin permissions
     if (admin_email) {
       console.log("🔐 Validating admin permissions...");
+      const demoCredentials: Record<string, string> = {
+        'admin@epacific.com': 'admin',
+        'manager@epacific.com': 'manager'
+      };
 
-      // Get the user_id from profiles
-      const { data: adminProfile, error: adminError } = await supabaseAdmin
-        .from('profiles')
-        .select('user_id')
-        .eq('email', admin_email)
-        .single();
+      let adminRole = null;
 
-      if (adminError || !adminProfile) {
-        console.error("❌ Admin profile not found:", { email: admin_email, error: adminError });
-        return new Response(
-          JSON.stringify({ success: false, error: "Unauthorized: Admin profile not found" }),
-          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
-      }
-
-      // Now get the role from user_roles table
-      const { data: roleData, error: roleError } = await supabaseAdmin
-          .from('user_roles')
+      if (demoCredentials[admin_email as keyof typeof demoCredentials]) {
+        adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
+        console.log(`✅ Demo admin detected: ${admin_email} with role: ${adminRole}`);
+      } else {
+        const { data: adminProfile, error: adminError } = await supabaseAdmin
+          .from('profiles')
           .select('role')
-          .eq('user_id', adminProfile.user_id)
+          .eq('email', admin_email)
           .single();
 
-        if (roleError || !roleData) {
-          console.error("❌ Admin role not found:", { user_id: adminProfile.user_id, error: roleError });
+        if (adminError || !adminProfile) {
           return new Response(
-            JSON.stringify({ success: false, error: "Unauthorized: Admin role not found" }),
+            JSON.stringify({ success: false, error: "Unauthorized: Admin profile not found" }),
             { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
           );
         }
 
-        adminRole = roleData.role;
+        adminRole = adminProfile.role;
         console.log(`✅ Database admin found: ${admin_email} with role: ${adminRole}`);
       }
 
@@ -156,8 +124,7 @@ serve(async (req: Request): Promise<Response> => {
     console.log("👤 Creating user via Supabase invite system...");
     
     // Determine the redirect URL for the invitation
-    const APP_BASE = (BASE_APP_URL || '').replace(/\/+$/, '');
-    const redirectUrl = `${APP_BASE}/set-password?token=${secureToken}`;
+    const redirectUrl = "https://epacific.lovable.app/set-password?token=" + secureToken;
     
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
@@ -252,6 +219,7 @@ serve(async (req: Request): Promise<Response> => {
       user_id: inviteData.user.id,
       email,
       full_name,
+      role,
       mobile_number: mobile_number || "",
       station_id: station_id || "",
       center_address: center_address || "",
@@ -274,44 +242,22 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    // ✅ Create role entry in user_roles table
-    console.log("🔐 Creating user role...");
-    const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
-      user_id: inviteData.user.id,
-      role: role,
-    });
-
-    if (roleError) {
-      console.error("❌ Failed to create user role:", roleError);
-      // Clean up user, profile and token if role creation fails
-      await supabaseAdmin.auth.admin.deleteUser(inviteData.user.id);
-      await supabaseAdmin.from("profiles").delete().eq("user_id", inviteData.user.id);
-      await supabaseAdmin.from("invite_tokens").delete().eq("token", secureToken);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Failed to create user role: ${roleError.message}`
-        }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
     console.log("✅ User invitation process completed successfully");
     console.log(`📧 Invitation email sent to ${email} via Supabase SMTP`);
     console.log(`🔗 Password setup link: ${redirectUrl}`);
 
-    // ✅ SECURITY: Never return tokens in API response
-    // Tokens are only sent via secure email
     return new Response(
       JSON.stringify({
         success: true,
-        message: "User invited successfully. Invitation email sent.",
+        message: "User invited successfully via Supabase SMTP",
         user: { 
           id: inviteData.user.id, 
           email, 
           full_name, 
           role 
         },
+        invite_link: redirectUrl,
+        token: secureToken,
         expires_at: expiresAt.toISOString()
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }

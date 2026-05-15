@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 
 interface AuthContextType {
   user: User | null;
@@ -35,6 +36,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  
+  // Initialize session timeout hook
+  useSessionTimeout();
 
   const setDemoUser = async (email: string, role: string, name: string) => {
     // This function is kept for compatibility but no longer used
@@ -51,13 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
 
         if (error) {
-          console.error('Session error during initialization:', {
-            code: error.code,
-            message: error.message,
-            status: error.status
-          });
-          // Clear invalid session data
-          await supabase.auth.signOut();
           setUser(null);
           setSession(null);
           setProfile(null);
@@ -69,41 +66,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session.user);
           setSession(session);
           
-          // Fetch profile and role from separate tables
+          // Fetch profile with role
           try {
-            const { data: profile, error: profileError } = await supabase
+            const { data: profile } = await supabase
               .from('profiles')
               .select('*')
               .eq('user_id', session.user.id)
-              .single();
+              .maybeSingle();
             
-            if (profileError) {
-              console.error('Failed to fetch user profile:', {
-                code: profileError.code,
-                message: profileError.message,
-                details: profileError.details,
-                hint: profileError.hint
-              });
-              if (profileError.code === 'PGRST116') {
-                setProfile(null);
-              }
-            } else if (mounted && profile) {
-              // Fetch role from user_roles table
-              const { data: roleData } = await supabase
-                .from('user_roles')
-                .select('role')
-                .eq('user_id', session.user.id)
-                .maybeSingle();
-              
-              const enrichedProfile = {
-                ...profile,
-                role: roleData?.role || session.user.user_metadata?.role || 'user'
-              };
-              console.log('Profile loaded successfully with role:', enrichedProfile.role);
-              setProfile(enrichedProfile);
+            if (mounted) {
+              setProfile(profile);
             }
           } catch (error) {
-            console.error('Unexpected error fetching profile:', error);
+            // Error handled silently - profile will remain null
           }
         } else {
           setUser(null);
@@ -124,21 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Set up Supabase auth state listener for real-time updates
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         if (!mounted) return;
-        
-        // Handle token refresh errors
-        if (event === 'TOKEN_REFRESHED' && !session) {
-          // Defer signOut to prevent deadlock
-          setTimeout(() => {
-            supabase.auth.signOut();
-          }, 0);
-          setUser(null);
-          setSession(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
         
         if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
@@ -148,43 +110,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session.user);
           setSession(session);
           
-          // Defer profile fetch to prevent deadlock
+          // Fetch profile with role
           setTimeout(async () => {
-            if (!mounted) return;
             try {
-              const { data: profile, error: profileError } = await supabase
+              const { data: profile } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('user_id', session.user.id)
-                .single();
+                .maybeSingle();
               
-              if (profileError) {
-                console.error('Failed to fetch user profile on auth change:', {
-                  code: profileError.code,
-                  message: profileError.message,
-                  details: profileError.details,
-                  hint: profileError.hint
-                });
-                if (profileError.code === 'PGRST116') {
-                  setProfile(null);
-                }
-              } else if (mounted && profile) {
-                // Fetch role from user_roles table
-                const { data: roleData } = await supabase
-                  .from('user_roles')
-                  .select('role')
-                  .eq('user_id', session.user.id)
-                  .maybeSingle();
-                
-                const enrichedProfile = {
-                  ...profile,
-                  role: roleData?.role || session.user.user_metadata?.role || 'user'
-                };
-                console.log('Profile loaded successfully on auth change with role:', enrichedProfile.role);
-                setProfile(enrichedProfile);
+              if (mounted) {
+                setProfile(profile);
               }
             } catch (error) {
-              console.error('Unexpected error fetching profile on auth change:', error);
+              // Error handled silently - profile will remain null
             }
           }, 0);
         }

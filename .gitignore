@@ -82,4 +82,3 @@ android-sdk/ -e
 *.env
 *.env.*
 .env
-epacific-flow.rar

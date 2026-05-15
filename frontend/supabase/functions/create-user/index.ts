@@ -55,10 +55,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Check user role from database
-    // First get the user_id from profiles
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id')
+      .select('role')
       .eq('email', admin_email)
       .single();
 
@@ -73,26 +72,8 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Now get the role from user_roles table
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userProfile.user_id)
-      .single();
-
-    if (roleError || !roleData) {
-      console.log('❌ User role not found:', roleError);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized: User role not found" }),
-        {
-          status: 403,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
     // Validate role permissions
-    const requestingUserRole = roleData.role;
+    const requestingUserRole = userProfile.role;
     if (requestingUserRole === 'admin') {
       // Admins can create any role
       console.log('✅ Admin creating user with role:', role);
@@ -194,7 +175,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('⏳ Waiting for profile creation trigger...');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Update the profile with the details (trigger creates basic profile)
+    // Update the profile with the correct role and details (trigger creates basic profile)
     console.log('👤 Updating profile with full details...');
     let userData;
     const { data: profileData, error: updateError } = await supabaseAdmin
@@ -203,7 +184,8 @@ const handler = async (req: Request): Promise<Response> => {
         full_name: full_name,
         mobile_number: mobile_number,
         station_id: station_id,
-        center_address: center_address
+        center_address: center_address,
+        role: role
       })
       .eq('user_id', authUser.user.id)
       .select()
@@ -221,7 +203,8 @@ const handler = async (req: Request): Promise<Response> => {
           email: email,
           mobile_number: mobile_number,
           station_id: station_id,
-          center_address: center_address
+          center_address: center_address,
+          role: role
         }])
         .select()
         .single();
@@ -240,29 +223,6 @@ const handler = async (req: Request): Promise<Response> => {
       userData = manualProfile;
     } else {
       userData = profileData;
-    }
-
-    // Create role entry in user_roles table
-    console.log('🔐 Creating user role...');
-    const { error: roleInsertError } = await supabaseAdmin
-      .from('user_roles')
-      .insert({
-        user_id: authUser.user.id,
-        role: role
-      });
-
-    if (roleInsertError) {
-      console.error('❌ Failed to create user role:', roleInsertError);
-      // Clean up created user and profile
-      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
-      await supabaseAdmin.from('profiles').delete().eq('user_id', authUser.user.id);
-      return new Response(
-        JSON.stringify({ error: "Failed to create user role: " + roleInsertError.message }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
     }
 
     console.log('✅ User created successfully:', userData.id);

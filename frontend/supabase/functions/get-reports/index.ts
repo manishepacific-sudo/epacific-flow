@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,10 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Credentials": "true",
 };
-
-const GetReportsSchema = z.object({
-  admin_email: z.string().email('Invalid email format').max(255, 'Email too long'),
-});
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -29,69 +24,31 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const requestBody = await req.json();
+    const { admin_email } = await req.json();
 
-    // Validate input with Zod
-    const validation = GetReportsSchema.safeParse(requestBody);
-    if (!validation.success) {
+    if (!admin_email) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid input',
-          details: validation.error.issues.map(issue => ({
-            field: issue.path.join('.'),
-            message: issue.message
-          }))
-        }),
+        JSON.stringify({ error: "Email required" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    const { admin_email } = validation.data;
-
-    // First get the user_id from profiles
+    // Check user role from database instead of email pattern
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id')
+      .select('role')
       .eq('email', admin_email)
-      .maybeSingle();
+      .single();
 
-    if (profileError) {
-      return new Response(
-        JSON.stringify({ error: "Database error", details: profileError.message }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    if (!userProfile) {
+    if (profileError || !userProfile) {
       return new Response(
         JSON.stringify({ error: "User not found" }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // Now get the role from user_roles table
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userProfile.user_id)
-      .maybeSingle();
-
-    if (roleError) {
-      return new Response(
-        JSON.stringify({ error: "Database error", details: roleError.message }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    if (!roleData) {
-      return new Response(
-        JSON.stringify({ error: "No role assigned" }),
-        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
     // Allow both admin and manager users
-    if (!['admin', 'manager'].includes(roleData.role)) {
+    if (!['admin', 'manager'].includes(userProfile.role)) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -101,18 +58,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: reports, error } = await supabaseAdmin
       .from('reports')
       .select(`
-        id,
-        title,
-        description,
-        amount,
-        attachment_url,
-        status,
-        created_at,
-        report_date,
-        updated_at,
-        user_id,
-        manager_notes,
-        rejection_message,
+        *,
         profiles (
           full_name,
           email,

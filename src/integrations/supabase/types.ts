@@ -14,72 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      attendance: {
-        Row: {
-          attendance_date: string
-          check_in_time: string | null
-          check_out_time: string | null
-          city: string | null
-          created_at: string
-          distance_from_office: number | null
-          geofence_valid: boolean
-          id: string
-          location_address: string | null
-          location_latitude: number
-          location_longitude: number
-          manager_notes: string | null
-          office_latitude: number | null
-          office_longitude: number | null
-          photo_url: string
-          remarks: string | null
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          attendance_date?: string
-          check_in_time?: string | null
-          check_out_time?: string | null
-          city?: string | null
-          created_at?: string
-          distance_from_office?: number | null
-          geofence_valid?: boolean
-          id?: string
-          location_address?: string | null
-          location_latitude: number
-          location_longitude: number
-          manager_notes?: string | null
-          office_latitude?: number | null
-          office_longitude?: number | null
-          photo_url: string
-          remarks?: string | null
-          status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          attendance_date?: string
-          check_in_time?: string | null
-          check_out_time?: string | null
-          city?: string | null
-          created_at?: string
-          distance_from_office?: number | null
-          geofence_valid?: boolean
-          id?: string
-          location_address?: string | null
-          location_latitude?: number
-          location_longitude?: number
-          manager_notes?: string | null
-          office_latitude?: number | null
-          office_longitude?: number | null
-          photo_url?: string
-          remarks?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       invite_tokens: {
         Row: {
           created_at: string
@@ -208,44 +142,47 @@ export type Database = {
       }
       profiles: {
         Row: {
-          center_address: string | null
+          center_address: string
           created_at: string
           email: string
           full_name: string
           id: string
           is_demo: boolean | null
-          mobile_number: string | null
+          mobile_number: string
           password_set: boolean | null
           registrar: string | null
-          station_id: string | null
+          role: string
+          station_id: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          center_address?: string | null
+          center_address: string
           created_at?: string
           email: string
           full_name: string
           id?: string
           is_demo?: boolean | null
-          mobile_number?: string | null
+          mobile_number: string
           password_set?: boolean | null
           registrar?: string | null
-          station_id?: string | null
+          role?: string
+          station_id: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          center_address?: string | null
+          center_address?: string
           created_at?: string
           email?: string
           full_name?: string
           id?: string
           is_demo?: boolean | null
-          mobile_number?: string | null
+          mobile_number?: string
           password_set?: boolean | null
           registrar?: string | null
-          station_id?: string | null
+          role?: string
+          station_id?: string
           updated_at?: string
           user_id?: string
         }
@@ -331,69 +268,11 @@ export type Database = {
         }
         Relationships: []
       }
-      system_settings: {
-        Row: {
-          category: string
-          created_at: string | null
-          description: string | null
-          id: string
-          key: string
-          updated_at: string | null
-          updated_by: string | null
-          value: Json
-        }
-        Insert: {
-          category: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          key: string
-          updated_at?: string | null
-          updated_by?: string | null
-          value: Json
-        }
-        Update: {
-          category?: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          key?: string
-          updated_at?: string | null
-          updated_by?: string | null
-          value?: Json
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          assigned_at: string | null
-          assigned_by: string | null
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          assigned_at?: string | null
-          assigned_by?: string | null
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          assigned_at?: string | null
-          assigned_by?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      cleanup_expired_invite_tokens: { Args: never; Returns: undefined }
       clear_read_notifications: {
         Args: { target_role_param: string }
         Returns: undefined
@@ -408,7 +287,10 @@ export type Database = {
         }
         Returns: undefined
       }
-      get_current_user_role: { Args: never; Returns: string }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_notifications_for_role: {
         Args: { target_role_param: string }
         Returns: {
@@ -423,19 +305,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_user_role: { Args: { user_id_param: string }; Returns: string }
-      get_user_role_for_notifications: {
-        Args: { user_id_param: string }
-        Returns: string
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_admin: { Args: { user_id_param: string }; Returns: boolean }
       log_security_event: {
         Args: {
           details_param?: Json
@@ -454,7 +323,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "manager" | "user"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -581,8 +450,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "manager", "user"],
-    },
+    Enums: {},
   },
 } as const

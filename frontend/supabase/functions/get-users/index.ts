@@ -45,36 +45,15 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // First get the user_id from profiles
-    console.log('🔍 Querying profiles for email:', admin_email);
+    // Check user role from database
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id')
+      .select('role')
       .eq('email', admin_email)
-      .maybeSingle();
+      .single();
 
-    console.log('📊 Profile query result:', { userProfile, profileError });
-
-    if (profileError) {
-      console.log('❌ Profile query error:', profileError);
-      return new Response(
-        JSON.stringify({ error: "Database error", details: profileError.message }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
-    if (!userProfile) {
+    if (profileError || !userProfile) {
       console.log('❌ User not found:', admin_email);
-      // Let's try querying all profiles to debug
-      const { data: allProfiles } = await supabaseAdmin
-        .from('profiles')
-        .select('email, user_id')
-        .limit(5);
-      console.log('🔍 Sample profiles in database:', allProfiles);
-      
       return new Response(
         JSON.stringify({ error: "Unauthorized: User not found" }),
         {
@@ -84,38 +63,9 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Now get the role from user_roles table
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userProfile.user_id)
-      .maybeSingle();
-
-    if (roleError) {
-      console.log('❌ Role query error:', roleError);
-      return new Response(
-        JSON.stringify({ error: "Database error", details: roleError.message }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
-    if (!roleData) {
-      console.log('❌ No role assigned to user:', admin_email);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized: No role assigned" }),
-        {
-          status: 403,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
     // Only managers and admins can view users
-    if (!['admin', 'manager'].includes(roleData.role)) {
-      console.log('❌ Unauthorized user list request - role:', roleData.role);
+    if (!['admin', 'manager'].includes(userProfile.role)) {
+      console.log('❌ Unauthorized user list request - role:', userProfile.role);
       return new Response(
         JSON.stringify({ error: "Unauthorized: Only admins and managers can view users" }),
         {
@@ -124,8 +74,6 @@ const handler = async (req: Request): Promise<Response> => {
         }
       );
     }
-
-    console.log('✅ User authorized with role:', roleData.role);
 
     // Fetch all users using service role (bypasses RLS)
     console.log('👥 Fetching all users...');
@@ -147,34 +95,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('✅ Users fetched successfully:', users.length);
 
-    // Merge role information server-side to avoid extra round-trips
-    const userIds = (users || [])
-      .map((u) => u.user_id)
-      .filter((id) => Boolean(id));
-
-    let usersWithRoles = users || [];
-
-    if (userIds.length > 0) {
-      const { data: rolesData, error: rolesError } = await supabaseAdmin
-        .from('user_roles')
-        .select('user_id, role')
-        .in('user_id', userIds as string[]);
-
-      if (rolesError) {
-        console.error('⚠️ Role merge warning:', rolesError);
-      } else if (rolesData) {
-        const roleMap = new Map(rolesData.map(({ user_id, role }) => [user_id, role]));
-        usersWithRoles = usersWithRoles.map((user) => ({
-          ...user,
-          role: roleMap.get(user.user_id) ?? user.role,
-        }));
-      }
-    }
-
     return new Response(
       JSON.stringify({ 
         message: "Users fetched successfully",
-        users: usersWithRoles
+        users: users
       }),
       {
         status: 200,

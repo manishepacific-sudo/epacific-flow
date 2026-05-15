@@ -1,16 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-const DeleteUserSchema = z.object({
-  user_id: z.string().uuid('Invalid user ID format'),
-  admin_email: z.string().email('Invalid email format').max(255, 'Email too long'),
-})
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -23,28 +17,18 @@ serve(async (req) => {
 
   try {
     console.log('📥 Reading request body...');
-    const requestBody = await req.json();
+    const { user_id, admin_email } = await req.json();
 
-    // Validate input with Zod
-    const validation = DeleteUserSchema.safeParse(requestBody);
-    if (!validation.success) {
-      console.error('❌ Input validation failed:', validation.error.issues);
+    if (!user_id || !admin_email) {
+      console.error('❌ Missing required parameters');
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid input',
-          details: validation.error.issues.map(issue => ({
-            field: issue.path.join('.'),
-            message: issue.message
-          }))
-        }),
+        JSON.stringify({ error: 'Missing user_id or admin_email' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
-
-    const { user_id, admin_email } = validation.data;
 
     console.log(`👤 Admin requesting deletion: ${admin_email}`);
     console.log(`🗑️ Target user ID: ${user_id}`);
@@ -60,37 +44,32 @@ serve(async (req) => {
       }
     });
 
-    // Verify admin permissions - NO HARDCODED CREDENTIALS
+    // Check for demo admin credentials first
     console.log('🔐 Verifying admin permissions...');
     let adminRole = null;
     let adminUserId = null;
-    let authUser: any = null;
 
-    // First try to get the user_id from profiles (case-sensitive match)
-    const { data: adminProfile, error: adminError } = await supabase
-      .from('profiles')
-      .select('user_id, email')
-      .eq('email', admin_email)
-      .maybeSingle();
+    // Demo credentials check
+    const demoCredentials: Record<string, string> = {
+      'admin@epacific.com': 'admin',
+      'manager@epacific.com': 'manager'
+    };
 
-    if (adminError) {
-      console.error('❌ Error verifying admin profile:', adminError);
-      return new Response(
-        JSON.stringify({ error: 'Database error while verifying admin' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    if (adminProfile?.user_id) {
-      adminUserId = adminProfile.user_id;
+    if (demoCredentials[admin_email as keyof typeof demoCredentials]) {
+      console.log('✅ Demo admin credentials detected');
+      adminRole = demoCredentials[admin_email as keyof typeof demoCredentials];
+      // For demo accounts, we don't need a specific user_id for permission checks
+      adminUserId = 'demo-admin';
     } else {
-      // Fallback: search in auth users list (case-insensitive email check)
-      const { data: allUsers, error: listError } = await supabase.auth.admin.listUsers();
-      if (listError) {
-        console.error('❌ Failed to list users for admin lookup:', listError);
+      // Regular database lookup for non-demo accounts
+      const { data: adminProfile, error: adminError } = await supabase
+        .from('profiles')
+        .select('role, user_id')
+        .eq('email', admin_email)
+        .single();
+
+      if (adminError || !adminProfile) {
+        console.error('❌ Admin profile not found:', adminError);
         return new Response(
           JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
           { 
@@ -100,40 +79,8 @@ serve(async (req) => {
         );
       }
 
-      authUser = allUsers.users.find((u: any) => u.email?.toLowerCase() === admin_email.toLowerCase());
-      if (!authUser) {
-        console.error('❌ Admin auth user not found for email', admin_email);
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized: Admin profile not found' }),
-          { 
-            status: 403, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-
-        adminUserId = authUser.id;
-      }
-
-      // Now get the role from user_roles table, fallback to auth user metadata
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', adminUserId)
-        .maybeSingle();
-
-      if (roleError) {
-        console.error('❌ Error fetching admin role:', roleError);
-        return new Response(
-          JSON.stringify({ error: 'Database error while verifying admin' }),
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-
-      adminRole = roleData?.role ?? authUser?.user_metadata?.role ?? null;
+      adminRole = adminProfile.role;
+      adminUserId = adminProfile.user_id;
     }
 
     if (!['admin', 'manager'].includes(adminRole)) {
@@ -209,14 +156,8 @@ serve(async (req) => {
 
     // Manager role restrictions - managers can delete users and other managers, but not admins
     if (adminRole === 'manager') {
-      // Get target user's role from user_roles table
-      const { data: targetRole, error: targetRoleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user_id)
-        .single();
-
-      if (targetRole && targetRole.role === 'admin') {
+      // Managers can delete users and other managers, but not admins
+      if (targetProfile.role === 'admin') {
         console.error('❌ Manager cannot delete admin accounts');
         return new Response(
           JSON.stringify({ error: 'Managers cannot delete admin accounts' }),
@@ -267,18 +208,7 @@ serve(async (req) => {
       console.log('⚠️ Warning: Could not delete invite tokens:', tokensError.message);
     }
 
-    // 4. Delete user role
-    console.log('🔐 Deleting user role...');
-    const { error: roleDeleteError } = await supabase
-      .from('user_roles')
-      .delete()
-      .eq('user_id', user_id);
-
-    if (roleDeleteError) {
-      console.log('⚠️ Warning: Could not delete user role:', roleDeleteError.message);
-    }
-
-    // 5. Delete profile
+    // 4. Delete profile
     console.log('👤 Deleting user profile...');
     const { error: profileError } = await supabase
       .from('profiles')
@@ -296,7 +226,7 @@ serve(async (req) => {
       );
     }
 
-    // 6. Delete from auth.users
+    // 5. Delete from auth.users
     console.log('🔐 Deleting from auth.users...');
     const { error: authError } = await supabase.auth.admin.deleteUser(user_id);
 

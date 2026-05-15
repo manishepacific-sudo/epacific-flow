@@ -37,24 +37,18 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-# For local development, change site_url to "http://localhost:5173" (or your local dev port)
-# For production, use "https://login.epacifictechnologies.com"
-site_url = "https://login.epacifictechnologies.com"
+site_url = "https://epacific.lovable.app"
 additional_redirect_urls = [
-  # Production URLs
-  "https://login.epacifictechnologies.com",
-  "https://login.epacifictechnologies.com/set-password",
-  "https://login.epacifictechnologies.com/handle-invite",
-  # Local development URLs (uncomment when running locally)
-  # "http://localhost:5173",
-  # "http://localhost:5173/set-password",
-  # "http://localhost:5173/handle-invite"
+  "https://epacific.lovable.app",
+  "https://epacific.lovable.app/set-password",
+  "https://epacific.lovable.app/handle-invite"
 ]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
 enable_manual_linking = false
 enable_signup = false
+external_redirect_scheme = "https://login.epacifictechnologies.com/"
 
 [auth.email]
 enable_signup = false
@@ -105,9 +99,6 @@ verify_jwt = true
 
 [functions.setup-password]
 verify_jwt = false
-
-[functions.manage-settings]
-verify_jwt = true
 
 [functions.create-test-notifications]
 verify_jwt = false
