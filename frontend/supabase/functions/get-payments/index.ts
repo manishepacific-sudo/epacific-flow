@@ -3,8 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Credentials": "true",
 };
 
@@ -12,10 +11,7 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
+  auth: { autoRefreshToken: false, persistSession: false }
 });
 
 const handler = async (req: Request): Promise<Response> => {
@@ -24,7 +20,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { admin_email } = await req.json();
+    const { admin_email, limit = 100, offset = 0 } = await req.json();
 
     if (!admin_email) {
       return new Response(
@@ -33,7 +29,6 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check user role from database instead of email pattern
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('role')
@@ -47,7 +42,6 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Allow both admin and manager users
     if (!['admin', 'manager'].includes(userProfile.role)) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -57,17 +51,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { data: payments, error } = await supabaseAdmin
       .from('payments')
-      .select(`
-        *,
-        profiles (
-          full_name,
-          email,
-          mobile_number,
-          center_address,
-          registrar
-        )
+      .select(`*,
+        profiles (full_name, email, mobile_number, center_address, registrar)
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
 
